@@ -37,26 +37,28 @@ namespace bitmap
             // 
             // pictureBox1
             // 
-            this.pictureBox1.Location = new System.Drawing.Point(292, 21);
+            this.pictureBox1.Location = new System.Drawing.Point(256, 16);
+            this.pictureBox1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(541, 440);
+            this.pictureBox1.Size = new System.Drawing.Size(1670, 1116);
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(42, 9);
+            this.label1.Location = new System.Drawing.Point(37, 7);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(50, 20);
+            this.label1.Size = new System.Drawing.Size(38, 15);
             this.label1.TabIndex = 1;
             this.label1.Text = "label1";
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(26, 32);
+            this.button1.Location = new System.Drawing.Point(23, 24);
+            this.button1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(94, 29);
+            this.button1.Size = new System.Drawing.Size(82, 22);
             this.button1.TabIndex = 2;
             this.button1.Text = "button1";
             this.button1.UseVisualStyleBackColor = true;
@@ -64,12 +66,13 @@ namespace bitmap
             // 
             // Form1
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(270, 68);
+            this.ClientSize = new System.Drawing.Size(222, 61);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.pictureBox1);
+            this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.Name = "Form1";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
