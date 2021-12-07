@@ -1,0 +1,56 @@
+﻿{
+  "Name": "Prajna Village",
+  "Dungeons": [
+    {
+      "Name": "Prajna Cave",
+      "Location": {
+        "X": 699,
+        "Y": 133
+      }
+    },
+    {
+      "Name": "Flea Cave",
+      "Location": {
+        "X": 75,
+        "Y": 92
+      }
+    },
+    {
+      "Name": "Prajna Stone Cave",
+      "Location": {
+        "X": 149,
+        "Y": 524
+      }
+    }
+  ],
+  "OpenAreas": [
+    {
+      "Name": "Illusion Woods",
+      "Location": {
+        "X": 599,
+        "Y": 31
+      }
+    },
+    {
+      "Name": "Sabuk Keep",
+      "Location": {
+        "X": 211,
+        "Y": 41
+      }
+    },
+    {
+      "Name": "South Way",
+      "Location": {
+        "X": 39,
+        "Y": 353
+      }
+    },
+    {
+      "Name": "Prajna Valley South",
+      "Location": {
+        "X": 423,
+        "Y": 561
+      }
+    }
+  ]
+}

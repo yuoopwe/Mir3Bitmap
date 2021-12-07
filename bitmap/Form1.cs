@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Newtonsoft.Json;
 
 namespace bitmap
 {
@@ -35,7 +36,7 @@ namespace bitmap
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetCursorPos(int x, int y);
         //Mouse actions & Fkeys
-        
+
 
         private const int MOUSEEVENTF_LEFTDOWN = 0x02;
         private const int MOUSEEVENTF_LEFTUP = 0x04;
@@ -70,35 +71,50 @@ namespace bitmap
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string lclassName, string windowTitle);
-       
+
         public static IntPtr HWND;
         public static Process OwnerProcess;
         public static RECT RT;
         public Rectangle MyRect = new Rectangle();
         public double MinDistance;
-        public Pixel MinCoord;
+        public PixelLocation MinCoord;
         public RECT rt;
         public Bitmap OverallScreenBitmap;
         public List<Pixelcolor> PixelColorList = new List<Pixelcolor>();
-        public List<Pixel> MonsterPixelList = new List<Pixel>();
-        public Pixel Character;
+        public List<PixelLocation> MonsterPixelList = new List<PixelLocation>();
+        public List<PixelLocation> DungeonPixelList = new List<PixelLocation>();
+        public List<PixelLocation> OpenAreaPixelList = new List<PixelLocation>();
+        public List<PixelLocation> WallPixelList = new List<PixelLocation>();
+        public List<Tile> WallTileList = new List<Tile>();
+
+
+        public List<Tile> ActiveTiles = new List<Tile>();
+        public List<Tile> VisitedTiles = new List<Tile>();
+
+        public PixelLocation Character;
+        public PixelLocation MapCharacter;
+        public PixelLocation PreviousPosition;
+
+        public Bitmap MapBitmap;
+        public PixelLocation MapTopLeftPixel;
+        public PixelLocation MapBottomRightPixel;
+        public Area PrajnaVillage;
         public Form1()
         {
             InitializeComponent();
 
-          
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            List<Pixel> pixelList = new List<Pixel>();
+            List<PixelLocation> pixelList = new List<PixelLocation>();
             //Set stop watches to time buffs/TT
-            var stopwatch = Stopwatch.StartNew();
+            var stopwatch = new Stopwatch();
             var gameStopwatch = Stopwatch.StartNew();
             gameStopwatch.Start();
 
             //Find handle & handle info
-            HWND = FindWindowEx(IntPtr.Zero, IntPtr.Zero, null,"Legend of Mir III - Xtreme Edition");
+            HWND = FindWindowEx(IntPtr.Zero, IntPtr.Zero, null, "Legend of Mir III - Xtreme Edition");
 
             GetWindowRect(HWND, out rt);
 
@@ -112,8 +128,19 @@ namespace bitmap
             do
             {
                 MakeBitmap();
-                LockandReadImage(OverallScreenBitmap); // also attacks for now
-                if (stopwatch.IsRunning == false || stopwatch.ElapsedMilliseconds > 180000 )
+                FindMap(OverallScreenBitmap);
+                MakeMap();
+                FindCharacterOnMap();
+                if (counter == 0)
+                {
+                    PreviousPosition = MapCharacter;
+                    GenerateWallPixelTiles();
+                }
+                PathingAlgorithm();
+                // FindDestinations();
+                //  DeserializeMap();
+                // LockandReadImage(OverallScreenBitmap); // also attacks for now
+                if (stopwatch.IsRunning == true || stopwatch.ElapsedMilliseconds > 180000)
                 {
                     CastBuffs();
                     UseRT();
@@ -121,13 +148,13 @@ namespace bitmap
                     stopwatch.Start();
 
                 }
-                if( counter % 20 == 0)
+                if (counter % 100000 == 0)
                 {
-                    PickUpItems();
+                    //PickUpItems();
                 }
                 counter++;
-                if (gameStopwatch.ElapsedMilliseconds > 7.2e+6) 
-                {                                     
+                if (gameStopwatch.ElapsedMilliseconds > 7.2e+6)
+                {
                     Isplayed = false;
                 }
 
@@ -143,7 +170,7 @@ namespace bitmap
         public void UseRT()
         {
             SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_1, IntPtr.Zero);
-         
+
         }
         public void CastBuffs()
         {
@@ -170,12 +197,110 @@ namespace bitmap
             SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
             mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
-            System.Threading.Thread.Sleep(100);
+            System.Threading.Thread.Sleep(1000);
             mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
 
         }
 
+        public unsafe void GenerateWallPixelTiles()
+        {
+            BitmapData bData = new BitmapData();
 
+            bData = MapBitmap.LockBits(new Rectangle(0, 0, MapBitmap.Width, MapBitmap.Height), ImageLockMode.ReadWrite, MapBitmap.PixelFormat);
+
+            byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
+
+            /*This time we convert the IntPtr to a ptr*/
+            byte* scan0 = (byte*)bData.Scan0.ToPointer();
+
+            //Find Dungeons
+            for (int i = 0; i < bData.Height; ++i)
+            {
+                for (int j = 0; j < bData.Width; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    if (color[0] == 0 && color[1] == 0 && color[3] == 8)
+                    {
+                        WallPixelList.Add(new PixelLocation(j, i));
+                    }
+
+
+
+                }
+            }
+            MapBitmap.UnlockBits(bData);
+        }
+        public unsafe void FindDestinations()
+        {
+            BitmapData bData = new BitmapData();
+
+            bData = MapBitmap.LockBits(new Rectangle(0, 0, MapBitmap.Width, MapBitmap.Height), ImageLockMode.ReadWrite, MapBitmap.PixelFormat);
+
+            byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
+
+            /*This time we convert the IntPtr to a ptr*/
+            byte* scan0 = (byte*)bData.Scan0.ToPointer();
+
+            //Find Dungeons
+            for (int i = 0; i < bData.Height - 2; ++i)
+            {
+                for (int j = 0; j < bData.Width - 2; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color1 = scan0 + (i + 1) * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color2 = scan0 + (i + 2) * bData.Stride + j * bitsPerPixel / 8;
+
+                    if (color[0] == 0 && color[1] == 48 && color[2] == 176 && color1[0] == 0 && color1[1] == 48 && color1[2] == 176 && color2[0] == 0 && color2[1] == 0 && color2[2] == 8)
+                    {
+                        DungeonPixelList.Add(new PixelLocation(j, i));
+                    }
+
+                }
+            }
+
+            //Find OpenAreas
+            for (int i = 0; i < bData.Height - 2; ++i)
+            {
+                for (int j = 0; j < bData.Width - 2; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color1 = scan0 + (i + 1) * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color2 = scan0 + (i + 2) * bData.Stride + j * bitsPerPixel / 8;
+
+                    if (color[0] == 140 && color[1] == 128 && color[2] == 119 && color1[0] == 255 && color1[1] == 251 && color1[2] == 239 && color2[0] == 255 && color2[1] == 227 && color2[2] == 206)
+                    {
+                        OpenAreaPixelList.Add(new PixelLocation(j, i));
+                    }
+
+                }
+            }
+            MapBitmap.UnlockBits(bData);
+
+        }
+        public Destination DeserializeMapAndReturnDestination()
+        {
+            //move to relative path for other computers
+            string prajnaVilage = System.IO.File.ReadAllText(@"C:\Users\con16\Desktop\Bitmat bot\bitmap\PrajnaVillage.Json");
+            Area currentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
+            Destination currentDestination = new Destination();
+            foreach (var item in currentArea.Dungeons)
+            {
+                if (item.Name == "Prajna Cave")
+                {
+                    currentDestination = item;
+                }
+            }
+            return currentDestination;
+        }
         public void MakeBitmap()
         {
             //Create a new bitmap.
@@ -186,14 +311,146 @@ namespace bitmap
             var gfxScreenshot = Graphics.FromImage(OverallScreenBitmap);
 
             // Take the screenshot from the upper left corner to the right bottom corner.
-            gfxScreenshot.CopyFromScreen(rt.Left+8,
-                                        rt.Top+31,
+            gfxScreenshot.CopyFromScreen(rt.Left + 8,
+                                        rt.Top + 31,
                                         0,
                                         0,
-                                        new Rectangle(0,0,1600,900).Size,
+                                        new Rectangle(0, 0, 1600, 900).Size,
                                         CopyPixelOperation.SourceCopy);
 
+
         }
+
+        public unsafe void FindMap(Bitmap bmpScreenshot)
+        {
+            MonsterPixelList.Clear();
+            BitmapData bData = new BitmapData();
+
+            bData = bmpScreenshot.LockBits(new Rectangle(0, 0, bmpScreenshot.Width, bmpScreenshot.Height), ImageLockMode.ReadWrite, bmpScreenshot.PixelFormat);
+
+            byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
+
+            /*This time we convert the IntPtr to a ptr*/
+            byte* scan0 = (byte*)bData.Scan0.ToPointer();
+
+            //Find top left
+            for (int i = 0; i < bData.Height / 4 + 200; ++i)
+            {
+                for (int j = 0; j < bData.Width / 4 + 200; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color1 = scan0 + i * bData.Stride + (j + 1) * bitsPerPixel / 8;
+                    byte* color2 = scan0 + (i + 1) * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color3 = scan0 + (i + 1) * bData.Stride + (j + 1) * bitsPerPixel / 8;
+
+                    if (color[0] == 99 && color[1] == 166 && color[2] == 198 && color1[0] == 99 && color1[1] == 166 && color1[2] == 198 && color2[0] == 99 && color2[1] == 166 && color2[2] == 198 && color3[0] == 0 && color3[1] == 0 && color3[2] == 0)
+                    {
+                        MapTopLeftPixel = new PixelLocation(j, i);
+                        goto end;
+                    }
+
+                    //color is a pointer to the first byte of the 3-byte color data
+                    //color[0] = blueComponent;
+                    //color[1] = greenComponent;
+                    //color[2] = redComponent;
+
+                }
+            }
+        end:
+            //Find bottom right
+            for (int i = bData.Height / 2; i < bData.Height - 1; ++i)
+            {
+                for (int j = bData.Width / 2; j < bData.Width - 1; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color1 = scan0 + i * bData.Stride + (j + 1) * bitsPerPixel / 8;
+                    byte* color2 = scan0 + (i + 1) * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color3 = scan0 + (i + 1) * bData.Stride + (j + 1) * bitsPerPixel / 8;
+
+                    if (color[0] == 0 && color[1] == 0 && color[2] == 0 && color1[0] == 99 && color1[1] == 166 && color1[2] == 198 && color2[0] == 99 && color2[1] == 166 && color2[2] == 198 && color3[0] == 99 && color3[1] == 166 && color3[2] == 198)
+                    {
+                        MapBottomRightPixel = new PixelLocation(j, i);
+                        goto end1;
+                    }
+
+                    //color is a pointer to the first byte of the 3-byte color data
+                    //color[0] = blueComponent;
+                    //color[1] = greenComponent;
+                    //color[2] = redComponent;
+
+                }
+            }
+        end1:
+
+            bmpScreenshot.UnlockBits(bData);
+
+
+        }
+
+        public Bitmap MakeMap()
+        {
+            MapBitmap = new Bitmap(MapBottomRightPixel.X - MapTopLeftPixel.X, MapBottomRightPixel.Y - MapTopLeftPixel.Y);
+            using (Graphics graphics = Graphics.FromImage(MapBitmap))
+            {
+                Rectangle mapRectangle = new Rectangle(MapTopLeftPixel.X, MapTopLeftPixel.Y, MapBitmap.Width, MapBitmap.Height);
+                Rectangle sizeRectangle = new Rectangle(0, 0, MapBitmap.Width, MapBitmap.Height);
+
+                graphics.DrawImage(OverallScreenBitmap, 0, 0, mapRectangle, GraphicsUnit.Pixel);
+            }
+            return MapBitmap;
+
+        }
+
+        public unsafe PixelLocation FindCharacterOnMap()
+        {
+            BitmapData bData = new BitmapData();
+
+            bData = MapBitmap.LockBits(new Rectangle(0, 0, MapBitmap.Width, MapBitmap.Height), ImageLockMode.ReadWrite, MapBitmap.PixelFormat);
+
+            byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
+
+            /*This time we convert the IntPtr to a ptr*/
+            byte* scan0 = (byte*)bData.Scan0.ToPointer();
+            for (int i = 0; i < bData.Height - 1; ++i)
+            {
+                for (int j = 0; j < bData.Width - 1; ++j)
+                {
+
+
+                    // Look for 3 black pixels in a colum next to a white
+                    byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
+                    byte* color1 = scan0 + i * bData.Stride + (j + 1) * bitsPerPixel / 8;
+                    byte* color2 = scan0 + i * bData.Stride + (j + 2) * bitsPerPixel / 8;
+                    byte* color3 = scan0 + i * bData.Stride + (j + 3) * bitsPerPixel / 8;
+
+                    if (color[0] == 255 && color[1] == 255 && color[2] == 0 && color1[0] == 255 && color1[1] == 255 && color1[2] == 0 && color2[0] == 255 && color2[1] == 255 && color2[2] == 0 && color3[0] == 255 && color3[1] == 255 && color3[2] == 0)
+                    {
+                        MapCharacter = new PixelLocation(j, i);
+                        goto end;
+                    }
+
+                    //color is a pointer to the first byte of the 3-byte color data
+                    //color[0] = blueComponent;
+                    //color[1] = greenComponent;
+                    //color[2] = redComponent;
+
+                }
+            }
+        end:;
+            MapBitmap.UnlockBits(bData);
+            return MapCharacter;
+
+
+        }
+
+
+
 
         public unsafe void LockandReadImage(Bitmap bmpScreenshot)
         {
@@ -221,19 +478,19 @@ namespace bitmap
 
                     if (color[0] == color[1] && color[0] == color[2] && color[0] == 0 && color1[0] == color1[1] && color1[0] == color1[2] && color1[0] == 0 && color2[0] == color2[1] && color2[0] == color2[2] && color2[0] == 0 && color3[0] == color3[1] && color3[0] == color3[2] && color3[0] > 100)
                     {
-                        MonsterPixelList.Add(new Pixel(j, i));   
+                        MonsterPixelList.Add(new PixelLocation(j, i));
                     }
 
                     //data is a pointer to the first byte of the 3-byte color data
                     //data[0] = blueComponent;
                     //data[1] = greenComponent;
                     //data[2] = redComponent;
-                    
+
                 }
             }
 
             bmpScreenshot.UnlockBits(bData);
-            Character = new Pixel(bmpScreenshot.Width / 2, bmpScreenshot.Height / 2);
+            Character = new PixelLocation(bmpScreenshot.Width / 2, bmpScreenshot.Height / 2);
             MinDistance = 100000000;
             foreach (var pixel in MonsterPixelList)
             {
@@ -249,16 +506,231 @@ namespace bitmap
 
 
         }
+        public class Tile
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int Cost { get; set; }
+            public int Distance { get; set; }
+            public int CostDistance => Cost + Distance;
+            public Tile Parent { get; set; }
+
+            //The distance is essentially the estimated distance, ignoring walls to our target. 
+            //So how many tiles left and right, up and down, ignoring walls, to get there. 
+            public void SetDistance(int targetX, int targetY)
+            {
+                this.Distance = Math.Abs(targetX - X) + Math.Abs(targetY - Y);
+            }
+        }
+        public void PathingAlgorithm()
+        {
+            Tile characterTile = new Tile();
+            characterTile.X = MapCharacter.X;
+            characterTile.Y = MapCharacter.Y;
+            var currentDestination = DeserializeMapAndReturnDestination();
+            Tile currentDestinationTile = new Tile();
+            currentDestinationTile.X = currentDestination.Location.X;
+            currentDestinationTile.Y = currentDestination.Location.Y;
 
 
+            SetStartOfPath(MapCharacter, currentDestination.Location);
+            DoAlg(currentDestinationTile, MapBitmap, currentDestination);
 
+        }
+        public void DoAlg(Tile finish, Bitmap map, Destination currentDestination)
+        {
+            //This is where we created the map from our previous step etc. 
+            int counter = 0;
+            while (ActiveTiles.Any())
+            {
+                var checkTile = ActiveTiles.OrderBy(x => x.CostDistance).First();
+
+                if (checkTile.X == finish.X && checkTile.Y == finish.Y)
+                {
+
+                    return;
+                }
+                VisitedTiles.Add(checkTile);
+                ActiveTiles.Remove(checkTile);
+                Movement(checkTile);
+                bool successfulMovement = CheckMovementSuccessful(PreviousPosition);
+                PreviousPosition = MapCharacter;
+                //Try to move and if we fail, update the wall tiles
+                if (successfulMovement == false && counter != 0)
+                {
+                    WallTileList.Add(checkTile);
+                }
+                else
+                {
+                    UpdateActiveAndVisitedTiles(checkTile, map, finish, currentDestination, successfulMovement);
+
+                }
+                counter++;
+
+            }
+
+            Console.WriteLine("No Path Found!");
+        }
+
+        public void UpdateActiveAndVisitedTiles(Tile checkTile, Bitmap map, Tile finish, Destination currentDestination, bool successfulMovement)
+        {
+
+            Tile currentTile = new Tile();
+            currentTile.X = MapCharacter.X;
+            currentTile.Y = MapCharacter.Y;
+            var walkableTiles = GetWalkableTiles(map, currentTile, finish, WallTileList, currentDestination.Location);
+
+            foreach (var walkableTile in walkableTiles)
+            {
+                //We have already visited this tile so we don't need to do so again!
+                if (VisitedTiles.Any(x => x.X == walkableTile.X && x.Y == walkableTile.Y))
+                    continue;
+
+                //It's already in the active list, but that's OK, maybe this new tile has a better value (e.g. We might zigzag earlier but this is now straighter). 
+                if (ActiveTiles.Any(x => x.X == walkableTile.X && x.Y == walkableTile.Y))
+                {
+                    var existingTile = ActiveTiles.First(x => x.X == walkableTile.X && x.Y == walkableTile.Y);
+                    if (existingTile.CostDistance > checkTile.CostDistance)
+                    {
+                        ActiveTiles.Remove(existingTile);
+                        ActiveTiles.Remove(walkableTile);
+
+                    }
+                }
+                else
+                {
+                    //We've never seen this tile before so add it to the list. 
+                    ActiveTiles.Add(walkableTile);
+                }
+            }
+        }
+
+        public bool CheckMovementSuccessful(PixelLocation currentPosition)
+        {
+            MakeBitmap();
+            FindMap(OverallScreenBitmap);
+            MakeMap();
+            MapCharacter = FindCharacterOnMap();
+            if (MapCharacter.X != PreviousPosition.X && MapCharacter.Y != PreviousPosition.Y)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+        }
+        public void Movement(Tile checkTile)
+        {
+            if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y > 0)
+            {
+                //South East
+                DoMouseClick(1348 + MyRect.X + 8, 700 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y > 0)
+            {
+                //South West
+                DoMouseClick(256 + MyRect.X + 8, 619 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y < 0)
+            {
+                //North East
+                DoMouseClick(1290 + MyRect.X + 8, 139 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y < 0)
+            {
+                //North West
+                DoMouseClick(324 + MyRect.X + 8, 121 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y < 0)
+            {
+                //North
+
+                DoMouseClick(812 + MyRect.X + 8, 73 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y > 0)
+            {
+                //South
+                DoMouseClick(809 + MyRect.X + 8, 789 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y == 0)
+            {
+                //East
+                DoMouseClick(1341 + MyRect.X + 8, 426 + MyRect.Y + 31);
+
+            }
+            else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y == 0)
+            {
+                //West
+                DoMouseClick(232 + MyRect.X + 8, 444 + MyRect.Y + 31);
+
+            }
+            else
+            {
+                // if dont move do nothing
+            }
+        }
+
+        public void SetStartOfPath(PixelLocation Character, PixelLocation Destination)
+        {
+
+            var start = new Tile();
+            start.Y = Character.Y;
+            start.X = Character.X;
+
+            var finish = new Tile();
+            finish.Y = Destination.Y;
+            finish.X = Destination.X;
+
+            start.SetDistance(finish.X, finish.Y);
+            ActiveTiles.Add(start);
+        }
+        private static List<Tile> GetWalkableTiles(Bitmap map, Tile currentTile, Tile targetTile, List<Tile> WallTileList, PixelLocation Destination)
+        {
+            var possibleTiles = new List<Tile>()
+            {
+            new Tile { X = currentTile.X + 1, Y = currentTile.Y, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X + 1, Y = currentTile.Y + 1, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X, Y = currentTile.Y + 1, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X + 1, Y = currentTile.Y - 1, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X, Y = currentTile.Y- 1, Parent = currentTile, Cost = currentTile.Cost + 1},
+            new Tile { X = currentTile.X - 1, Y = currentTile.Y, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X - 1, Y = currentTile.Y + 1, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X - 1, Y = currentTile.Y - 1, Parent = currentTile, Cost = currentTile.Cost + 1 },
+
+            };
+
+            possibleTiles.ForEach(tile => tile.SetDistance(targetTile.X, targetTile.Y));
+
+            var maxX = map.Width;
+            var maxY = map.Height;
+            List<int> intList = new List<int>();
+            intList.Clear();
+
+            return possibleTiles
+            .Where(tile => WallTileList.Contains(tile) == false)
+            .ToList();
+        }
     }
 
 
-   
-    public class Pixel
+
+
+
+
+
+
+
+    public class PixelLocation
     {
-        public Pixel(int x, int y)
+        public PixelLocation(int x, int y)
         {
             X = x;
             Y = y;
@@ -282,5 +754,5 @@ namespace bitmap
         public byte R { get; set; }
     }
 
- 
+
 }
