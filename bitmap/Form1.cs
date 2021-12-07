@@ -43,6 +43,8 @@ namespace bitmap
         private const int MOUSEEVENTF_RIGHTDOWN = 0x08;
         private const int MOUSEEVENTF_RIGHTUP = 0x10;
         private const int WM_KEYDOWN = 0x0100;
+        private const int VK_D = 0x44;
+
         private const int VK_F1 = 0x70;
         private const int VK_1 = 0x31;
         private const int VK_F2 = 0x71;
@@ -96,23 +98,14 @@ namespace bitmap
         public PixelLocation PreviousPosition;
 
         public Bitmap MapBitmap;
+        public Bitmap PreviousMap;
+
         public PixelLocation MapTopLeftPixel;
         public PixelLocation MapBottomRightPixel;
         public Area PrajnaVillage;
         public Form1()
         {
             InitializeComponent();
-
-        }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            List<PixelLocation> pixelList = new List<PixelLocation>();
-            //Set stop watches to time buffs/TT
-            var stopwatch = new Stopwatch();
-            var gameStopwatch = Stopwatch.StartNew();
-            gameStopwatch.Start();
-
             //Find handle & handle info
             HWND = FindWindowEx(IntPtr.Zero, IntPtr.Zero, null, "Legend of Mir III - Xtreme Edition");
 
@@ -123,12 +116,23 @@ namespace bitmap
             MyRect.Width = rt.Right - rt.Left;
             MyRect.Height = rt.Bottom - rt.Top;
 
+        }
+
+        private void AttackButton_Click(object sender, EventArgs e)
+        {
+            List<PixelLocation> pixelList = new List<PixelLocation>();
+            //Set stop watches to time buffs/TT
+            var stopwatch = new Stopwatch();
+            var gameStopwatch = Stopwatch.StartNew();
+            gameStopwatch.Start();
+
+          
             bool Isplayed = true;
             int counter = 0;
             do
             {
                 MakeBitmap();
-                FindMap(OverallScreenBitmap);
+                /*FindMap(OverallScreenBitmap);
                 MakeMap();
                 FindCharacterOnMap();
                 if (counter == 0)
@@ -136,11 +140,11 @@ namespace bitmap
                     PreviousPosition = MapCharacter;
                     GenerateWallPixelTiles();
                 }
-                PathingAlgorithm();
+                PathingAlgorithm();*/
                 // FindDestinations();
                 //  DeserializeMap();
-                // LockandReadImage(OverallScreenBitmap); // also attacks for now
-                if (stopwatch.IsRunning == true || stopwatch.ElapsedMilliseconds > 180000)
+                LockandReadImage(OverallScreenBitmap); // also attacks for now
+                if (stopwatch.IsRunning == false || stopwatch.ElapsedMilliseconds > 180000)
                 {
                     CastBuffs();
                     UseRT();
@@ -148,14 +152,14 @@ namespace bitmap
                     stopwatch.Start();
 
                 }
-                if (counter % 100000 == 0)
+                if (counter % 20 == 0)
                 {
-                    //PickUpItems();
+                    PickUpItems();
                 }
                 counter++;
                 if (gameStopwatch.ElapsedMilliseconds > 7.2e+6)
                 {
-                    Isplayed = false;
+                  //  Isplayed = false;
                 }
 
 
@@ -163,6 +167,37 @@ namespace bitmap
             } while (Isplayed == true);
 
 
+        }
+
+        private void TravelButton_Click(object sender, EventArgs e)
+        {
+            bool Isplayed = true;
+            int counter = 0;
+            do
+            {
+                
+                MakeBitmap();
+                FindMap(OverallScreenBitmap);
+                MakeMap();
+                var newMapCheck = FindCharacterOnMap();
+                if (counter == 0)
+                {
+                    PreviousPosition = MapCharacter;
+                    GenerateWallPixelTiles();
+                }
+                if(newMapCheck == null)
+                {
+                    MessageBox.Show("You have reached your destination");
+                    Isplayed = false;
+                    goto end;
+                }
+                PathingAlgorithm();
+                //FindDestinations();
+                LockandReadImage(OverallScreenBitmap); // also attacks for now
+                counter++;
+                 end:;
+
+            } while (Isplayed == true);
         }
 
 
@@ -185,13 +220,24 @@ namespace bitmap
         }
         private void PickUpItems()
         {
-            DoMouseClick(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClick(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClick(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClick(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
         }
 
-        public void DoMouseClick(int X, int Y)
+        public void DoMouseClickAttack(int X, int Y)
+        {
+            //Call the imported function with the cursor's current position
+            SetCursorPos(X, Y);
+            //SetForegroundWindow(HWND);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            System.Threading.Thread.Sleep(100);
+            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+
+        }
+
+        public void DoMouseClickTravel(int X, int Y)
         {
             //Call the imported function with the cursor's current position
             SetCursorPos(X, Y);
@@ -219,8 +265,6 @@ namespace bitmap
                 for (int j = 0; j < bData.Width; ++j)
                 {
 
-
-                    // Look for 3 black pixels in a colum next to a white
                     byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
                     if (color[0] == 0 && color[1] == 0 && color[3] == 8)
                     {
@@ -289,7 +333,7 @@ namespace bitmap
         public Destination DeserializeMapAndReturnDestination()
         {
             //move to relative path for other computers
-            string prajnaVilage = System.IO.File.ReadAllText(@"C:\Users\con16\Desktop\Bitmat bot\bitmap\PrajnaVillage.Json");
+            string prajnaVilage = System.IO.File.ReadAllText(@"C:\Users\con16\Desktop\Bitmat bot\bitmap\AreaJsons\PrajnaVillage.Json");
             Area currentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
             Destination currentDestination = new Destination();
             foreach (var item in currentArea.Dungeons)
@@ -304,7 +348,6 @@ namespace bitmap
         public void MakeBitmap()
         {
             //Create a new bitmap.
-            // bmpScreenshot = new Bitmap(MyRect.Width, MyRect.Height);
             OverallScreenBitmap = new Bitmap(1600, 900);
 
             // Create a graphics object from the bitmap.
@@ -330,7 +373,6 @@ namespace bitmap
 
             byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
 
-            /*This time we convert the IntPtr to a ptr*/
             byte* scan0 = (byte*)bData.Scan0.ToPointer();
 
             //Find top left
@@ -352,14 +394,10 @@ namespace bitmap
                         goto end;
                     }
 
-                    //color is a pointer to the first byte of the 3-byte color data
-                    //color[0] = blueComponent;
-                    //color[1] = greenComponent;
-                    //color[2] = redComponent;
 
                 }
             }
-        end:
+            end:
             //Find bottom right
             for (int i = bData.Height / 2; i < bData.Height - 1; ++i)
             {
@@ -379,14 +417,9 @@ namespace bitmap
                         goto end1;
                     }
 
-                    //color is a pointer to the first byte of the 3-byte color data
-                    //color[0] = blueComponent;
-                    //color[1] = greenComponent;
-                    //color[2] = redComponent;
-
                 }
             }
-        end1:
+            end1:
 
             bmpScreenshot.UnlockBits(bData);
 
@@ -415,7 +448,6 @@ namespace bitmap
 
             byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
 
-            /*This time we convert the IntPtr to a ptr*/
             byte* scan0 = (byte*)bData.Scan0.ToPointer();
             for (int i = 0; i < bData.Height - 1; ++i)
             {
@@ -461,7 +493,6 @@ namespace bitmap
 
             byte bitsPerPixel = (byte)Bitmap.GetPixelFormatSize(bData.PixelFormat);
 
-            /*This time we convert the IntPtr to a ptr*/
             byte* scan0 = (byte*)bData.Scan0.ToPointer();
 
             for (int i = 0; i < bData.Height - 100; ++i)
@@ -481,10 +512,6 @@ namespace bitmap
                         MonsterPixelList.Add(new PixelLocation(j, i));
                     }
 
-                    //data is a pointer to the first byte of the 3-byte color data
-                    //data[0] = blueComponent;
-                    //data[1] = greenComponent;
-                    //data[2] = redComponent;
 
                 }
             }
@@ -502,7 +529,7 @@ namespace bitmap
                 }
             }
 
-            DoMouseClick(MinCoord.X + MyRect.X + 8, MinCoord.Y + MyRect.Y + 31);
+            DoMouseClickAttack(MinCoord.X + MyRect.X + 8, MinCoord.Y + MyRect.Y + 31);
 
 
         }
@@ -626,50 +653,50 @@ namespace bitmap
             if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South East
-                DoMouseClick(1348 + MyRect.X + 8, 700 + MyRect.Y + 31);
+                DoMouseClickTravel(1348 + MyRect.X + 8, 700 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South West
-                DoMouseClick(256 + MyRect.X + 8, 619 + MyRect.Y + 31);
+                DoMouseClickTravel(256 + MyRect.X + 8, 619 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North East
-                DoMouseClick(1290 + MyRect.X + 8, 139 + MyRect.Y + 31);
+                DoMouseClickTravel(1290 + MyRect.X + 8, 139 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North West
-                DoMouseClick(324 + MyRect.X + 8, 121 + MyRect.Y + 31);
+                DoMouseClickTravel(324 + MyRect.X + 8, 121 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North
 
-                DoMouseClick(812 + MyRect.X + 8, 73 + MyRect.Y + 31);
+                DoMouseClickTravel(812 + MyRect.X + 8, 73 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South
-                DoMouseClick(809 + MyRect.X + 8, 789 + MyRect.Y + 31);
+                DoMouseClickTravel(809 + MyRect.X + 8, 789 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //East
-                DoMouseClick(1341 + MyRect.X + 8, 426 + MyRect.Y + 31);
+                DoMouseClickTravel(1341 + MyRect.X + 8, 426 + MyRect.Y + 31);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //West
-                DoMouseClick(232 + MyRect.X + 8, 444 + MyRect.Y + 31);
+                DoMouseClickTravel(232 + MyRect.X + 8, 444 + MyRect.Y + 31);
 
             }
             else
@@ -718,6 +745,8 @@ namespace bitmap
             .Where(tile => WallTileList.Contains(tile) == false)
             .ToList();
         }
+
+
     }
 
 

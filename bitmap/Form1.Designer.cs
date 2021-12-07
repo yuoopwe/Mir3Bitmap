@@ -29,63 +29,48 @@ namespace bitmap
         /// </summary>
         private void InitializeComponent()
         {
-            this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            this.label1 = new System.Windows.Forms.Label();
-            this.button1 = new System.Windows.Forms.Button();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
+            this.AttackButton = new System.Windows.Forms.Button();
+            this.TravelButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
-            // pictureBox1
+            // AttackButton
             // 
-            this.pictureBox1.Location = new System.Drawing.Point(256, 16);
-            this.pictureBox1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(1670, 1116);
-            this.pictureBox1.TabIndex = 0;
-            this.pictureBox1.TabStop = false;
+            this.AttackButton.Location = new System.Drawing.Point(23, 24);
+            this.AttackButton.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.AttackButton.Name = "AttackButton";
+            this.AttackButton.Size = new System.Drawing.Size(82, 22);
+            this.AttackButton.TabIndex = 2;
+            this.AttackButton.Text = "Attack";
+            this.AttackButton.UseVisualStyleBackColor = true;
+            this.AttackButton.Click += new System.EventHandler(this.AttackButton_Click);
             // 
-            // label1
+            // TravelButton
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(37, 7);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(38, 15);
-            this.label1.TabIndex = 1;
-            this.label1.Text = "label1";
-            // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(23, 24);
-            this.button1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(82, 22);
-            this.button1.TabIndex = 2;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.TravelButton.Location = new System.Drawing.Point(206, 24);
+            this.TravelButton.Name = "TravelButton";
+            this.TravelButton.Size = new System.Drawing.Size(75, 23);
+            this.TravelButton.TabIndex = 3;
+            this.TravelButton.Text = "Travel";
+            this.TravelButton.UseVisualStyleBackColor = true;
+            this.TravelButton.Click += new System.EventHandler(this.TravelButton_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(352, 61);
-            this.Controls.Add(this.button1);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.pictureBox1);
+            this.Controls.Add(this.TravelButton);
+            this.Controls.Add(this.AttackButton);
             this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.Name = "Form1";
             this.Text = "Form1";
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
         #endregion
-
-        private System.Windows.Forms.PictureBox pictureBox1;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button AttackButton;
+        private System.Windows.Forms.Button TravelButton;
     }
 }
 
