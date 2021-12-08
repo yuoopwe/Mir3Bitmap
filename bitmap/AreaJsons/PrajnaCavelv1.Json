@@ -1,0 +1,13 @@
+﻿{
+  "Name": "Prajna Cave Lv 1",
+  "Dungeons": [
+    {
+      "Name": "Prajna Cave Lv 2",
+      "Location": {
+        "X": 58,
+        "Y": 261
+      }
+    }
+  ],
+  "OpenAreas": []
+}
