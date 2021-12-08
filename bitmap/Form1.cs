@@ -86,7 +86,7 @@ namespace bitmap
         public List<PixelLocation> MonsterPixelList = new List<PixelLocation>();
         public List<PixelLocation> DungeonPixelList = new List<PixelLocation>();
         public List<PixelLocation> OpenAreaPixelList = new List<PixelLocation>();
-        public List<PixelLocation> WallPixelList = new List<PixelLocation>();
+        public List<PixelLocation> TraversablePixelList = new List<PixelLocation>();
         public List<Tile> WallTileList = new List<Tile>();
 
 
@@ -99,6 +99,7 @@ namespace bitmap
 
         public Bitmap MapBitmap;
         public Bitmap PreviousMap;
+        public Tile PreviousTile;
 
         public PixelLocation MapTopLeftPixel;
         public PixelLocation MapBottomRightPixel;
@@ -132,17 +133,7 @@ namespace bitmap
             do
             {
                 MakeBitmap();
-                /*FindMap(OverallScreenBitmap);
-                MakeMap();
-                FindCharacterOnMap();
-                if (counter == 0)
-                {
-                    PreviousPosition = MapCharacter;
-                    GenerateWallPixelTiles();
-                }
-                PathingAlgorithm();*/
                 // FindDestinations();
-                //  DeserializeMap();
                 LockandReadImage(OverallScreenBitmap); // also attacks for now
                 if (stopwatch.IsRunning == false || stopwatch.ElapsedMilliseconds > 180000)
                 {
@@ -173,6 +164,7 @@ namespace bitmap
         {
             bool Isplayed = true;
             int counter = 0;
+            //UseAutorun();
             do
             {
                 
@@ -192,16 +184,30 @@ namespace bitmap
                     goto end;
                 }
                 PathingAlgorithm();
-                //FindDestinations();
-                LockandReadImage(OverallScreenBitmap); // also attacks for now
+                //LockandReadImage(OverallScreenBitmap); // also attacks for now
                 counter++;
                  end:;
 
             } while (Isplayed == true);
         }
 
+        private void TestButton_Click(object sender, EventArgs e)
+        {
+            MakeBitmap();
+            FindMap(OverallScreenBitmap);
+            MakeMap();
+            FindCharacterOnMap();
+            PreviousPosition = MapCharacter;
+            GenerateWallPixelTiles();
+            FPPathingAlgorithm();
 
+        }
 
+        public void UseAutorun()
+        {
+            SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_D, IntPtr.Zero);
+
+        }
         public void UseRT()
         {
             SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_1, IntPtr.Zero);
@@ -243,12 +249,14 @@ namespace bitmap
             SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
             mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
-            System.Threading.Thread.Sleep(1000);
+            System.Threading.Thread.Sleep(100);
             mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            System.Threading.Thread.Sleep(1000);
+
 
         }
 
-        public unsafe void GenerateWallPixelTiles()
+        public unsafe List<PixelLocation> GenerateWallPixelTiles()
         {
             BitmapData bData = new BitmapData();
 
@@ -266,9 +274,9 @@ namespace bitmap
                 {
 
                     byte* color = scan0 + i * bData.Stride + j * bitsPerPixel / 8;
-                    if (color[0] == 0 && color[1] == 0 && color[3] == 8)
+                    if (color[0] == 0 && color[1] == 0 && color[3] != 8)
                     {
-                        WallPixelList.Add(new PixelLocation(j, i));
+                        TraversablePixelList.Add(new PixelLocation(j, i));
                     }
 
 
@@ -276,6 +284,7 @@ namespace bitmap
                 }
             }
             MapBitmap.UnlockBits(bData);
+            return TraversablePixelList;
         }
         public unsafe void FindDestinations()
         {
@@ -564,6 +573,9 @@ namespace bitmap
             DoAlg(currentDestinationTile, MapBitmap, currentDestination);
 
         }
+
+
+
         public void DoAlg(Tile finish, Bitmap map, Destination currentDestination)
         {
             //This is where we created the map from our previous step etc. 
@@ -577,13 +589,33 @@ namespace bitmap
 
                     return;
                 }
-                VisitedTiles.Add(checkTile);
                 ActiveTiles.Remove(checkTile);
                 Movement(checkTile);
                 bool successfulMovement = CheckMovementSuccessful(PreviousPosition);
+                //take difference between current and previous, then create visited tiles for that range
+                if (successfulMovement == true)
+                {  //110, 454, 313
+                    PreviousTile = checkTile;
+                    if ( checkTile.X != MapCharacter.X || checkTile.Y != MapCharacter.Y)
+                    {
+                        WallTileList.Add(checkTile);
+                    }
+                    
+                                        
+                }
+                VisitedTiles.Add(checkTile);
+                if (true)
+                {
+                    VisitedTilesScan(checkTile);
+                }
                 PreviousPosition = MapCharacter;
+                if (counter == 0)
+                {
+                    PreviousTile = checkTile;
+                    UpdateActiveAndVisitedTiles(checkTile, map, finish, currentDestination, successfulMovement);
+                }
                 //Try to move and if we fail, update the wall tiles
-                if (successfulMovement == false && counter != 0)
+                if (successfulMovement == false)
                 {
                     WallTileList.Add(checkTile);
                 }
@@ -599,13 +631,54 @@ namespace bitmap
             Console.WriteLine("No Path Found!");
         }
 
+        public void VisitedTilesScan(Tile checkTile)
+        {
+            int x = PreviousPosition.X;
+            int y = PreviousPosition.Y;
+            Func<int, int> step = PreviousPosition.X < checkTile.X ? (i) => { return ++i; } : (i) => { return --i; };
+            Func<int, int> step2 = PreviousPosition.Y < checkTile.Y ? (i2) => { return ++i2; } : (i2) => { return --i2; };
+
+
+
+            if (x != checkTile.X && y == checkTile.Y)
+            {
+                while (x != checkTile.X)
+                {
+                    VisitedTiles.Add(new Tile { X = x, Y = PreviousPosition.Y, Parent = null, Cost = PreviousTile.Cost });
+                    x = step(x);
+                }
+
+            }
+            else if (x == checkTile.X && y != checkTile.Y)
+            {
+                while (y != checkTile.Y)
+                {
+                    VisitedTiles.Add(new Tile { X = PreviousPosition.X, Y = y, Parent = null, Cost = PreviousTile.Cost });
+                    y = step2(y);
+                }
+            }
+            else if (x != checkTile.X && y != checkTile.Y)
+            {
+                for (x = PreviousPosition.X; x != checkTile.X; x = step(x))
+                {
+
+                    for (y = PreviousPosition.Y; y != checkTile.Y; y = step2(y))
+                    {
+                        VisitedTiles.Add(new Tile { X = x, Y = y, Parent = null, Cost = PreviousTile.Cost });
+
+                    }
+                }
+            }
+            else
+            {
+
+            }
+        }
         public void UpdateActiveAndVisitedTiles(Tile checkTile, Bitmap map, Tile finish, Destination currentDestination, bool successfulMovement)
         {
-
-            Tile currentTile = new Tile();
-            currentTile.X = MapCharacter.X;
-            currentTile.Y = MapCharacter.Y;
-            var walkableTiles = GetWalkableTiles(map, currentTile, finish, WallTileList, currentDestination.Location);
+            ActiveTiles.Clear();
+           
+            var walkableTiles = GetWalkableTiles(map, checkTile, finish, WallTileList, currentDestination.Location);
 
             foreach (var walkableTile in walkableTiles)
             {
@@ -620,7 +693,7 @@ namespace bitmap
                     if (existingTile.CostDistance > checkTile.CostDistance)
                     {
                         ActiveTiles.Remove(existingTile);
-                        ActiveTiles.Remove(walkableTile);
+                        ActiveTiles.Add(walkableTile);
 
                     }
                 }
@@ -638,7 +711,7 @@ namespace bitmap
             FindMap(OverallScreenBitmap);
             MakeMap();
             MapCharacter = FindCharacterOnMap();
-            if (MapCharacter.X != PreviousPosition.X && MapCharacter.Y != PreviousPosition.Y)
+            if (MapCharacter.X != PreviousPosition.X || MapCharacter.Y != PreviousPosition.Y)
             {
                 return true;
             }
@@ -719,7 +792,132 @@ namespace bitmap
             start.SetDistance(finish.X, finish.Y);
             ActiveTiles.Add(start);
         }
-        private static List<Tile> GetWalkableTiles(Bitmap map, Tile currentTile, Tile targetTile, List<Tile> WallTileList, PixelLocation Destination)
+        public List<Tile> GetWalkableTiles(Bitmap map, Tile currentTile, Tile targetTile, List<Tile> WallTileList, PixelLocation Destination)
+        {
+           
+            var possibleTiles = new List<Tile>()
+            {
+            
+            new Tile { X = currentTile.X + 3, Y = currentTile.Y, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X + 3, Y = currentTile.Y + 2, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X, Y = currentTile.Y + 2, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X + 3, Y = currentTile.Y - 2, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X, Y = currentTile.Y- 2, Parent = currentTile, Cost = currentTile.Cost + 1},
+            new Tile { X = currentTile.X - 3, Y = currentTile.Y, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X - 3, Y = currentTile.Y + 2, Parent = currentTile, Cost = currentTile.Cost + 1 },
+            new Tile { X = currentTile.X - 3, Y = currentTile.Y - 2, Parent = currentTile, Cost = currentTile.Cost + 1 },
+
+            };
+
+            possibleTiles.ForEach(tile => tile.SetDistance(targetTile.X, targetTile.Y));
+
+            var maxX = map.Width;
+            var maxY = map.Height;
+            List<int> intList = new List<int>();
+            intList.Clear();
+
+            return possibleTiles
+            .Where(tile => !WallTileList.Any(x => x.X == tile.X && x.Y == tile.Y ))
+            .ToList();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+        ///FIRST PASS///////////
+        ///////////////////////////////////////////////////////////////////////////
+
+        public void FPPathingAlgorithm()
+        {
+            Tile characterTile = new Tile();
+            characterTile.X = MapCharacter.X;
+            characterTile.Y = MapCharacter.Y;
+            var currentDestination = DeserializeMapAndReturnDestination();
+            Tile currentDestinationTile = new Tile();
+            currentDestinationTile.X = currentDestination.Location.X;
+            currentDestinationTile.Y = currentDestination.Location.Y;
+            var map = GenerateWallPixelTiles();
+
+            FPSetStartOfPath(MapCharacter, currentDestination.Location);
+            FPDoAlg(currentDestinationTile, map, currentDestination);
+
+        }
+        public void FPSetStartOfPath(PixelLocation Character, PixelLocation Destination)
+        {
+
+            var start = new Tile();
+            start.Y = Character.Y;
+            start.X = Character.X;
+
+            var finish = new Tile();
+            finish.Y = Destination.Y;
+            finish.X = Destination.X;
+
+            start.SetDistance(finish.X, finish.Y);
+            ActiveTiles.Add(start);
+        }
+        public void FPDoAlg(Tile finish, List<PixelLocation> map, Destination currentDestination)
+        {
+            //This is where we created the map from our previous step etc. 
+            while (ActiveTiles.Any())
+            {
+                var checkTile = ActiveTiles.OrderBy(x => x.CostDistance).First();
+
+                if (checkTile.X == finish.X && checkTile.Y == finish.Y)
+                {
+                    List<Tile> OptimalPath = new List<Tile>();
+                    var tile = checkTile;
+                    while (true)
+                    {
+                        
+                        OptimalPath.Add(tile);
+                        tile = tile.Parent;
+
+                        if (tile == null)
+                        {
+                            
+                            return;
+                        }
+                    }
+                    
+                }
+                bool successfulMovement = true;
+                VisitedTiles.Add(checkTile);
+                ActiveTiles.Remove(checkTile);
+                FPUpdateActiveAndVisitedTiles(checkTile, map, finish, currentDestination, successfulMovement);
+
+            }
+
+            Console.WriteLine("No Path Found!");
+        }
+        public void FPUpdateActiveAndVisitedTiles(Tile checkTile, List<PixelLocation> map, Tile finish, Destination currentDestination, bool successfulMovement)
+        {
+
+            var walkableTiles = FPGetWalkableTiles(map, checkTile, finish, WallTileList, currentDestination.Location);
+
+            foreach (var walkableTile in walkableTiles)
+            {
+                //We have already visited this tile so we don't need to do so again!
+                if (VisitedTiles.Any(x => x.X == walkableTile.X && x.Y == walkableTile.Y))
+                    continue;
+
+                //It's already in the active list, but that's OK, maybe this new tile has a better value (e.g. We might zigzag earlier but this is now straighter). 
+                if (ActiveTiles.Any(x => x.X == walkableTile.X && x.Y == walkableTile.Y))
+                {
+                    var existingTile = ActiveTiles.First(x => x.X == walkableTile.X && x.Y == walkableTile.Y);
+                    if (existingTile.CostDistance > checkTile.CostDistance)
+                    {
+                        ActiveTiles.Remove(existingTile);
+                        ActiveTiles.Add(walkableTile);
+
+                    }
+                }
+                else
+                {
+                    //We've never seen this tile before so add it to the list. 
+                    ActiveTiles.Add(walkableTile);
+                }
+            }
+        }
+        public List<Tile> FPGetWalkableTiles(List<PixelLocation> map, Tile currentTile, Tile targetTile, List<Tile> WallTileList, PixelLocation Destination)
         {
             var possibleTiles = new List<Tile>()
             {
@@ -736,17 +934,15 @@ namespace bitmap
 
             possibleTiles.ForEach(tile => tile.SetDistance(targetTile.X, targetTile.Y));
 
-            var maxX = map.Width;
-            var maxY = map.Height;
-            List<int> intList = new List<int>();
-            intList.Clear();
+            var maxX = MapBitmap.Width;
+            var maxY = MapBitmap.Height;
 
             return possibleTiles
-            .Where(tile => WallTileList.Contains(tile) == false)
+            .Where(tile => tile.X >= 0 && tile.X <= maxX)
+            .Where(tile => tile.Y >= 0 && tile.Y <= maxY)
+            .Where(tile => !WallTileList.Contains(tile))
             .ToList();
         }
-
-
     }
 
 
