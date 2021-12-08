@@ -143,7 +143,7 @@ namespace bitmap
                     stopwatch.Start();
 
                 }
-                if (counter % 20 == 0)
+                if (counter % 30 == 0)
                 {
                     PickUpItems();
                 }
@@ -164,7 +164,7 @@ namespace bitmap
         {
             bool Isplayed = true;
             int counter = 0;
-            //UseAutorun();
+            UseAutorun();
             do
             {
                 
@@ -248,10 +248,10 @@ namespace bitmap
             //Call the imported function with the cursor's current position
             SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
-            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
-            System.Threading.Thread.Sleep(100);
-            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+           // mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
             System.Threading.Thread.Sleep(1000);
+           // mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            //System.Threading.Thread.Sleep(1000);
 
 
         }
@@ -347,7 +347,7 @@ namespace bitmap
             Destination currentDestination = new Destination();
             foreach (var item in currentArea.Dungeons)
             {
-                if (item.Name == "Prajna Cave")
+                if (item.Name == "Flea Cave")
                 {
                     currentDestination = item;
                 }
@@ -595,12 +595,7 @@ namespace bitmap
                 //take difference between current and previous, then create visited tiles for that range
                 if (successfulMovement == true)
                 {  //110, 454, 313
-                    PreviousTile = checkTile;
-                    if ( checkTile.X != MapCharacter.X || checkTile.Y != MapCharacter.Y)
-                    {
-                        WallTileList.Add(checkTile);
-                    }
-                    
+                    PreviousTile = checkTile;  
                                         
                 }
                 VisitedTiles.Add(checkTile);
@@ -677,7 +672,9 @@ namespace bitmap
         public void UpdateActiveAndVisitedTiles(Tile checkTile, Bitmap map, Tile finish, Destination currentDestination, bool successfulMovement)
         {
             ActiveTiles.Clear();
-           
+            checkTile.X = MapCharacter.X;
+            checkTile.Y = MapCharacter.Y;
+
             var walkableTiles = GetWalkableTiles(map, checkTile, finish, WallTileList, currentDestination.Location);
 
             foreach (var walkableTile in walkableTiles)
