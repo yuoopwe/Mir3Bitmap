@@ -164,7 +164,7 @@ namespace bitmap
         {
             bool Isplayed = true;
             int counter = 0;
-            UseAutorun();
+            //UseAutorun();
             do
             {
                 
@@ -248,10 +248,10 @@ namespace bitmap
             //Call the imported function with the cursor's current position
             SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
-           // mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            System.Threading.Thread.Sleep(100);
+            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
             System.Threading.Thread.Sleep(1000);
-           // mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
-            //System.Threading.Thread.Sleep(1000);
 
 
         }
@@ -347,7 +347,7 @@ namespace bitmap
             Destination currentDestination = new Destination();
             foreach (var item in currentArea.Dungeons)
             {
-                if (item.Name == "Flea Cave")
+                if (item.Name == "Prajna Cave")
                 {
                     currentDestination = item;
                 }
@@ -592,9 +592,8 @@ namespace bitmap
                 ActiveTiles.Remove(checkTile);
                 Movement(checkTile);
                 bool successfulMovement = CheckMovementSuccessful(PreviousPosition);
-                //take difference between current and previous, then create visited tiles for that range
                 if (successfulMovement == true)
-                {  //110, 454, 313
+                {  
                     PreviousTile = checkTile;  
                                         
                 }
@@ -672,8 +671,9 @@ namespace bitmap
         public void UpdateActiveAndVisitedTiles(Tile checkTile, Bitmap map, Tile finish, Destination currentDestination, bool successfulMovement)
         {
             ActiveTiles.Clear();
-            checkTile.X = MapCharacter.X;
-            checkTile.Y = MapCharacter.Y;
+            Tile currentPositionTile = new Tile();
+            currentPositionTile.X = MapCharacter.X;
+            currentPositionTile.Y = MapCharacter.Y;
 
             var walkableTiles = GetWalkableTiles(map, checkTile, finish, WallTileList, currentDestination.Location);
 
