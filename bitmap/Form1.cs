@@ -191,7 +191,7 @@ namespace bitmap
             } while (Isplayed == true);
         }
 
-        private void TestButton_Click(object sender, EventArgs e)
+        private void button1_Click(object sender, EventArgs e)
         {
             MakeBitmap();
             FindMap(OverallScreenBitmap);
@@ -200,8 +200,10 @@ namespace bitmap
             PreviousPosition = MapCharacter;
             GenerateWallPixelTiles();
             FPPathingAlgorithm();
-
         }
+        
+
+        
 
         public void UseAutorun()
         {
@@ -347,10 +349,11 @@ namespace bitmap
             Destination currentDestination = new Destination();
             foreach (var item in currentArea.Dungeons)
             {
-                if (item.Name == "Prajna Cave")
+                if (item.Name == "Flea Cave")
                 {
                     currentDestination = item;
                 }
+                
             }
             return currentDestination;
         }
@@ -941,6 +944,8 @@ namespace bitmap
             .Where(tile => !WallTileList.Contains(tile))
             .ToList();
         }
+
+        
     }
 
 

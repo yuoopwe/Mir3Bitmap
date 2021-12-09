@@ -31,6 +31,7 @@ namespace bitmap
         {
             this.AttackButton = new System.Windows.Forms.Button();
             this.TravelButton = new System.Windows.Forms.Button();
+            this.button1 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // AttackButton
@@ -46,7 +47,7 @@ namespace bitmap
             // 
             // TravelButton
             // 
-            this.TravelButton.Location = new System.Drawing.Point(206, 24);
+            this.TravelButton.Location = new System.Drawing.Point(137, 23);
             this.TravelButton.Name = "TravelButton";
             this.TravelButton.Size = new System.Drawing.Size(75, 23);
             this.TravelButton.TabIndex = 3;
@@ -54,11 +55,22 @@ namespace bitmap
             this.TravelButton.UseVisualStyleBackColor = true;
             this.TravelButton.Click += new System.EventHandler(this.TravelButton_Click);
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(257, 24);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 4;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(352, 61);
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.TravelButton);
             this.Controls.Add(this.AttackButton);
             this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
@@ -71,6 +83,7 @@ namespace bitmap
         #endregion
         private System.Windows.Forms.Button AttackButton;
         private System.Windows.Forms.Button TravelButton;
+        private System.Windows.Forms.Button button1;
     }
 }
 
