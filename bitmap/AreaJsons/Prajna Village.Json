@@ -1,6 +1,6 @@
 ﻿{
   "Name": "Prajna Village",
-  "Dungeons": [
+  "Areas": [
     {
       "Name": "Prajna Cave",
       "Location": {
@@ -21,9 +21,7 @@
         "X": 149,
         "Y": 524
       }
-    }
-  ],
-  "OpenAreas": [
+    },
     {
       "Name": "Illusion Woods",
       "Location": {

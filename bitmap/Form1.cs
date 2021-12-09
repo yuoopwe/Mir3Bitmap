@@ -104,6 +104,29 @@ namespace bitmap
         public PixelLocation MapTopLeftPixel;
         public PixelLocation MapBottomRightPixel;
         public Area PrajnaVillage;
+        public Area CurrentArea = new Area();
+
+
+        //StopWatches
+        Stopwatch RightClickStopWatch = new Stopwatch();
+        Stopwatch F1StopWatch = new Stopwatch();
+        Stopwatch F2StopWatch = new Stopwatch();
+        Stopwatch F3StopWatch = new Stopwatch();
+        Stopwatch F4StopWatch = new Stopwatch();
+        Stopwatch F5StopWatch = new Stopwatch();
+        Stopwatch F6StopWatch = new Stopwatch();
+        Stopwatch F7StopWatch = new Stopwatch();
+        Stopwatch F8StopWatch = new Stopwatch();
+        Stopwatch F9StopWatch = new Stopwatch();
+        Stopwatch F10StopWatch = new Stopwatch();
+        Stopwatch F11StopWatch = new Stopwatch();
+        Stopwatch F12StopWatch = new Stopwatch();
+        Stopwatch N1StopWatch = new Stopwatch();
+        Stopwatch PickUpStopWatch = new Stopwatch();
+
+
+
+
         public Form1()
         {
             InitializeComponent();
@@ -123,11 +146,12 @@ namespace bitmap
         {
             List<PixelLocation> pixelList = new List<PixelLocation>();
             //Set stop watches to time buffs/TT
-            var stopwatch = new Stopwatch();
-            var gameStopwatch = Stopwatch.StartNew();
-            gameStopwatch.Start();
+            //var stopwatch = new Stopwatch();
+            //var gameStopwatch = Stopwatch.StartNew();
+            //gameStopwatch.Start();
+            PickUpStopWatch.Start();
 
-          
+
             bool Isplayed = true;
             int counter = 0;
             do
@@ -135,25 +159,12 @@ namespace bitmap
                 MakeBitmap();
                 // FindDestinations();
                 LockandReadImage(OverallScreenBitmap); // also attacks for now
-                if (stopwatch.IsRunning == false || stopwatch.ElapsedMilliseconds > 180000)
+                AttackChecker();
+                if (PickUpStopWatch.ElapsedMilliseconds / 1000 > 10)
                 {
-                    CastBuffs();
-                    UseRT();
-                    stopwatch.Restart();
-                    stopwatch.Start();
-
-                }
-                if (counter % 30 == 0)
-                {
+                    PickUpStopWatch.Restart();
                     PickUpItems();
                 }
-                counter++;
-                if (gameStopwatch.ElapsedMilliseconds > 7.2e+6)
-                {
-                  //  Isplayed = false;
-                }
-
-
 
             } while (Isplayed == true);
 
@@ -164,6 +175,8 @@ namespace bitmap
         {
             bool Isplayed = true;
             int counter = 0;
+            string targetArea = (string)SearchCurrentAreaListBox.SelectedItem;
+            Destination currentDestination = ReturnDestination(targetArea);
             UseAutorun();
             do
             {
@@ -183,7 +196,7 @@ namespace bitmap
                     Isplayed = false;
                     goto end;
                 }
-                PathingAlgorithm();
+                PathingAlgorithm(currentDestination);
                 //LockandReadImage(OverallScreenBitmap); // also attacks for now
                 counter++;
                  end:;
@@ -191,19 +204,126 @@ namespace bitmap
             } while (Isplayed == true);
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void SearchCurrentAreaButton_Click(object sender, EventArgs e)
         {
-            MakeBitmap();
-            FindMap(OverallScreenBitmap);
-            MakeMap();
-            FindCharacterOnMap();
-            PreviousPosition = MapCharacter;
-            GenerateWallPixelTiles();
-            FPPathingAlgorithm();
+            Area currentArea = DeserializeMap(AreaSearchTextBox.Text);
+            foreach (var item in currentArea.Areas)
+            {
+                SearchCurrentAreaListBox.Items.Add(item.Name);
+            }
+         
         }
-        
 
-        
+        //Put buffs on f6+ to ensure it works
+        public void AttackChecker()
+        {
+            if (F1CheckBox.Checked && (F1StopWatch.IsRunning == false || F1StopWatch.ElapsedMilliseconds / 1000 > Convert.ToDouble(F1TimerTextBox.Text) ))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F1, IntPtr.Zero);
+                F1StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(100);
+
+            }
+            if (F2CheckBox.Checked && (F2StopWatch.IsRunning == false || F2StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F2TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F2, IntPtr.Zero);
+                F2StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(100);
+
+
+            }
+            if (F3CheckBox.Checked && (F3StopWatch.IsRunning == false || F3StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F3TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F3, IntPtr.Zero);
+                F3StopWatch.Restart();
+
+
+                System.Threading.Thread.Sleep(100);
+
+            }
+            if (F4CheckBox.Checked && (F4StopWatch.IsRunning == false || F4StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F4TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F4, IntPtr.Zero);
+                F4StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(100);
+
+
+            }
+            if (F5CheckBox.Checked && (F5StopWatch.IsRunning == false || F5StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F5TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F5, IntPtr.Zero);
+                F5StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(100);
+
+            }
+            if (F6CheckBox.Checked && (F6StopWatch.IsRunning == false || F6StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F6TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F6, IntPtr.Zero);
+                F6StopWatch.Restart();
+    
+                System.Threading.Thread.Sleep(1500);
+
+            }
+            if (F7CheckBox.Checked && (F7StopWatch.IsRunning == false || F7StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F7TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F7, IntPtr.Zero);
+                F7StopWatch.Restart();
+
+
+                System.Threading.Thread.Sleep(1500);
+
+            }
+            if (F8CheckBox.Checked && (F8StopWatch.IsRunning == false || F8StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F8TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F8, IntPtr.Zero);
+                F8StopWatch.Restart();
+
+
+                System.Threading.Thread.Sleep(1500);
+
+            }
+            if (F9CheckBox.Checked && (F9StopWatch.IsRunning == false || F9StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F9TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F9, IntPtr.Zero);
+                F9StopWatch.Restart();
+
+
+                System.Threading.Thread.Sleep(1500);
+
+            }
+            if (F10CheckBox.Checked && (F10StopWatch.IsRunning == false || F10StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F10TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F10, IntPtr.Zero);
+                F10StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(1500);
+            }
+            if (F11CheckBox.Checked && (F11StopWatch.IsRunning == false || F11StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F11TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F11, IntPtr.Zero);
+                F11StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(1500);
+            }
+            if (F12CheckBox.Checked && (F12StopWatch.IsRunning == false || F12StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F12TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F12, IntPtr.Zero);
+                F12StopWatch.Restart();
+                
+                System.Threading.Thread.Sleep(1500);
+            }
+            if (N1CheckBox.Checked && (N1StopWatch.IsRunning == false || N1StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(N1TimerTextBox.Text)))
+            {
+                SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_1, IntPtr.Zero);
+                N1StopWatch.Restart();
+
+                System.Threading.Thread.Sleep(1500);
+            }
+        }
 
         public void UseAutorun()
         {
@@ -239,9 +359,13 @@ namespace bitmap
             //Call the imported function with the cursor's current position
             SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
-            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
-            System.Threading.Thread.Sleep(100);
-            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            if(AttackCheckBox.Checked == true)
+            {
+                mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+                System.Threading.Thread.Sleep(100);
+                mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            }
+ 
 
         }
 
@@ -341,19 +465,24 @@ namespace bitmap
             MapBitmap.UnlockBits(bData);
 
         }
-        public Destination DeserializeMapAndReturnDestination()
+        public Area DeserializeMap(string areaName)
         {
             //move to relative path for other computers
-            string prajnaVilage = System.IO.File.ReadAllText(@"C:\Users\con16\Desktop\Bitmat bot\bitmap\AreaJsons\PrajnaVillage.Json");
-            Area currentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
+            string prajnaVilage = System.IO.File.ReadAllText($"C:\\Users\\con16\\Desktop\\Bitmat bot\\bitmap\\AreaJsons\\{areaName}.Json");
+            CurrentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
+            return CurrentArea;
+        }
+
+        public Destination ReturnDestination(string listBoxSelect)
+        {
             Destination currentDestination = new Destination();
-            foreach (var item in currentArea.Dungeons)
+
+            foreach (var item in CurrentArea.Areas)
             {
-                if (item.Name == "Flea Cave")
+                if (item.Name == listBoxSelect)
                 {
                     currentDestination = item;
                 }
-                
             }
             return currentDestination;
         }
@@ -373,7 +502,7 @@ namespace bitmap
                                         new Rectangle(0, 0, 1600, 900).Size,
                                         CopyPixelOperation.SourceCopy);
 
-
+            
         }
 
         public unsafe void FindMap(Bitmap bmpScreenshot)
@@ -561,12 +690,11 @@ namespace bitmap
                 this.Distance = Math.Abs(targetX - X) + Math.Abs(targetY - Y);
             }
         }
-        public void PathingAlgorithm()
+        public void PathingAlgorithm(Destination currentDestination)
         {
             Tile characterTile = new Tile();
             characterTile.X = MapCharacter.X;
             characterTile.Y = MapCharacter.Y;
-            var currentDestination = DeserializeMapAndReturnDestination();
             Tile currentDestinationTile = new Tile();
             currentDestinationTile.X = currentDestination.Location.X;
             currentDestinationTile.Y = currentDestination.Location.Y;
@@ -826,12 +954,11 @@ namespace bitmap
         ///FIRST PASS///////////
         ///////////////////////////////////////////////////////////////////////////
 
-        public void FPPathingAlgorithm()
+        public void FPPathingAlgorithm(Destination currentDestination)
         {
             Tile characterTile = new Tile();
             characterTile.X = MapCharacter.X;
             characterTile.Y = MapCharacter.Y;
-            var currentDestination = DeserializeMapAndReturnDestination();
             Tile currentDestinationTile = new Tile();
             currentDestinationTile.X = currentDestination.Location.X;
             currentDestinationTile.Y = currentDestination.Location.Y;
@@ -945,7 +1072,7 @@ namespace bitmap
             .ToList();
         }
 
-        
+       
     }
 
 
