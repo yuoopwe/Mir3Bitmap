@@ -163,7 +163,7 @@ namespace bitmap
                 if (PickUpStopWatch.ElapsedMilliseconds / 1000 > 10)
                 {
                     PickUpStopWatch.Restart();
-                    PickUpItems();
+                  //  PickUpItems();
                 }
 
             } while (Isplayed == true);
@@ -214,15 +214,13 @@ namespace bitmap
          
         }
 
-        //Put buffs on f6+ to ensure it works
+        //Put buffs on f6+ to ensure it works, put spammable spell on f1
         public void AttackChecker()
         {
-            if (F1CheckBox.Checked && (F1StopWatch.IsRunning == false || F1StopWatch.ElapsedMilliseconds / 1000 > Convert.ToDouble(F1TimerTextBox.Text) ))
+            if (F1CheckBox.Checked)// && (F1StopWatch.IsRunning == false || F1StopWatch.ElapsedMilliseconds / 1000 > Convert.ToDouble(F1TimerTextBox.Text) ))
             {
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F1, IntPtr.Zero);
                 F1StopWatch.Restart();
-
-                System.Threading.Thread.Sleep(100);
 
             }
             if (F2CheckBox.Checked && (F2StopWatch.IsRunning == false || F2StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F2TimerTextBox.Text)))
@@ -262,52 +260,49 @@ namespace bitmap
             }
             if (F6CheckBox.Checked && (F6StopWatch.IsRunning == false || F6StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F6TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F6, IntPtr.Zero);
                 F6StopWatch.Restart();
     
-                System.Threading.Thread.Sleep(1500);
 
             }
             if (F7CheckBox.Checked && (F7StopWatch.IsRunning == false || F7StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F7TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F7, IntPtr.Zero);
                 F7StopWatch.Restart();
 
 
-                System.Threading.Thread.Sleep(1500);
-
             }
             if (F8CheckBox.Checked && (F8StopWatch.IsRunning == false || F8StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F8TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F8, IntPtr.Zero);
                 F8StopWatch.Restart();
 
 
-                System.Threading.Thread.Sleep(1500);
-
             }
             if (F9CheckBox.Checked && (F9StopWatch.IsRunning == false || F9StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F9TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F9, IntPtr.Zero);
                 F9StopWatch.Restart();
 
 
-                System.Threading.Thread.Sleep(1500);
-
             }
             if (F10CheckBox.Checked && (F10StopWatch.IsRunning == false || F10StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F10TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F10, IntPtr.Zero);
                 F10StopWatch.Restart();
 
-                System.Threading.Thread.Sleep(1500);
             }
             if (F11CheckBox.Checked && (F11StopWatch.IsRunning == false || F11StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F11TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1500);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_F11, IntPtr.Zero);
                 F11StopWatch.Restart();
 
-                System.Threading.Thread.Sleep(1500);
             }
             if (F12CheckBox.Checked && (F12StopWatch.IsRunning == false || F12StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(F12TimerTextBox.Text)))
             {
@@ -318,10 +313,11 @@ namespace bitmap
             }
             if (N1CheckBox.Checked && (N1StopWatch.IsRunning == false || N1StopWatch.ElapsedMilliseconds / 1000 > Int32.Parse(N1TimerTextBox.Text)))
             {
+                System.Threading.Thread.Sleep(1000);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_1, IntPtr.Zero);
                 N1StopWatch.Restart();
 
-                System.Threading.Thread.Sleep(1500);
+
             }
         }
 
@@ -348,10 +344,10 @@ namespace bitmap
         }
         private void PickUpItems()
         {
-            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            DoMouseClickAttack(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
         }
 
         public void DoMouseClickAttack(int X, int Y)
@@ -366,6 +362,18 @@ namespace bitmap
                 mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
             }
  
+
+        }
+        public void DoMouseClickPickUp(int X, int Y)
+        {
+            //Call the imported function with the cursor's current position
+            SetCursorPos(X, Y);
+            //SetForegroundWindow(HWND);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            System.Threading.Thread.Sleep(50);
+            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+
+
 
         }
 
@@ -468,7 +476,7 @@ namespace bitmap
         public Area DeserializeMap(string areaName)
         {
             //move to relative path for other computers
-            string prajnaVilage = System.IO.File.ReadAllText($"C:\\Users\\con16\\Desktop\\Bitmat bot\\bitmap\\AreaJsons\\{areaName}.Json");
+            string prajnaVilage = System.IO.File.ReadAllText($"C:\\Users\\con16\\Source\\Repos\\Mir3Bitmap\\bitmap\\AreaJsons\\{areaName}.Json");
             CurrentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
             return CurrentArea;
         }
