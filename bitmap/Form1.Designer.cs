@@ -63,6 +63,7 @@ namespace bitmap
             this.AreaSearchTextBox = new System.Windows.Forms.TextBox();
             this.SearchCurrentAreaButton = new System.Windows.Forms.Button();
             this.SearchCurrentAreaListBox = new System.Windows.Forms.ListBox();
+            this.SellItemsCheckBox = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // AttackButton
@@ -361,11 +362,22 @@ namespace bitmap
             this.SearchCurrentAreaListBox.Size = new System.Drawing.Size(120, 94);
             this.SearchCurrentAreaListBox.TabIndex = 36;
             // 
+            // SellItemsCheckBox
+            // 
+            this.SellItemsCheckBox.AutoSize = true;
+            this.SellItemsCheckBox.Location = new System.Drawing.Point(146, 88);
+            this.SellItemsCheckBox.Name = "SellItemsCheckBox";
+            this.SellItemsCheckBox.Size = new System.Drawing.Size(76, 19);
+            this.SellItemsCheckBox.TabIndex = 38;
+            this.SellItemsCheckBox.Text = "Sell Items";
+            this.SellItemsCheckBox.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(382, 460);
+            this.Controls.Add(this.SellItemsCheckBox);
             this.Controls.Add(this.SearchCurrentAreaListBox);
             this.Controls.Add(this.SearchCurrentAreaButton);
             this.Controls.Add(this.AreaSearchTextBox);
@@ -443,6 +455,7 @@ namespace bitmap
         private System.Windows.Forms.TextBox AreaSearchTextBox;
         private System.Windows.Forms.Button SearchCurrentAreaButton;
         private System.Windows.Forms.ListBox SearchCurrentAreaListBox;
+        private System.Windows.Forms.CheckBox SellItemsCheckBox;
     }
 }
 
