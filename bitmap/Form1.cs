@@ -27,8 +27,6 @@ namespace bitmap
         //
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
-        [DllImport("user32.dll")]
-        private static extern bool PrintWindow(IntPtr hWnd, HDC hdcBlt, uint nFlags);
         //
         [DllImport("user32.dll")]
         static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -698,10 +696,6 @@ namespace bitmap
                                         0,
                                         new Rectangle(0, 0, 1600, 900).Size,
                                         CopyPixelOperation.SourceCopy);
-            using (Graphics g = Graphics.FromImage(OverallScreenBitmap))
-            {
-                PrintWindow(hWnd, g.GetHdc(), 0);
-            }
 
 
         }
