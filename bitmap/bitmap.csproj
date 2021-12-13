@@ -23,4 +23,10 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="InputHelper">
+      <HintPath>..\..\InputHelper\InputHelper.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

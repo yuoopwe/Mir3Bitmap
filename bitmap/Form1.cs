@@ -23,9 +23,12 @@ namespace bitmap
         public static extern int SetActiveWindow(IntPtr hwnd);
         [DllImport("user32.dll")]
         public static extern int SetForegroundWindow(IntPtr hwnd);
+
         //
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern bool PrintWindow(IntPtr hWnd, HDC hdcBlt, uint nFlags);
         //
         [DllImport("user32.dll")]
         static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -36,13 +39,20 @@ namespace bitmap
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetCursorPos(int x, int y);
         //Mouse actions & Fkeys
+        [DllImport("user32.dll")]
+        static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
 
-
+        const uint MAPVK_VK_TO_VSC = 0x00;
+        private const int BM_CLICK = 0x00F5;
         private const int MOUSEEVENTF_LEFTDOWN = 0x02;
         private const int MOUSEEVENTF_LEFTUP = 0x04;
         private const int MOUSEEVENTF_RIGHTDOWN = 0x08;
         private const int MOUSEEVENTF_RIGHTUP = 0x10;
+        private const int WM_MOUSEMOVE = 0x0200;
+        private const int WM_LBUTTONDOWN = 0x0201;
+        private const int WM_LBUTTONUP = 0x0202;
         private const int WM_KEYDOWN = 0x0100;
+        private const int VK_LBUTTON = 0x01;
         private const int VK_D = 0x44;
         private const int VK_ESCAPE = 0x1B;
         private const int VK_W = 0x57;
@@ -83,7 +93,9 @@ namespace bitmap
         public Rectangle MyRect = new Rectangle();
         public double MinDistance;
         public bool SellItems;
-        public bool IsPlayed;
+        public bool IsPlayedShop;
+        public bool Active;
+
 
         public PixelLocation MinCoord;
         public RECT rt;
@@ -133,7 +145,10 @@ namespace bitmap
 
 
 
-
+        public static IntPtr BuildLParam(uint low, uint high)
+        {
+            return (IntPtr)(((uint)high << 16) | (uint)low);
+        }
 
         public Form1()
         {
@@ -143,13 +158,14 @@ namespace bitmap
 
             SellItems = false;
             GetWindowRect(HWND, out rt);
-
+            Active = true;
             MyRect.X = rt.Left;
             MyRect.Y = rt.Top;
             MyRect.Width = rt.Right - rt.Left;
             MyRect.Height = rt.Bottom - rt.Top;
 
         }
+
 
         private void AttackButton_Click(object sender, EventArgs e)
         {
@@ -161,7 +177,6 @@ namespace bitmap
             PickUpStopWatch.Start();
             SellItemsStopWatch.Start();
 
-            bool Isplayed = true;
             int counter = 0;
             do
             {
@@ -169,7 +184,7 @@ namespace bitmap
                 // FindDestinations();
                 LockandReadImage(OverallScreenBitmap); // also attacks for now
                 AttackChecker();
-                if (PickUpStopWatch.ElapsedMilliseconds / 1000 > 10)
+                if (PickUpStopWatch.ElapsedMilliseconds / 1000 > 5)
                 {
                     PickUpStopWatch.Restart();
                     PickUpItems();
@@ -180,14 +195,13 @@ namespace bitmap
                     SellItem();
                 }
 
-            } while (Isplayed == true);
+            } while (Active == true);
 
 
         }
 
         private void TravelButton_Click(object sender, EventArgs e)
         {
-            bool Isplayed = true;
             int counter = 0;
             string targetArea = (string)SearchCurrentAreaListBox.SelectedItem;
             Destination currentDestination = ReturnDestination(targetArea);
@@ -207,7 +221,7 @@ namespace bitmap
                 if(newMapCheck == null)
                 {
                     MessageBox.Show("You have reached your destination");
-                    Isplayed = false;
+                    Active = false;
                     goto end;
                 }
                 PathingAlgorithm(currentDestination);
@@ -215,7 +229,7 @@ namespace bitmap
                 counter++;
                  end:;
 
-            } while (Isplayed == true);
+            } while (Active == true);
         }
 
         private void SellItem()
@@ -234,7 +248,7 @@ namespace bitmap
                 System.Threading.Thread.Sleep(500);
 
                 int counter = 0;
-                bool Isplayed = false;
+                bool Active = false;
                 do
                 {
                     MakeBitmap();
@@ -250,30 +264,30 @@ namespace bitmap
                     }
                     PathingAlgorithmShop(currentDestination);
 
-                } while (Isplayed == true);
+                } while (Active == true);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_B, IntPtr.Zero);
                 System.Threading.Thread.Sleep(200);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_B, IntPtr.Zero);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(795 + MyRect.X + 8, 318 + MyRect.Y + 31);
+                DoMouseClickShop(795, 318);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(80 + MyRect.X + 8, 89 + MyRect.Y + 31);
+                DoMouseClickShop(80, 89);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(294 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(294, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(457 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(457, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(294 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(294, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(457 + MyRect.X + 8, 526 + MyRect.Y + 31); 
+                DoMouseClickShop(457, 526); 
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(294 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(294, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(457 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(457, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(294 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(294, 526);
                 System.Threading.Thread.Sleep(200);
-                DoMouseClickShop(457 + MyRect.X + 8, 526 + MyRect.Y + 31);
+                DoMouseClickShop(457, 526);
                 System.Threading.Thread.Sleep(200);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_ESCAPE, IntPtr.Zero);
                 System.Threading.Thread.Sleep(100);
@@ -283,17 +297,17 @@ namespace bitmap
                 System.Threading.Thread.Sleep(100);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_ESCAPE, IntPtr.Zero);
                 System.Threading.Thread.Sleep(100);
-                DoMouseClickShop(695 + MyRect.X + 8, 152 + MyRect.Y + 31);
+                DoMouseClickShop(695, 152);
                 System.Threading.Thread.Sleep(100);
-                DoMouseClickShop(65 + MyRect.X + 8, 130 + MyRect.Y + 31);
+                DoMouseClickShop(65, 130);
                 System.Threading.Thread.Sleep(100);
-                DoMouseClickShop(1319 + MyRect.X + 8, 314 + MyRect.Y + 31);
+                DoMouseClickShop(1319, 314);
                 System.Threading.Thread.Sleep(100);
-                DoMouseClickShop(135 + MyRect.X + 8, 103 + MyRect.Y + 31);
+                DoMouseClickShop(135, 103);
                 System.Threading.Thread.Sleep(100);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_B, IntPtr.Zero);
                 System.Threading.Thread.Sleep(100);
-                IsPlayed = true;
+                IsPlayedShop = true;
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_D, IntPtr.Zero);
                 do
                 {
@@ -310,7 +324,7 @@ namespace bitmap
                     }
                     PathingAlgorithm(currentDestination);
 
-                } while (IsPlayed == true);
+                } while (IsPlayedShop == true);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_D, IntPtr.Zero);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_B, IntPtr.Zero);
                 SendMessage(HWND, WM_KEYDOWN, (IntPtr)VK_B, IntPtr.Zero);
@@ -459,31 +473,33 @@ namespace bitmap
         }
         private void PickUpItems()
         {
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
-            System.Threading.Thread.Sleep(50);
-            DoMouseClickPickUp(MyRect.X + 8 + Character.X, 31 + MyRect.Y + Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
+            DoMouseClickPickUp(Character.X, Character.Y);
         }
 
         public void DoMouseClickAttack(int X, int Y)
         {
+
+            
+
             //Call the imported function with the cursor's current position
-            SetCursorPos(X, Y);
+            //SetCursorPos(X, Y);
             //SetForegroundWindow(HWND);
-            if(AttackCheckBox.Checked == true)
+            SendMessage(HWND, WM_MOUSEMOVE, (IntPtr)0, BuildLParam((uint)X,(uint)Y));
+
+            if (AttackCheckBox.Checked == true)
             {
-                mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+               // mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+                SendMessage(HWND, WM_LBUTTONDOWN, (IntPtr)0, BuildLParam((uint)X,(uint)Y));
                 System.Threading.Thread.Sleep(200);
-                mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+                SendMessage(HWND, WM_LBUTTONUP, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
+
+               // mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
             }
  
 
@@ -491,11 +507,10 @@ namespace bitmap
         public void DoMouseClickPickUp(int X, int Y)
         {
             //Call the imported function with the cursor's current position
-            SetCursorPos(X, Y);
-            //SetForegroundWindow(HWND);
-            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_MOUSEMOVE, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
+            SendMessage(HWND, WM_LBUTTONDOWN, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             System.Threading.Thread.Sleep(50);
-            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_LBUTTONUP, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
 
 
 
@@ -504,7 +519,7 @@ namespace bitmap
         public void DoMouseClickTravel(int X, int Y)
         {
             //Call the imported function with the cursor's current position
-            SetCursorPos(X, Y);
+            SendMessage(HWND, WM_MOUSEMOVE, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             //SetForegroundWindow(HWND);
             //mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
             System.Threading.Thread.Sleep(400);
@@ -515,11 +530,11 @@ namespace bitmap
         public void DoMouseClickTravelShop(int X, int Y)
         {
             //Call the imported function with the cursor's current position
-            SetCursorPos(X, Y);
+            SendMessage(HWND, WM_MOUSEMOVE, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             //SetForegroundWindow(HWND);
-            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_LBUTTONDOWN, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             System.Threading.Thread.Sleep(200);
-            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_LBUTTONUP, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             System.Threading.Thread.Sleep(500);
 
 
@@ -527,12 +542,12 @@ namespace bitmap
         public void DoMouseClickShop(int X, int Y)
         {
             //Call the imported function with the cursor's current position
-            SetCursorPos(X, Y);
+            SendMessage(HWND, WM_MOUSEMOVE, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             //SetForegroundWindow(HWND);
             System.Threading.Thread.Sleep(200);
-            mouse_event(MOUSEEVENTF_LEFTDOWN, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_LBUTTONDOWN, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             System.Threading.Thread.Sleep(200);
-            mouse_event(MOUSEEVENTF_LEFTUP, (uint)X, (uint)Y, 0, 0);
+            SendMessage(HWND, WM_LBUTTONUP, (IntPtr)0, BuildLParam((uint)X, (uint)Y));
             System.Threading.Thread.Sleep(200);
 
 
@@ -650,7 +665,7 @@ namespace bitmap
         public Area DeserializeMap(string areaName)
         {
             //move to relative path for other computers
-            string prajnaVilage = System.IO.File.ReadAllText($"C:\\Users\\con16\\Source\\Repos\\Mir3Bitmap\\bitmap\\AreaJsons\\{areaName}.Json");
+            string prajnaVilage = System.IO.File.ReadAllText($"C:\\Users\\con16\\Desktop\\Bitmat bot\\bitmap\\AreaJsons\\{areaName}.Json");
             CurrentArea = JsonConvert.DeserializeObject<Area>(prajnaVilage);
             return CurrentArea;
         }
@@ -683,8 +698,12 @@ namespace bitmap
                                         0,
                                         new Rectangle(0, 0, 1600, 900).Size,
                                         CopyPixelOperation.SourceCopy);
+            using (Graphics g = Graphics.FromImage(OverallScreenBitmap))
+            {
+                PrintWindow(hWnd, g.GetHdc(), 0);
+            }
 
-            
+
         }
 
         public unsafe void FindMap(Bitmap bmpScreenshot)
@@ -852,7 +871,9 @@ namespace bitmap
                 }
             }
 
-            DoMouseClickAttack(MinCoord.X + MyRect.X + 8, MinCoord.Y + MyRect.Y + 31);
+            //DoMouseClickAttack(MinCoord.X + MyRect.X + 8, MinCoord.Y + MyRect.Y + 31);
+            DoMouseClickAttack(MinCoord.X, MinCoord.Y);
+
 
 
         }
@@ -908,7 +929,7 @@ namespace bitmap
                 var newMapCheck = FindCharacterOnMap();
                 if (newMapCheck.X == -1000 && newMapCheck.Y == -1000)
                 {
-                    IsPlayed = false;
+                    IsPlayedShop = false;
                     return;
                 }
                 ActiveTiles.Remove(checkTile);
@@ -1045,50 +1066,50 @@ namespace bitmap
             if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South East
-                DoMouseClickTravel(1348 + MyRect.X + 8, 700 + MyRect.Y + 31);
+                DoMouseClickTravel(1348, 700);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South West
-                DoMouseClickTravel(256 + MyRect.X + 8, 619 + MyRect.Y + 31);
+                DoMouseClickTravel(256, 619);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North East
-                DoMouseClickTravel(1290 + MyRect.X + 8, 139 + MyRect.Y + 31);
+                DoMouseClickTravel(1290, 139);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North West
-                DoMouseClickTravel(324 + MyRect.X + 8, 121 + MyRect.Y + 31);
+                DoMouseClickTravel(324, 121);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North
 
-                DoMouseClickTravel(812 + MyRect.X + 8, 73 + MyRect.Y + 31);
+                DoMouseClickTravel(812, 73);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South
-                DoMouseClickTravel(809 + MyRect.X + 8, 789 + MyRect.Y + 31);
+                DoMouseClickTravel(809, 789);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //East
-                DoMouseClickTravel(1341 + MyRect.X + 8, 426 + MyRect.Y + 31);
+                DoMouseClickTravel(1341, 426);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //West
-                DoMouseClickTravel(232 + MyRect.X + 8, 444 + MyRect.Y + 31);
+                DoMouseClickTravel(232, 444);
 
             }
             else
