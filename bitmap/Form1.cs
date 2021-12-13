@@ -690,7 +690,26 @@ namespace bitmap
 
 
         }
+         public Bitmap MakeMap()
+           {
+               
+               IntPtr hdcSrc = User32.GetWindowDC(HWND);
+               IntPtr hdcDest = Gdi32.CreateCompatibleDC(hdcSrc);
+               IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc,  MapBottomRightPixel.X - MapTopLeftPixel.X,  MapBottomRightPixel.Y - MapTopLeftPixel.Y);
 
+               IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
+               Gdi32.BitBlt(hdcDest, 0, 0, MapBottomRightPixel.X - MapTopLeftPixel.X, MapBottomRightPixel.Y - MapTopLeftPixel.Y, hdcSrc, 8 + MapTopLeftPixel.X, 31 + MapTopLeftPixel.Y, SRCCOPY);
+               Gdi32.SelectObject(hdcDest, hOld);
+               Gdi32.DeleteDC(hdcDest);
+               User32.ReleaseDC(HWND, hdcSrc);
+
+               Bitmap image = Image.FromHbitmap(hBitmap);
+               Gdi32.DeleteObject(hBitmap);
+
+               return image;
+
+
+           }
         public unsafe void FindMap(Bitmap bmpScreenshot)
         {
             MonsterPixelList.Clear();
@@ -753,26 +772,7 @@ namespace bitmap
 
         }
 
-        public Bitmap MakeMap()
-        {
-            
-            IntPtr hdcSrc = User32.GetWindowDC(HWND);
-            IntPtr hdcDest = Gdi32.CreateCompatibleDC(hdcSrc);
-            IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, 8 + MapBottomRightPixel.X - MapTopLeftPixel.X, 31 + MapBottomRightPixel.Y - MapTopLeftPixel.Y);
-
-            IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
-            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, MapTopLeftPixel.X, MapTopLeftPixel.Y, SRCCOPY);
-            Gdi32.SelectObject(hdcDest, hOld);
-            Gdi32.DeleteDC(hdcDest);
-            User32.ReleaseDC(HWND, hdcSrc);
-
-            Bitmap image = Image.FromHbitmap(hBitmap);
-            Gdi32.DeleteObject(hBitmap);
-
-            return image;
-
-
-        }
+  
 
         public unsafe PixelLocation FindCharacterOnMap()
         {
@@ -1089,7 +1089,7 @@ namespace bitmap
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South
-                DoMouseClickTravel(809, 789);
+                DoMouseClickTravel(823, 820);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y == 0)
@@ -1356,50 +1356,50 @@ namespace bitmap
             if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South East
-                DoMouseClickTravelShop(1348 + MyRect.X + 8, 700 + MyRect.Y + 31);
+                DoMouseClickTravelShop(1348, 700);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South West
-                DoMouseClickTravelShop(256 + MyRect.X + 8, 619 + MyRect.Y + 31);
+                DoMouseClickTravelShop(256, 619);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North East
-                DoMouseClickTravelShop(1290 + MyRect.X + 8, 139 + MyRect.Y + 31);
+                DoMouseClickTravelShop(1290, 139);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North West
-                DoMouseClickTravelShop(324 + MyRect.X + 8, 121 + MyRect.Y + 31);
+                DoMouseClickTravelShop(324, 121);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y < 0)
             {
                 //North
 
-                DoMouseClickTravelShop(812 + MyRect.X + 8, 73 + MyRect.Y + 31);
+                DoMouseClickTravelShop(812, 73);
 
             }
             else if (checkTile.X - MapCharacter.X == 0 && checkTile.Y - MapCharacter.Y > 0)
             {
                 //South
-                DoMouseClickTravelShop(809 + MyRect.X + 8, 789 + MyRect.Y + 31);
+                DoMouseClickTravelShop(809, 820);
 
             }
             else if (checkTile.X - MapCharacter.X > 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //East
-                DoMouseClickTravelShop(1341 + MyRect.X + 8, 426 + MyRect.Y + 31);
+                DoMouseClickTravelShop(1341, 426);
 
             }
             else if (checkTile.X - MapCharacter.X < 0 && checkTile.Y - MapCharacter.Y == 0)
             {
                 //West
-                DoMouseClickTravelShop(232 + MyRect.X + 8, 444 + MyRect.Y + 31);
+                DoMouseClickTravelShop(232, 444);
 
             }
             else
@@ -1420,7 +1420,7 @@ namespace bitmap
             IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, 1600, 900);
 
             IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
-            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, 8, 31, SRCCOPY);
+            Gdi32.BitBlt(hdcDest, 0, 0, 1600, 900, hdcSrc, 8, 31, SRCCOPY);
             Gdi32.SelectObject(hdcDest, hOld);
             Gdi32.DeleteDC(hdcDest);
             User32.ReleaseDC(HWND, hdcSrc);
