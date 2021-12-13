@@ -210,7 +210,7 @@ namespace bitmap
                 
                 MakeBitmap();
                 FindMap(OverallScreenBitmap);
-                MakeMap();
+                MapBitmap = MakeMap();
                 var newMapCheck = FindCharacterOnMap();
                 if (counter == 0)
                 {
@@ -252,7 +252,7 @@ namespace bitmap
                 {
                     MakeBitmap();
                     FindMap(OverallScreenBitmap);
-                    MakeMap();
+                    MapBitmap = MakeMap();
                     var newMapCheck = FindCharacterOnMap();
                     PixelLocation currentLocation = new PixelLocation(82, 76);
                     Destination currentDestination = new Destination("Dest", currentLocation);
@@ -312,7 +312,7 @@ namespace bitmap
                 {
                     MakeBitmap();
                     FindMap(OverallScreenBitmap);
-                    MakeMap();
+                    MapBitmap = MakeMap();
                     var newMapCheck = FindCharacterOnMap();
                     PixelLocation currentLocation = new PixelLocation(696, 77);
                     Destination currentDestination = new Destination("Dest", currentLocation);
@@ -755,15 +755,22 @@ namespace bitmap
 
         public Bitmap MakeMap()
         {
-            MapBitmap = new Bitmap(MapBottomRightPixel.X - MapTopLeftPixel.X, MapBottomRightPixel.Y - MapTopLeftPixel.Y);
-            using (Graphics graphics = Graphics.FromImage(MapBitmap))
-            {
-                Rectangle mapRectangle = new Rectangle(MapTopLeftPixel.X, MapTopLeftPixel.Y, MapBitmap.Width, MapBitmap.Height);
-                Rectangle sizeRectangle = new Rectangle(0, 0, MapBitmap.Width, MapBitmap.Height);
+            
+            IntPtr hdcSrc = User32.GetWindowDC(HWND);
+            IntPtr hdcDest = Gdi32.CreateCompatibleDC(hdcSrc);
+            IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, 8 + MapBottomRightPixel.X - MapTopLeftPixel.X, 31 + MapBottomRightPixel.Y - MapTopLeftPixel.Y);
 
-                graphics.DrawImage(OverallScreenBitmap, 0, 0, mapRectangle, GraphicsUnit.Pixel);
-            }
-            return MapBitmap;
+            IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
+            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, MapTopLeftPixel.X, MapTopLeftPixel.Y, SRCCOPY);
+            Gdi32.SelectObject(hdcDest, hOld);
+            Gdi32.DeleteDC(hdcDest);
+            User32.ReleaseDC(HWND, hdcSrc);
+
+            Bitmap image = Image.FromHbitmap(hBitmap);
+            Gdi32.DeleteObject(hBitmap);
+
+            return image;
+
 
         }
 
@@ -910,7 +917,7 @@ namespace bitmap
                 currentPositionTile = checkTile;
                 MakeBitmap();
                 FindMap(OverallScreenBitmap);
-                MakeMap();
+                MapBitmap = MakeMap();
                 var newMapCheck = FindCharacterOnMap();
                 if (newMapCheck.X == -1000 && newMapCheck.Y == -1000)
                 {
@@ -1034,7 +1041,7 @@ namespace bitmap
         {
             MakeBitmap();
             FindMap(OverallScreenBitmap);
-            MakeMap();
+            MapBitmap = MakeMap();
             MapCharacter = FindCharacterOnMap();
             if (MapCharacter.X != PreviousPosition.X || MapCharacter.Y != PreviousPosition.Y || (MapCharacter.X == -1000 && MapCharacter.Y == -1000))
             {
@@ -1296,7 +1303,7 @@ namespace bitmap
                 currentPositionTile = checkTile;
                 MakeBitmap();
                 FindMap(OverallScreenBitmap);
-                MakeMap();
+                MapBitmap = MakeMap();
                 var newMapCheck = FindCharacterOnMap();
                 if (newMapCheck.X == finish.X && newMapCheck.Y == finish.Y)
                 {
@@ -1400,7 +1407,7 @@ namespace bitmap
                 // if dont move do nothing
             }
         }
-        public Bit CaptureWindow()
+        public Bitmap CaptureWindow()
         {
 
             IntPtr hdcSrc = User32.GetWindowDC(HWND);
@@ -1410,10 +1417,10 @@ namespace bitmap
             
 
             IntPtr hdcDest = Gdi32.CreateCompatibleDC(hdcSrc);
-            IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, MyRect.Width, MyRect.Height);
+            IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, 1600, 900);
 
             IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
-            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, 0, 0, SRCCOPY);
+            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, 8, 31, SRCCOPY);
             Gdi32.SelectObject(hdcDest, hOld);
             Gdi32.DeleteDC(hdcDest);
             User32.ReleaseDC(HWND, hdcSrc);
@@ -1423,6 +1430,7 @@ namespace bitmap
 
             return image;
         }
+
 
     }
 
