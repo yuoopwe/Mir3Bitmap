@@ -27,8 +27,7 @@ namespace bitmap
         //
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
-        [DllImport("user32.dll")]
-        private static extern bool PrintWindow(IntPtr hWnd, HDC hdcBlt, uint nFlags);
+
         //
         [DllImport("user32.dll")]
         static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -41,8 +40,8 @@ namespace bitmap
         //Mouse actions & Fkeys
         [DllImport("user32.dll")]
         static extern uint MapVirtualKeyEx(uint uCode, uint uMapType, IntPtr dwhkl);
-
-        const uint MAPVK_VK_TO_VSC = 0x00;
+        private const int SRCCOPY = 13369376;
+        private const uint MAPVK_VK_TO_VSC = 0x00;
         private const int BM_CLICK = 0x00F5;
         private const int MOUSEEVENTF_LEFTDOWN = 0x02;
         private const int MOUSEEVENTF_LEFTUP = 0x04;
@@ -71,6 +70,10 @@ namespace bitmap
         private const int VK_F10 = 0x79;
         private const int VK_F11 = 0x7A;
         private const int VK_F12 = 0x7B;
+        public static IntPtr BuildLParam(uint low, uint high)
+        {
+            return (IntPtr)(((uint)high << 16) | (uint)low);
+        }
 
 
 
@@ -145,11 +148,7 @@ namespace bitmap
 
 
 
-        public static IntPtr BuildLParam(uint low, uint high)
-        {
-            return (IntPtr)(((uint)high << 16) | (uint)low);
-        }
-
+     
         public Form1()
         {
             InitializeComponent();
@@ -686,22 +685,8 @@ namespace bitmap
         public void MakeBitmap()
         {
             //Create a new bitmap.
-            OverallScreenBitmap = new Bitmap(1600, 900);
+            OverallScreenBitmap = CaptureWindow();
 
-            // Create a graphics object from the bitmap.
-            var gfxScreenshot = Graphics.FromImage(OverallScreenBitmap);
-
-            // Take the screenshot from the upper left corner to the right bottom corner.
-            gfxScreenshot.CopyFromScreen(rt.Left + 8,
-                                        rt.Top + 31,
-                                        0,
-                                        0,
-                                        new Rectangle(0, 0, 1600, 900).Size,
-                                        CopyPixelOperation.SourceCopy);
-            using (Graphics g = Graphics.FromImage(OverallScreenBitmap))
-            {
-                PrintWindow(hWnd, g.GetHdc(), 0);
-            }
 
 
         }
@@ -1415,18 +1400,63 @@ namespace bitmap
                 // if dont move do nothing
             }
         }
+        public Bit CaptureWindow()
+        {
 
+            IntPtr hdcSrc = User32.GetWindowDC(HWND);
+
+            
+
+            
+
+            IntPtr hdcDest = Gdi32.CreateCompatibleDC(hdcSrc);
+            IntPtr hBitmap = Gdi32.CreateCompatibleBitmap(hdcSrc, MyRect.Width, MyRect.Height);
+
+            IntPtr hOld = Gdi32.SelectObject(hdcDest, hBitmap);
+            Gdi32.BitBlt(hdcDest, 0, 0, MyRect.Width, MyRect.Height, hdcSrc, 0, 0, SRCCOPY);
+            Gdi32.SelectObject(hdcDest, hOld);
+            Gdi32.DeleteDC(hdcDest);
+            User32.ReleaseDC(HWND, hdcSrc);
+
+            Bitmap image = Image.FromHbitmap(hBitmap);
+            Gdi32.DeleteObject(hBitmap);
+
+            return image;
+        }
+
+    }
+
+    public static class User32
+    {
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDesktopWindow();
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetWindowDC(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        public static extern IntPtr ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    }
+
+    public class Gdi32
+    {
+        [DllImport("gdi32.dll")]
+        public static extern bool BitBlt(IntPtr hObject, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hObjectSource, int nXSrc, int nYSrc, int dwRop);
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteDC(IntPtr hDC);
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
     }
 
 
 
 
 
-
-
-
-
-public class PixelLocation
+    public class PixelLocation
     {
         public PixelLocation(int x, int y)
         {
