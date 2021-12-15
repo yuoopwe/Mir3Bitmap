@@ -705,9 +705,9 @@ namespace bitmap
 
                Bitmap image = Image.FromHbitmap(hBitmap);
                Gdi32.DeleteObject(hBitmap);
-
-               return image;
-
+            e
+               return hBitmap;
+               
 
            }
         public unsafe void FindMap(Bitmap bmpScreenshot)
