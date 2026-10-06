@@ -284,7 +284,7 @@ for (const name of mapFixtureNames()) {
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) if (!isWall(map, x, y) && (x * 7 + y * 13) % 211 === 0 && (x !== player.x || y !== player.y)) obstacles.push({ x, y });
     }
-    const result = simulateMapExplore(map, player, { obstacles });
+    const result = simulateMapExplore(map, player, { obstacles, onRoute: (plan, at, seen) => assertWalkable(seen, plan, at) });
     assert.ok(result.steps95 !== null, `${Math.round(result.explored * 100)}% after ${result.steps} steps`);
     assert.ok(result.blocked > 0);
     addRow(map, `${map.name}, ${obstacles.length} unseen obstacles (blocked ${result.blocked} times)`, 3, result);
