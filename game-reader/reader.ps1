@@ -7,6 +7,7 @@ $lib = Join-Path $PSScriptRoot 'lib'
 # ClrMD's helpers (Azure.Core is only used for symbol downloads, but has to load).
 Get-ChildItem $lib -Filter *.dll | Where-Object { $_.Name -ne 'Microsoft.Diagnostics.Runtime.dll' } | ForEach-Object { try { Add-Type -Path $_.FullName } catch {} }
 Add-Type -Path (Join-Path $lib 'Microsoft.Diagnostics.Runtime.dll')
+Add-Type -Path (Join-Path $PSScriptRoot 'MapReading.cs') -ReferencedAssemblies (Join-Path $lib 'Microsoft.Diagnostics.Runtime.dll')
 
 function Write-State($state) {
   [Console]::Out.WriteLine(($state | ConvertTo-Json -Compress -Depth 6))
@@ -250,6 +251,48 @@ function Read-RuleList($list) {
   return $out
 }
 
+# The map: its size, its walls (sent when the map changes, and again on each attach in case
+# they were read while it was still loading) and its explored blocks (sent when they change).
+function Read-Map($scene) {
+  $control = $scene.ReadObjectField('MapControl')
+  $info = $control.ReadObjectField('_MapInfo')
+  if ($info.IsNull) { return $null }
+  $index = $info.ReadField[int]('<Index>k__BackingField')
+  $width = $control.ReadField[int]('Width'); $height = $control.ReadField[int]('Height')
+  $map = @{ index = $index; name = $info.ReadStringField('_Description'); width = $width; height = $height }
+  $key = "$index/$width/$height"
+  if ($script:wallsSent -ne $key) {
+    $map.walls = [Convert]::ToBase64String([MapReading]::Walls($control))
+    $script:wallsSent = $key
+    $script:exploredSent = $null
+  }
+  # Exploration is kept per map (and per instance, for dungeons visited this session).
+  $states = $scene.ReadObjectField('<MapExplorationStore>k__BackingField').ReadObjectField('_states')
+  $entries = $states.ReadObjectField('_entries').AsArray()
+  $state = $null
+  for ($i = 0; $i -lt $states.ReadField[int]('_count'); $i++) {
+    $entry = $entries.GetStructValue($i)
+    if ($entry.ReadField[int]('next') -lt -1) { continue }
+    $candidate = $entry.ReadObjectField('value')
+    if ($candidate.IsNull -or $candidate.ReadField[int]('<MapIndex>k__BackingField') -ne $index) { continue }
+    # An instance's own record (SessionOnly) wins over the map's.
+    if (-not $state -or $candidate.ReadField[bool]('<SessionOnly>k__BackingField')) { $state = $candidate }
+  }
+  if ($state) {
+    $map.blockSize = $state.ReadField[int]('<BlockSize>k__BackingField')
+    $map.gridWidth = $state.ReadField[int]('<GridWidth>k__BackingField')
+    $map.gridHeight = $state.ReadField[int]('<GridHeight>k__BackingField')
+    $map.revision = $state.ReadField[int]('<Revision>k__BackingField')
+    $sent = "$key/$($map.revision)/$($state.Address)"
+    if ($script:exploredSent -ne $sent) {
+      $bits = $state.ReadObjectField('_exploredBits').AsArray()
+      $map.explored = [Convert]::ToBase64String($bits.ReadValues[byte](0, $bits.Length))
+      $script:exploredSent = $sent
+    }
+  }
+  return $map
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -266,6 +309,7 @@ while ($true) {
     $domain = $runtime.AppDomains[0]
     $module = $runtime.EnumerateModules() | Where-Object { $_.Name -like '*Xtreme.dll' } | Select-Object -First 1
     $script:cardsByImage = $null
+    $script:wallsSent = $null
     $sceneField = $module.GetTypeByName('Client.Scenes.GameScene').GetStaticFieldByName('Game')
     # Reads go straight to the game's live memory; attach afresh now and then all the same.
     $attachedAt = [Diagnostics.Stopwatch]::StartNew()
@@ -305,7 +349,9 @@ while ($true) {
         try { $triad = Read-Triad $scene $module $domain } catch { $triad = @{ open = $true; error = $_.Exception.Message } }
         $collection = $null
         try { $collection = Read-Collection $scene $module $domain } catch { $collection = @{ error = $_.Exception.Message } }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection }
+        $map = $null
+        try { $map = Read-Map $scene } catch { $script:wallsSent = $null }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

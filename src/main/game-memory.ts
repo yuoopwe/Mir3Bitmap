@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { Point } from '../shared/types';
+import { updateMap, type MapGrid, type MapReading } from './map-grid';
 
 /**
  * What's around the player, read straight from the game's memory by
@@ -113,6 +114,8 @@ export interface MemoryState {
   /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat). */
   user?: { name: string; x: number; y: number; pickUpRadius?: number };
   objects?: MemoryObject[];
+  /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
+  map?: MapReading | null;
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */
@@ -131,6 +134,7 @@ export class GameMemory {
   private state: MemoryState | null = null;
   private stateAt = 0;
   private buffer = '';
+  private grid: MapGrid | null = null;
 
   constructor(private readonly folder: string) {}
 
@@ -154,6 +158,12 @@ export class GameMemory {
         try {
           this.state = JSON.parse(line) as MemoryState;
           this.stateAt = performance.now();
+          this.grid = updateMap(this.grid, this.state.map);
+          // Decoded into the grid; no need to keep the text.
+          if (this.state.map) {
+            delete this.state.map.walls;
+            delete this.state.map.explored;
+          }
         } catch {
           // A partial or garbled line: the next one will do.
         }
@@ -172,6 +182,12 @@ export class GameMemory {
     this.child?.kill();
     this.child = null;
     this.state = null;
+    this.grid = null;
+  }
+
+  /** The current map's walls and explored blocks, once known. */
+  map(): MapGrid | null {
+    return this.latest() ? this.grid : null;
   }
 
   /** The latest reading if it's recent and in game, else null. */

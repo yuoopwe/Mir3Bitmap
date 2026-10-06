@@ -53,6 +53,11 @@ under "Monsters to hunt": untick one to leave it alone. Without the reader it fa
 Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen and
 the player's tile is centred on (792, 400), measured from the game's own "Co Ords" readout in its title bar.
 
+The reader also sends the current map: which tiles are walls (`MapControl.Cells`, read in one go by
+`game-reader/MapReading.cs`) and which 4x4-tile blocks have been explored (`GameScene.MapExplorationStore`, the fog
+on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. To save the map you're on for
+tests, run `node scripts/save-map.js` (writes `src/test/fixture-map-<name>.json`).
+
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and
