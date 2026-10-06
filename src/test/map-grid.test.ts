@@ -1,24 +1,9 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import { test } from 'node:test';
-import { exploredShare, isBlockExplored, isExplored, isWall, updateMap, type MapGrid, type MapReading } from '../main/map-grid';
+import { exploredShare, isBlockExplored, isExplored, isWall, updateMap } from '../main/map-grid';
+import { loadMapFixture, mapFixtureNames } from './map-fixtures';
 
-/** A map saved from the game by scripts/save-map.js: the reader's map reading plus where the player stood. */
-export interface MapFixture extends MapReading {
-  player: { x: number; y: number };
-}
-
-const folder = path.join(__dirname, '..', '..', 'src', 'test');
-
-export function loadMapFixture(name: string): { map: MapGrid; player: { x: number; y: number } } {
-  const fixture = JSON.parse(readFileSync(path.join(folder, `fixture-map-${name}.json`), 'utf8')) as MapFixture;
-  return { map: updateMap(null, fixture)!, player: fixture.player };
-}
-
-const names = readdirSync(folder)
-  .filter((f) => /^fixture-map-.*\.json$/.test(f))
-  .map((f) => f.slice('fixture-map-'.length, -'.json'.length));
+const names = mapFixtureNames();
 
 for (const name of names) {
   test(`saved map ${name}: the player stands on floor, in an explored block`, () => {
