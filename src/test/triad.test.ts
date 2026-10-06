@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BASIC_RULES, bestMove, heuristicMove, place, play, score, sideValue, type Card, type Game, type Placed } from '../main/triad';
+import { BASIC_RULES, LOOKAHEAD, Solver, bestMove, greedyMove, heuristicMove, place, play, rankMoves, score, searchMove, sideValue, type Card, type Game, type Placed } from '../main/triad';
 
 const card = (top: number, right: number, bottom: number, left: number): Card => ({ top, right, bottom, left });
 const empty = (): (Placed | null)[] => Array(9).fill(null);
@@ -142,6 +142,92 @@ test('Elemental: the search knows which square suits which card', () => {
   };
   assert.deepEqual(bestMove(game)!.move, { card: 1, cell: 4 });
   assert.equal(play(game, { card: 1, cell: 4 }).elements, game.elements);
+});
+
+// ---- Searching the whole game (both hands known) ----
+
+const ALL_RULES = { same: true, plus: true, combo: true };
+/** A board from [owner, top, right, bottom, left] (null for empty). */
+const boardOf = (cells: ([Placed['owner'], number, number, number, number] | null)[]): (Placed | null)[] =>
+  cells.map((c) => (c ? { owner: c[0], card: card(c[1], c[2], c[3], c[4]) } : null));
+
+test('the search finds a win that the greedy move throws away', () => {
+  const game: Game = {
+    board: boardOf([['me', 8, 9, 9, 7], ['them', 2, 8, 3, 7], ['me', 7, 1, 9, 7], ['me', 4, 6, 7, 7], ['them', 6, 5, 9, 1], ['them', 3, 6, 7, 8], null, null, null]),
+    hands: { me: [card(6, 6, 1, 2), card(7, 3, 1, 9)], them: [card(2, 5, 3, 2), card(9, 6, 7, 2)] },
+    turn: 'me',
+    rules: BASIC_RULES,
+  };
+  // Nothing can be captured, so greedy tucks the 7-3-1-9 into the corner (square 9); her 9-6-7-2 then
+  // goes to square 7 and takes my 4-6-7-7 above it: 4-6. Covering square 7 first wins 6-4.
+  assert.deepEqual(greedyMove(game), { card: 1, cell: 8 });
+  assert.equal(new Solver().value(play(game, greedyMove(game)!)), -2);
+  const search = searchMove(game)!;
+  assert.deepEqual(search.move, { card: 0, cell: 6 });
+  assert.equal(search.margin, 2);
+  assert.ok(search.exact);
+  assert.equal(bestMove(game)!.margin, search.margin);
+});
+
+test('the search avoids a loss that counting on a greedy opponent walks into', () => {
+  const game: Game = {
+    board: boardOf([['them', 4, 2, 8, 7], ['me', 4, 8, 6, 8], null, ['me', 7, 2, 8, 5], ['them', 8, 5, 4, 7], ['them', 7, 2, 8, 8], ['them', 7, 9, 4, 8], null, null]),
+    hands: { me: [card(6, 7, 2, 2), card(8, 3, 1, 7)], them: [card(3, 3, 7, 4), card(8, 4, 2, 3)] },
+    turn: 'me',
+    rules: BASIC_RULES,
+  };
+  // rankMoves (what memory play used before) takes a card in square 3: +2 if she replies greedily,
+  // but her 8-4-2-3 in square 8 wins it for her. The search settles for a sure draw.
+  const ranked = rankMoves(game)[0];
+  assert.deepEqual(ranked.move, { card: 1, cell: 2 });
+  assert.equal(ranked.againstGreedy, 2);
+  assert.equal(new Solver().value(play(game, ranked.move)), -2);
+  const search = searchMove(game)!;
+  assert.deepEqual(search.move, { card: 0, cell: 7 });
+  assert.equal(search.margin, 0);
+});
+
+test('the search plays by Same, Plus, Combo and Elemental', () => {
+  // Same flips squares 2 and 6 (3 = 3 and 7 = 7); Combo then takes square 3 with square 2's 5.
+  const board = boardOf([null, ['them', 1, 5, 3, 1], ['them', 1, 1, 1, 1], null, null, ['them', 1, 1, 1, 7], null, null, null]);
+  const game: Game = { board, hands: { me: [card(1, 1, 1, 1), card(3, 7, 1, 1)], them: [card(1, 1, 1, 1)] }, turn: 'me', rules: ALL_RULES };
+  const search = searchMove(game)!;
+  assert.deepEqual(search.move, { card: 1, cell: 4 });
+  assert.equal(search.margin, bestMove(game)!.margin);
+  // On an ice square the 3s and 7s drop to 2s and 6s, Same no longer fires, and the move loses its point.
+  const iced = searchMove({ ...game, elements: [0, 0, 0, 0, ICE, 0, 0, 0, 0] })!;
+  assert.ok(iced.margin < search.margin);
+});
+
+test('when the whole game is too big, the search looks a few moves ahead instead', () => {
+  const board = empty();
+  board[4] = { card: card(5, 5, 5, 5), owner: 'them' };
+  const game: Game = { board, hands: { me: MY_HAND, them: [card(3, 2, 4, 1), card(2, 5, 1, 3), card(4, 1, 3, 2), card(1, 4, 2, 5)] }, turn: 'me', rules: BASIC_RULES };
+  const full = searchMove(game)!;
+  assert.ok(full.exact);
+  assert.equal(full.depth, 8);
+  // Allowed to look at only a few positions, it gives up on the full search.
+  const short = searchMove(game, 100)!;
+  assert.equal(short.exact, false);
+  assert.equal(short.depth, LOOKAHEAD);
+  assert.ok(game.hands.me.includes(game.hands.me[short.move.card]) && !game.board[short.move.cell]);
+});
+
+test('the opening move (five cards each, every rule on) is decided within a second', () => {
+  const game: Game = {
+    board: empty(),
+    hands: { me: MY_HAND.map((c, i) => withElement(c, i % 3)), them: [card(3, 2, 4, 1), card(2, 5, 1, 3), card(4, 1, 3, 2), card(1, 4, 2, 5), withElement(card(3, 3, 3, 3), FIRE)] },
+    turn: 'me',
+    rules: ALL_RULES,
+    elements: [FIRE, 0, 0, 0, ICE, 0, 0, 0, FIRE],
+  };
+  const started = performance.now();
+  const search = searchMove(game)!;
+  const ms = performance.now() - started;
+  console.log(`opening move: ${ms.toFixed(0)} ms, ${search.depth} moves ahead`);
+  assert.ok(ms < 1000, `took ${ms.toFixed(0)} ms`);
+  assert.equal(search.exact, false);
+  assert.ok(search.move.card < 5 && search.move.cell < 9);
 });
 
 // ---- Reading the screen ----
