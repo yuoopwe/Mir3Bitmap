@@ -16,6 +16,8 @@ const api: BotApi = {
   listNames: () => ipcRenderer.invoke('names:list'),
   setNameRule: (fingerprint, rule) => ipcRenderer.invoke('names:rule', fingerprint, rule),
   forgetName: (fingerprint) => ipcRenderer.invoke('names:forget', fingerprint),
+  loadStats: (saved) => ipcRenderer.invoke('stats:load', saved),
+  resetStats: () => ipcRenderer.invoke('stats:reset'),
   onStatus: (listener) => {
     ipcRenderer.on('bot:status', (_event, status) => listener(status));
   },

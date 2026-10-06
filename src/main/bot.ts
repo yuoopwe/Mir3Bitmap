@@ -1,10 +1,10 @@
 import { performance } from 'node:perf_hooks';
-import type { Delays, Destination, KeyId, Point, Settings, Status } from '../shared/types';
+import type { Delays, Destination, KeyId, Point, Settings, Stats, Status } from '../shared/types';
 import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
 import type { Card } from './triad';
 import type { TriadMemory } from './triad-memory';
-import { cardOf, decideFromMemory, decideTriad, myTurnInMemory, rulesFromFlags, type ReadCard } from './triad-player';
+import { cardOf, decideFromMemory, decideTriad, matchResult, myTurnInMemory, rulesFromFlags, type ReadCard } from './triad-player';
 import { HAND_SLOTS, OK as TRIAD_OK, boardSampler, cellCentre, centre, readTriad, type TriadScreen } from './triad-vision';
 import { findLabels } from './labels';
 import {
@@ -23,6 +23,7 @@ import {
 import { locatePlayer, nearestMonster, readMinimap } from './minimap';
 import type { NameBook } from './names';
 import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTile } from './pathing';
+import { SessionStats } from './session-stats';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
 import { chooseDeck, deckInputs } from './triad-deck';
@@ -353,6 +354,8 @@ export class Bot {
   private hp: number | null = null;
   private mp: number | null = null;
   private kills = 0;
+  /** What's been done this session and in all, for the window's stats panel. */
+  private readonly stats = new SessionStats();
   private lastStatusAt = 0;
   /** The rule flags of the last Triple Triad match read from memory: Best deck picks cards for them. */
   private triadRules = 0;
@@ -369,6 +372,20 @@ export class Bot {
 
   stop(): void {
     this.active = false;
+  }
+
+  /** Takes the all-time totals the window saved; returns the stats to show. */
+  loadStats(saved: unknown): Stats {
+    this.stats.restore(saved);
+    return this.stats.snapshot(performance.now());
+  }
+
+  /** Clears this session's counts (all time keeps them); returns the stats to show. */
+  resetStats(): Stats {
+    this.stats.reset(performance.now());
+    // The status line's kills too, so it agrees with the panel's "this session".
+    this.kills = 0;
+    return this.stats.snapshot(performance.now());
   }
 
   startAttack(): void {
@@ -410,6 +427,7 @@ export class Bot {
     if (this.mode !== 'idle') return;
     this.mode = mode;
     this.active = true;
+    this.stats.start(performance.now());
     let message = 'Stopped';
     try {
       this.hwnd = win.findWindow(this.settings.windowTitle);
@@ -433,6 +451,7 @@ export class Bot {
       this.mode = 'idle';
       this.active = false;
       this.sightings.reset();
+      this.stats.stop(performance.now());
       this.status(message);
     }
   }
@@ -448,6 +467,7 @@ export class Bot {
       mp: this.mp,
       kills: this.kills,
       explored: this.explored,
+      stats: this.stats.snapshot(performance.now()),
     });
   }
 
@@ -563,10 +583,19 @@ export class Bot {
       const live = candidates.filter((c) => !skipped.has(c.key));
       let target: HuntTarget | undefined = current ? live.find((c) => c.key === current!.key) : undefined;
       if (current && !target) {
-        // Gone: dead (or out of sight). Pick up what it dropped if it died close by.
-        this.kills++;
+        // Gone: dead (or, on screen, out of sight). Pick up what it dropped if it died close by.
+        // Not a kill if the other source picked it (the memory reading came or went: the keys differ),
+        // or if the memory still has it alive (gone under the HUD, say).
+        const key = current.key;
+        const killed = key.startsWith(memory ? 'm' : 's') && !memory?.objects?.some((o) => `m${o.id}` === key && !o.dead);
         current = null;
-        if (this.settings.hunt.loot && !memory) {
+        if (killed) {
+          this.kills++;
+          this.stats.count('kills');
+        }
+        if (killed && this.settings.hunt.loot && !memory) {
+          // Without the memory there's no telling what was picked up: count the try.
+          this.stats.count('items');
           this.releaseHold();
           await this.clickFloor(KILL_FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
           nextFloorAt = performance.now() + FLOOR_CLICK_EVERY_MS;
@@ -579,8 +608,11 @@ export class Bot {
         // Items within reach: click the feet straight away (between attacks), giving up on any that stay put.
         const inReach = items.filter((i) => i.distance <= reach);
         for (const [key, since] of inReachSince) {
-          if (!inReach.some((i) => i.key === key)) inReachSince.delete(key);
-          else if (now - since > LOOT_GIVE_UP_MS) {
+          if (!inReach.some((i) => i.key === key)) {
+            // Gone from the ground (not just out of reach) without being given up on: picked up, most likely.
+            if (!items.some((i) => i.key === key)) this.stats.count('items');
+            inReachSince.delete(key);
+          } else if (now - since > LOOT_GIVE_UP_MS) {
             skipped.set(key, now + LOOT_SKIP_MS);
             inReachSince.delete(key);
           }
@@ -1183,12 +1215,19 @@ export class Bot {
     this.options.memory.start();
     const started = performance.now();
     let okPressed = false;
+    // The match's last reading with the board: the result box can come up with the board already gone.
+    // Cleared once the result is counted, so each match counts once.
+    let lastBoard: MemoryTriad | null = null;
     while (true) {
       await this.yieldToEvents();
       const live = this.options.memory.latest()?.triad;
       if (live?.ok) {
         if (!okPressed) matches++;
         okPressed = true;
+        if (lastBoard) {
+          this.stats.countMatch(matchResult(live) ?? matchResult(lastBoard));
+          lastBoard = null;
+        }
         this.status('Game over; pressing OK');
         await this.click(boxCentre(live.ok), this.delay('menu'));
         await this.sleep(TRIAD_SETTLE_MS);
@@ -1196,6 +1235,8 @@ export class Bot {
       }
       okPressed = false;
       if (live?.open) {
+        // Not a finished match still showing after its OK: that one has been counted.
+        if (live.board && (lastBoard || !live.complete)) lastBoard = live;
         await this.triadTurnFromMemory(live);
         continue;
       }
@@ -1223,6 +1264,8 @@ export class Bot {
       if (screen.over) {
         if (!wasOver) {
           matches++;
+          // The screen doesn't say who won: count it as played only.
+          this.stats.countMatch(null);
           // She always plays the same cards: remember the ones she played.
           if (match) memory.remember(match.opponent, [...match.hers.values()]);
           match = null;
@@ -1379,7 +1422,10 @@ export class Bot {
       // The node being gathered: gone or picked means done.
       let node: MemoryObject | undefined = current ? nodes.find((o) => o.id === current!.id) : undefined;
       if (current && !node) {
-        if (current.clickedAt !== null) gathered++;
+        if (current.clickedAt !== null) {
+          gathered++;
+          this.stats.count('gathered');
+        }
         current = null;
       }
       if (!node) {
@@ -1518,6 +1564,8 @@ export class Bot {
       const after = (await memory.fresh())?.collection;
       const sorted = (ids: number[]) => [...ids].sort((a, b) => a - b).join();
       const saved = after && sorted(after.saved) === sorted(choice.deck);
+      // Counted even if the save didn't show: the slots have changed either way.
+      this.stats.count('decks');
       return saved ? `Deck saved: ${summary}` : `Deck set but maybe not saved (press Save Deck): ${summary}`;
     }
     throw new BotError("Couldn't build the deck.");

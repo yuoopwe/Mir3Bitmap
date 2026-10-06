@@ -5,6 +5,8 @@ type Area = import('../shared/types').Area;
 type Status = import('../shared/types').Status;
 type NameEntry = import('../shared/types').NameEntry;
 type NameRule = import('../shared/types').NameRule;
+type Stats = import('../shared/types').Stats;
+type StatCounts = import('../shared/types').StatCounts;
 
 interface Window {
   bot: BotApi;

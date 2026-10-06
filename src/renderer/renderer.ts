@@ -20,6 +20,8 @@ const PICK_UP_KEYS = ['', 'Tab', 'Space', '`', 'Z', 'X', 'C', 'V', 'G', 'F'];
 const POTION_KEYS = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
 const RULE_LABELS: Record<NameRule, string> = { auto: 'Auto', attack: 'Always attack', ignore: 'Never attack' };
 const SETTINGS_KEY = 'settings-v2';
+/** All-time stats get a key of their own: saveSettings rewrites the settings from the form on every change. */
+const STATS_KEY = 'stats-v1';
 
 function element<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -60,6 +62,7 @@ const stopButton = element<HTMLButtonElement>('stop-button');
 const statusText = element<HTMLSpanElement>('status');
 const vitalsText = element<HTMLSpanElement>('vitals');
 const timingText = element<HTMLSpanElement>('timing');
+const statsResetButton = element<HTMLButtonElement>('stats-reset');
 const namesList = element<HTMLUListElement>('names');
 const monstersList = element<HTMLUListElement>('monsters');
 /** Monster names Hunt leaves alone, and those seen so far. */
@@ -73,6 +76,27 @@ const keyInputs = new Map<KeyId, { enabled: HTMLInputElement; seconds: HTMLInput
 const delayInputs = new Map<DelayId, HTMLInputElement>();
 let fuzzInput: HTMLInputElement;
 let currentArea: Area | null = null;
+
+const count = (n: number) => n.toLocaleString();
+/** The stats panel's rows, in two groups side by side: a label, and how to show its count. */
+const STAT_ROWS: { label: string; hint?: string; show: (counts: StatCounts) => string }[][] = [
+  [
+    { label: 'Time running', show: (c) => duration(c.runningMs) },
+    { label: 'Monsters killed', hint: 'Targets that died while being attacked. Without the memory reader: targets gone from view.', show: (c) => count(c.kills) },
+    { label: 'Items picked up', hint: 'With the memory reader: items in reach that were then gone. Without it: pick-up tries after kills.', show: (c) => count(c.items) },
+    { label: 'Nodes gathered', show: (c) => count(c.gathered) },
+  ],
+  [
+    { label: 'Triple Triad played', show: (c) => count(c.triadPlayed) },
+    { label: 'Won · lost · drawn', hint: "From the final board in the game's memory: without the memory reader, matches count as played only", show: (c) => `${count(c.triadWon)} · ${count(c.triadLost)} · ${count(c.triadDrawn)}` },
+    { label: 'Decks built', hint: 'Best deck runs that changed the deck', show: (c) => count(c.decks) },
+  ],
+];
+const statCells: { show: (counts: StatCounts) => string; session: HTMLTableCellElement; allTime: HTMLTableCellElement }[] = [];
+/** The last stats from the bot, when they came, and whether the bot was running then. */
+let stats: Stats | null = null;
+let statsAt = 0;
+let botRunning = false;
 
 function buildKeyRows(): void {
   const body = element<HTMLTableSectionElement>('keys');
@@ -93,6 +117,28 @@ function buildKeyRows(): void {
     row.insertCell().append(seconds);
     row.insertCell().append(label);
     keyInputs.set(id, { enabled, seconds });
+  }
+}
+
+function buildStatsTables(): void {
+  for (const group of STAT_ROWS) {
+    const table = document.createElement('table');
+    const head = table.createTHead().insertRow();
+    for (const text of ['', 'This session', 'All time']) {
+      const cell = document.createElement('th');
+      cell.textContent = text;
+      head.append(cell);
+    }
+    const body = table.createTBody();
+    for (const row of group) {
+      const line = body.insertRow();
+      const label = document.createElement('th');
+      label.textContent = row.label;
+      if (row.hint) label.title = row.hint;
+      line.append(label);
+      statCells.push({ show: row.show, session: line.insertCell(), allTime: line.insertCell() });
+    }
+    statsResetButton.before(table);
   }
 }
 
@@ -312,8 +358,50 @@ function logActivity(message: string): void {
   while (activityLog.children.length > LOG_LENGTH) activityLog.lastElementChild?.remove();
 }
 
+/** "45s", "12m 05s", "1h 05m": seconds stop mattering after the first hour. */
+function duration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor(seconds / 60) % 60;
+  const two = (n: number) => String(n).padStart(2, '0');
+  if (hours > 0) return `${hours}h ${two(minutes)}m`;
+  if (minutes > 0) return `${minutes}m ${two(seconds % 60)}s`;
+  return `${seconds % 60}s`;
+}
+
+/** Fills in the stats panel; while the bot runs, the time running keeps ticking between its reports. */
+function renderStats(): void {
+  if (!stats) return;
+  const since = botRunning ? Date.now() - statsAt : 0;
+  const session = { ...stats.session, runningMs: stats.session.runningMs + since };
+  const allTime = { ...stats.allTime, runningMs: stats.allTime.runningMs + since };
+  for (const cell of statCells) {
+    cell.session.textContent = cell.show(session);
+    cell.allTime.textContent = cell.show(allTime);
+  }
+}
+
+/** New stats from the bot: shows them and saves the all-time totals (the bot only keeps them while the app is open). */
+function showStats(latest: Stats): void {
+  stats = latest;
+  statsAt = Date.now();
+  renderStats();
+  localStorage.setItem(STATS_KEY, JSON.stringify(latest.allTime));
+}
+
+/** The all-time totals saved last time, if they can be read (the bot checks what's in them). */
+function savedStats(): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(STATS_KEY) ?? 'null');
+  } catch {
+    return null;
+  }
+}
+
 function showStatus(status: Status): void {
   const running = status.mode !== 'idle';
+  botRunning = running;
+  if (status.stats) showStats(status.stats);
   statusText.textContent = status.message;
   logActivity(status.message);
   attackButton.disabled = running;
@@ -335,6 +423,7 @@ async function init(): Promise<void> {
   buildKeyRows();
   buildDelayFields();
   buildPotionSelects();
+  buildStatsTables();
   windowTitle.value = 'Legend of Mir III - Xtreme Edition';
   loot.checked = true;
   explorePercent.value = '95';
@@ -347,7 +436,11 @@ async function init(): Promise<void> {
   saveSettings();
   document.body.addEventListener('change', saveSettings);
 
+  // Before any status comes in, hand the bot the totals saved last time.
+  showStats(await window.bot.loadStats(savedStats()));
   window.bot.onStatus(showStatus);
+  statsResetButton.addEventListener('click', () => void window.bot.resetStats().then(showStats));
+  setInterval(renderStats, 1000);
   window.bot.onNames(showNames);
   window.bot.onMonsters((names) => {
     monstersSeen = names;

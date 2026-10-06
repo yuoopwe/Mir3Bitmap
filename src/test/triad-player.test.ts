@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import type { MemoryCard, MemoryTriad } from '../main/game-memory';
-import { decideFromMemory, herCardsLeft, myIndex, myTurnInMemory, RULE_ELEMENTAL } from '../main/triad-player';
+import { decideFromMemory, herCardsLeft, matchResult, myIndex, myTurnInMemory, RULE_ELEMENTAL } from '../main/triad-player';
 
 /**
  * Hand-built readings shaped like the memory reader's (real cards' numbers;
@@ -129,4 +129,29 @@ test('decideFromMemory: cards that have changed hands count for whoever owns the
   assert.equal(decision.cell, 4);
   assert.equal(decision.expected, 0);
   assert.equal(decision.worstCase, 0);
+});
+
+test('matchResult: cards owned on the full board plus those left in hand', () => {
+  // My last card (Funguar) to the middle, taking the Geezard above it: 5 on the board to her 4,
+  // but she went second and still holds her Gayla, so it's 5 each.
+  const last = fixture('last');
+  const funguar = last.players![0].deck[0];
+  const board = last.board!.map((c, i) => (i === 4 ? { ...funguar, owner: 0 } : i === 1 ? { ...c!, owner: 0 } : c));
+  const final: MemoryTriad = { ...last, complete: true, board, hand: [], players: [{ ...last.players![0], deck: [] }, last.players![1]] };
+  assert.equal(matchResult(final), 'drawn');
+  // Had the Geezard stayed hers: 4 to 6.
+  const lost = { ...final, board: board.map((c, i) => (i === 1 ? { ...c!, owner: 1 } : c)) };
+  assert.equal(matchResult(lost), 'lost');
+  // Taking her Fire Minotaur too: 6 to 4.
+  assert.equal(matchResult({ ...final, board: board.map((c, i) => (i === 5 ? { ...c!, owner: 0 } : c)) }), 'won');
+  // Seen from her side.
+  assert.equal(matchResult({ ...lost, playerName: '[Card Guild] Siren Selka' }), 'won');
+  assert.equal(matchResult({ ...final, playerName: '[Card Guild] Siren Selka' }), 'drawn');
+});
+
+test('matchResult: no result without the full board', () => {
+  assert.equal(matchResult(fixture('start')), null);
+  assert.equal(matchResult(fixture('last')), null, 'the last square is still empty');
+  // Once the match's window has closed, the reader sends the result box's OK button alone.
+  assert.equal(matchResult({ open: false, ok: box }), null);
 });

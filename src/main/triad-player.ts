@@ -136,6 +136,23 @@ export function myIndex(triad: MemoryTriad): number {
   return human >= 0 ? human : 0;
 }
 
+export type MatchResult = 'won' | 'lost' | 'drawn';
+
+/**
+ * How a match ended for me, from a reading of its full board: each player
+ * scores the cards they own on the board plus those still in hand (whoever
+ * went second has one left). Null without a full board, e.g. when the
+ * reading is the result box alone, or the last card was never seen down.
+ */
+export function matchResult(triad: MemoryTriad): MatchResult | null {
+  const { players, board } = triad;
+  if (!players || players.length !== 2 || !board || board.length !== 9 || board.some((c) => !c)) return null;
+  const me = myIndex(triad);
+  const score = (player: number) => board.filter((c) => c!.owner === player).length + players[player].deck.length;
+  const margin = score(me) - score(1 - me);
+  return margin > 0 ? 'won' : margin < 0 ? 'lost' : 'drawn';
+}
+
 /** Whether it's my move, as the game's memory says. */
 export function myTurnInMemory(triad: MemoryTriad): boolean {
   return !triad.complete && triad.current === myIndex(triad) && (triad.stage === 0 || triad.stage === -1);

@@ -51,12 +51,12 @@ main {
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  /* Too much to fit: scroll the column rather than squash its boxes into each other or spill over the footer. */
+  overflow-y: auto;
 }
 
 .column:last-child {
   flex: 1;
-  /* Too much to fit: scroll the column rather than squash its boxes into each other. */
-  overflow-y: auto;
   padding-right: 4px;
 }
 
@@ -186,16 +186,61 @@ fieldset {
 
 footer {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
+}
+
+.status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 #vitals,
 #timing {
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
+}
+
+/* Session stats, under the status line: two small tables side by side. */
+#stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 28px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#stats th,
+#stats td {
+  padding: 0 0 0 16px;
+}
+
+#stats th {
+  font-weight: normal;
+  opacity: 0.7;
+}
+
+#stats tbody th {
+  padding-left: 0;
+}
+
+#stats thead th {
+  font-weight: 600;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+
+#stats td {
+  text-align: right;
+}
+
+#stats button {
+  margin-left: auto;
+  padding: 0 6px;
 }
 
 /* Monsters to hunt: compact columns of tick boxes. */

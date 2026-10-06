@@ -125,6 +125,32 @@ export interface Status {
   kills?: number;
   /** Share of the current map uncovered, 0-1, from the last look at the big map. */
   explored?: number | null;
+  stats?: Stats;
+}
+
+/** What the bot has done (counted by src/main/session-stats.ts). */
+export interface StatCounts {
+  /** Targets gone while being attacked (as the kills in Status). */
+  kills: number;
+  /** Items that were in reach and then gone from the game's memory; without the memory reader, pick-up tries after kills. */
+  items: number;
+  gathered: number;
+  /** Triple Triad matches finished; won, lost or drawn only when the final board was read from the game's memory. */
+  triadPlayed: number;
+  triadWon: number;
+  triadLost: number;
+  triadDrawn: number;
+  /** Best deck runs that finished. */
+  decks: number;
+  /** Time spent running a mode, in milliseconds. */
+  runningMs: number;
+}
+
+export interface Stats {
+  /** Since the app started or Reset was pressed. */
+  session: StatCounts;
+  /** Everything ever counted: the window keeps it between runs of the app. */
+  allTime: StatCounts;
 }
 
 export interface BotApi {
@@ -144,6 +170,10 @@ export interface BotApi {
   listNames(): Promise<NameEntry[]>;
   setNameRule(fingerprint: string, rule: NameRule): Promise<void>;
   forgetName(fingerprint: string): Promise<void>;
+  /** Hands the bot the all-time totals the window saved (anything unreadable is ignored); returns the stats to show. */
+  loadStats(saved: unknown): Promise<Stats>;
+  /** Clears this session's counts (the all-time totals keep them); returns the stats to show. */
+  resetStats(): Promise<Stats>;
   onStatus(listener: (status: Status) => void): void;
   onNames(listener: (names: NameEntry[]) => void): void;
   /** Monster names seen in the game's memory while hunting. */
