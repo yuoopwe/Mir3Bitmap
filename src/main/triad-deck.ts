@@ -77,7 +77,8 @@ function evaluate(deck: OwnedCard[], opponents: Card[][]): { winRate: number; ma
 export function deckInputs(collection: MemoryCollection, allowCopies = true): { owned: OwnedCard[]; pool: Card[] } {
   const toCard = (c: { up: number; right: number; down: number; left: number }) => ({ top: c.up, right: c.right, bottom: c.down, left: c.left });
   const owned: OwnedCard[] = collection.owned.map((o) => ({ id: o.card.image, name: o.card.name, card: toCard(o.card), level: o.card.level ?? 1, count: allowCopies ? o.count : Math.min(o.count, 1) }));
-  const topLevel = Math.max(...owned.map((o) => o.level));
+  // Cards listed with none owned don't count towards the levels I have.
+  const topLevel = Math.max(...owned.filter((o) => o.count > 0).map((o) => o.level));
   return { owned, pool: collection.cards.filter((c) => (c.level ?? 1) <= topLevel).map(toCard) };
 }
 

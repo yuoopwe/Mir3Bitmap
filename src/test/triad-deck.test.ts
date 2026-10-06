@@ -39,3 +39,10 @@ test('chooseDeck: the same seed gives the same deck', () => {
   const { owned, pool } = deckInputs(collection());
   assert.deepEqual(chooseDeck(owned, pool, 7), chooseDeck(owned, pool, 7));
 });
+
+test("chooseDeck: her cards are taken from the levels of the cards I actually own", () => {
+  // A level 4 card listed with none owned (as Gayla is) mustn't bring stronger cards into her pool.
+  const listed = collection();
+  listed.owned.push({ card: listed.cards.find((c) => c.name === 'Bomb')!, count: 0 });
+  assert.equal(deckInputs(listed).pool.length, 8);
+});
