@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BASIC_RULES, LOOKAHEAD, Solver, bestMove, greedyMove, heuristicMove, place, play, rankMoves, score, searchMove, sideValue, type Card, type Game, type Placed } from '../main/triad';
+import { BASIC_RULES, LOOKAHEAD, Solver, bestMove, greedyMove, heuristicMove, place, play, preferAgainstGreedy, rankMoves, score, searchMove, sideValue, type Card, type Game, type Placed } from '../main/triad';
 
 const card = (top: number, right: number, bottom: number, left: number): Card => ({ top, right, bottom, left });
 const empty = (): (Placed | null)[] => Array(9).fill(null);
@@ -221,13 +221,35 @@ test('the opening move (five cards each, every rule on) is decided within a seco
     rules: ALL_RULES,
     elements: [FIRE, 0, 0, 0, ICE, 0, 0, 0, FIRE],
   };
+  // The whole decision, as decideFromMemory makes it: the search, then the tie-break against greedy play.
   const started = performance.now();
   const search = searchMove(game)!;
+  const { move } = preferAgainstGreedy(game, search);
   const ms = performance.now() - started;
-  console.log(`opening move: ${ms.toFixed(0)} ms, ${search.depth} moves ahead`);
+  console.log(`opening move: ${ms.toFixed(0)} ms, ${search.depth} moves ahead, ${search.tied.length} tied`);
   assert.ok(ms < 1000, `took ${ms.toFixed(0)} ms`);
   assert.equal(search.exact, false);
-  assert.ok(search.move.card < 5 && search.move.cell < 9);
+  assert.ok(search.tied.some((m) => m.card === move.card && m.cell === move.cell));
+});
+
+test('of moves tied against perfect play, the one that beats a greedy opponent', () => {
+  const game: Game = {
+    board: boardOf([['me', 2, 8, 9, 3], null, null, ['them', 2, 2, 9, 7], ['them', 5, 1, 2, 3], ['me', 9, 1, 5, 8], ['me', 8, 9, 1, 8], ['them', 4, 7, 3, 2], null]),
+    hands: { me: [card(1, 1, 2, 7), card(3, 1, 3, 2)], them: [card(8, 6, 3, 1), card(4, 1, 9, 2)] },
+    turn: 'me',
+    rules: BASIC_RULES,
+  };
+  // Either card in square 9 draws against her best play, so the search takes the first it looks at.
+  const search = searchMove(game)!;
+  assert.equal(search.margin, 0);
+  assert.deepEqual(search.tied, [{ card: 0, cell: 8 }, { card: 1, cell: 8 }]);
+  // But a greedy opponent then puts her 8-6-3-1 in square 2, and keeping the 1-1-2-7 back lets its 7 take it.
+  const preferred = preferAgainstGreedy(game, search);
+  assert.deepEqual(preferred.move, { card: 1, cell: 8 });
+  assert.equal(preferred.againstGreedy, 2);
+  assert.equal(preferAgainstGreedy(game, { ...search, tied: [search.move] }).againstGreedy, 0);
+  // bestMove doesn't look for ties.
+  assert.deepEqual(bestMove(game)!.tied, [bestMove(game)!.move]);
 });
 
 // ---- Reading the screen ----

@@ -46,3 +46,37 @@ test("chooseDeck: her cards are taken from the levels of the cards I actually ow
   listed.owned.push({ card: listed.cards.find((c) => c.name === 'Bomb')!, count: 0 });
   assert.equal(deckInputs(listed).pool.length, 8);
 });
+
+const SAME = { same: true, plus: false, combo: false };
+const PLUS = { same: false, plus: true, combo: false };
+const nameOf = (owned: { id: number; name: string }[]) => (id: number) => owned.find((o) => o.id === id)!.name;
+
+test('chooseDeck: plays its test games under the rules given', () => {
+  const { owned, pool } = deckInputs(collection());
+  const names = (rules?: typeof SAME) => chooseDeck(owned, pool, 1, rules)!.deck.map(nameOf(owned)).sort();
+  const basic = names();
+  // Same changes which cards are worth having (Cockatrice in for Caterchipillar).
+  assert.notDeepEqual(names(SAME), basic);
+  // Same, Plus and Combo: Ant Healer's four 3s match the 3s on five of the eight level 1 cards she may hold; it never makes a basic deck.
+  assert.ok(!basic.includes('Ant Healer'));
+  assert.ok(names({ same: true, plus: true, combo: true }).includes('Ant Healer'));
+  // With a Gayla owned as well, Plus alone changes the deck too (Blobra in for Caterchipillar).
+  const withGayla = collection();
+  withGayla.owned.find((o) => o.card.name === 'Gayla')!.count = 1;
+  const more = deckInputs(withGayla);
+  const deck = (rules?: typeof SAME) => chooseDeck(more.owned, more.pool, 1, rules)!.deck.map(nameOf(more.owned)).sort();
+  assert.deepEqual(deck(), ['Caterchipillar', 'Funguar', 'Funguar', 'Gayla', 'Geezard']);
+  assert.deepEqual(deck(PLUS), ['Blobra', 'Funguar', 'Funguar', 'Gayla', 'Geezard']);
+  // Without rules it's the basic game, as before.
+  assert.deepEqual(chooseDeck(owned, pool, 1, { same: false, plus: false, combo: false }), chooseDeck(owned, pool));
+});
+
+test("chooseDeck: the squares' elements count, with each card's element from memory", () => {
+  // A fire Cockatrice gets +1 on fire squares while every other card (hers too) gets -1: on an all-fire board it's in.
+  const fiery = collection();
+  fiery.owned.find((o) => o.card.name === 'Cockatrice')!.card.element = 1;
+  const { owned, pool } = deckInputs(fiery);
+  assert.equal(owned.find((o) => o.name === 'Cockatrice')!.card.element, 1);
+  assert.ok(!chooseDeck(owned, pool)!.deck.map(nameOf(owned)).includes('Cockatrice'));
+  assert.ok(chooseDeck(owned, pool, 1, undefined, Array(9).fill(1))!.deck.map(nameOf(owned)).includes('Cockatrice'));
+});

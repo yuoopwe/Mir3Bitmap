@@ -1,4 +1,4 @@
-import { BASIC_RULES, rankMoves, searchMove, type Card, type Game, type Placed, type Rules } from './triad';
+import { BASIC_RULES, preferAgainstGreedy, rankMoves, searchMove, type Card, type Game, type Placed, type Rules } from './triad';
 import type { CardFace, TriadScreen } from './triad-vision';
 import type { MemoryCard, MemoryTriad } from './game-memory';
 
@@ -38,10 +38,7 @@ export type TriadDecision =
       kind: 'move';
       handIndex: number;
       cell: number;
-      /**
-       * Expected final margin (my cards minus hers): from the screen, if she plays
-       * greedily, as NPCs tend to; from memory, if both of us play perfectly.
-       */
+      /** Expected final margin (my cards minus hers) if she plays greedily, as NPCs tend to. */
       expected: number;
       /** Final margin if she plays perfectly, when worked out to the end of the game. */
       worstCase: number | null;
@@ -102,6 +99,11 @@ const RULE_PLUS = 4;
 const RULE_COMBO = 8;
 export const RULE_ELEMENTAL = 16;
 
+/** The rules from Library.TripleTriadRule flags (Open and First change nothing in the search; Elemental is the squares' elements). */
+export function rulesFromFlags(flags: number): Rules {
+  return { same: (flags & RULE_SAME) !== 0, plus: (flags & RULE_PLUS) !== 0, combo: (flags & RULE_COMBO) !== 0 };
+}
+
 /** Cards and squares use the game's own element numbers, 0 being none (the reader's stand-in for an unknown card has 0 too). */
 const cardFromMemory = (c: MemoryCard): Card => ({ top: c.up, right: c.right, bottom: c.down, left: c.left, element: c.element });
 
@@ -134,6 +136,23 @@ export function myIndex(triad: MemoryTriad): number {
   return human >= 0 ? human : 0;
 }
 
+export type MatchResult = 'won' | 'lost' | 'drawn';
+
+/**
+ * How a match ended for me, from a reading of its full board: each player
+ * scores the cards they own on the board plus those still in hand (whoever
+ * went second has one left). Null without a full board, e.g. when the
+ * reading is the result box alone, or the last card was never seen down.
+ */
+export function matchResult(triad: MemoryTriad): MatchResult | null {
+  const { players, board } = triad;
+  if (!players || players.length !== 2 || !board || board.length !== 9 || board.some((c) => !c)) return null;
+  const me = myIndex(triad);
+  const score = (player: number) => board.filter((c) => c!.owner === player).length + players[player].deck.length;
+  const margin = score(me) - score(1 - me);
+  return margin > 0 ? 'won' : margin < 0 ? 'lost' : 'drawn';
+}
+
 /** Whether it's my move, as the game's memory says. */
 export function myTurnInMemory(triad: MemoryTriad): boolean {
   return !triad.complete && triad.current === myIndex(triad) && (triad.stage === 0 || triad.stage === -1);
@@ -154,12 +173,14 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
   while (board.length < 9) board.push(null);
   if (board.every((cell) => cell)) return { decision: { kind: 'wait', reason: 'The board is full' } };
   const flags = triad.rules ?? 0;
-  const rules: Rules = { same: (flags & RULE_SAME) !== 0, plus: (flags & RULE_PLUS) !== 0, combo: (flags & RULE_COMBO) !== 0 };
+  const rules = rulesFromFlags(flags);
   // The squares' elements only count under the Elemental rule.
   const elements = flags & RULE_ELEMENTAL ? triad.elements : undefined;
   const game: Game = { board, hands: { me: mine.map(cardFromMemory), them: hers.map(cardFromMemory) }, turn: 'me', rules, elements };
-  const best = searchMove(game);
-  if (!best) return { decision: { kind: 'wait', reason: 'No move available' } };
+  const search = searchMove(game);
+  if (!search) return { decision: { kind: 'wait', reason: 'No move available' } };
+  // Safe against her best play first; then, of the equally safe moves, the best if she plays greedily.
+  const best = preferAgainstGreedy(game, search);
   const card = mine[best.move.card];
   return {
     card,
@@ -167,8 +188,8 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
       kind: 'move',
       handIndex: best.move.card,
       cell: best.move.cell,
-      expected: best.margin,
-      worstCase: best.exact ? best.margin : null,
+      expected: best.againstGreedy,
+      worstCase: search.exact ? search.margin : null,
       guessed: false,
       summary: `${card.name} (${card.up}-${card.left}-${card.right}-${card.down}) to square ${best.move.cell + 1}`,
     },

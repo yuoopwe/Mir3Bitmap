@@ -98,9 +98,7 @@ export function place(board: (Placed | null)[], cell: number, card: Card, owner:
       if (equal.length >= 2) for (const t of equal) special.add(t.n);
     }
     if (rules.plus) {
-      const sums = new Map<number, number[]>();
-      for (const t of touching) sums.set(t.mine + t.theirs, [...(sums.get(t.mine + t.theirs) ?? []), t.n]);
-      for (const cells of sums.values()) if (cells.length >= 2) for (const n of cells) special.add(n);
+      for (const t of touching) if (touching.some((u) => u !== t && u.mine + u.theirs === t.mine + t.theirs)) special.add(t.n);
     }
   }
 
@@ -188,6 +186,8 @@ export interface Advice {
   move: Move;
   /** My final card count minus theirs with best play from both sides (positive = I win). */
   margin: number;
+  /** Moves known to be as good (`move` first): searchMove looks for them after a full search, bestMove doesn't. */
+  tied: Move[];
 }
 
 /**
@@ -227,9 +227,12 @@ export function searchMove(game: Game, positions = SEARCH_POSITIONS): Search | n
   const filled = game.board.filter((p) => p).length;
   const toEnd = 9 - filled;
   if (filled > 0) {
-    const full = new Solver(9, positions).tryBest(game);
-    if (full !== undefined) return full && { ...full, exact: true, depth: toEnd };
+    const solver = new Solver(9, positions);
+    const full = solver.tryBest(game);
+    // The ties share the full search's positions: what it didn't need.
+    if (full !== undefined) return full && { ...full, tied: solver.tiedWith(game, full), exact: true, depth: toEnd };
   }
+  // The lookahead is what's left when time is short: no further search for ties, so only its own move.
   const depth = Math.min(LOOKAHEAD, toEnd);
   const advice = new Solver(filled + depth).best(game);
   return advice && { ...advice, exact: depth === toEnd, depth };
@@ -267,11 +270,33 @@ export class Solver {
     for (const { move, next } of orderedMoves(game)) {
       const v = -this.negamax(next, -Infinity, -alpha);
       if (!result || v > result.margin * sign) {
-        result = { move, margin: v * sign };
+        result = { move, margin: v * sign, tied: [move] };
         alpha = v;
       }
     }
     return result;
+  }
+
+  /**
+   * The moves as good as `best` (the result of best()), it first, as far as
+   * `positions` allow (by default, what's left of the solver's): proving a
+   * tie means searching all her replies, so a big position may have more.
+   */
+  tiedWith(game: Game, best: Advice, positions = this.positions): Move[] {
+    const alpha = game.turn === 'me' ? best.margin : -best.margin;
+    const tied = [best.move];
+    this.positions = positions;
+    try {
+      for (const { move, next } of orderedMoves(game)) {
+        if (move.card === best.move.card && move.cell === best.move.cell) continue;
+        // Nothing beats the best, and margins are whole numbers: a move worth at least alpha is worth alpha.
+        // Asking only that (a search between alpha - 1 and alpha) is much quicker than its exact value.
+        if (-this.negamax(next, -alpha, -(alpha - 1)) >= alpha) tied.push(move);
+      }
+    } catch (e) {
+      if (!(e instanceof OutOfPositions)) throw e;
+    }
+    return tied;
   }
 
   /** As best, but undefined if it ran out of positions to look at. */
@@ -368,14 +393,16 @@ export function heuristicMove(game: Game): Move | null {
  * and among equal grabs, leave the weakest numbers exposed to empty squares.
  */
 export function greedyMove(game: Game): Move | null {
-  const owned = (g: Game) => g.board.filter((p) => p?.owner === game.turn).length;
+  const owned = (board: (Placed | null)[]) => board.filter((p) => p?.owner === game.turn).length;
+  const before = owned(game.board);
   let best: { move: Move; gain: number; exposure: number } | null = null;
   for (const move of legalMoves(game)) {
-    const after = play(game, move);
-    const gain = owned(after) - owned(game);
+    // Only the board matters here: placing the card is enough (deck building plays tens of thousands of these games).
+    const after = place(game.board, move.cell, game.hands[game.turn][move.card], game.turn, game.rules, game.elements);
+    const gain = owned(after) - before;
     let exposure = 0;
-    const placed = after.board[move.cell]!.card;
-    for (const [n, side] of NEIGHBOURS[move.cell]) if (!after.board[n]) exposure += 10 - placed[side];
+    const placed = after[move.cell]!.card;
+    for (const [n, side] of NEIGHBOURS[move.cell]) if (!after[n]) exposure += 10 - placed[side];
     if (!best || gain > best.gain || (gain === best.gain && exposure < best.exposure)) best = { move, gain, exposure };
   }
   return best?.move ?? null;
@@ -393,29 +420,51 @@ export interface RankedMove {
 const WORST_CASE_CANDIDATES = 8;
 
 /**
+ * My final margin if she always plays greedyMove and I reply as well as
+ * possible. With a `horizon`, stops once the board has that many cards and
+ * counts the cards each side has, as a depth-limited search does.
+ */
+function againstGreedy(g: Game, memo: Map<string, number>, horizon = 9): number {
+  if (g.board.filter((p) => p).length >= horizon || g.hands[g.turn].length === 0) return score(g, 'me') - score(g, 'them');
+  const key = stateKey(g);
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  let value: number;
+  if (g.turn === 'them') value = againstGreedy(play(g, greedyMove(g)!), memo, horizon);
+  else {
+    value = -Infinity;
+    for (const move of legalMoves(g)) value = Math.max(value, againstGreedy(play(g, move), memo, horizon));
+  }
+  memo.set(key, value);
+  return value;
+}
+
+/**
+ * Of the moves searchMove found equally good against a perfect opponent, the
+ * one that does best if she plays greedily instead, as the game's NPCs seem
+ * to. Looks as far ahead as the search did (the whole game if it was exact).
+ */
+export function preferAgainstGreedy(game: Game, search: Search): { move: Move; againstGreedy: number } {
+  if (game.turn !== 'me') throw new Error('preferAgainstGreedy is for my turn');
+  const horizon = search.exact ? 9 : game.board.filter((p) => p).length + search.depth;
+  const memo = new Map<string, number>();
+  let best: { move: Move; againstGreedy: number } | null = null;
+  for (const move of search.tied) {
+    const value = againstGreedy(play(game, move), memo, horizon);
+    if (!best || value > best.againstGreedy) best = { move, againstGreedy: value };
+  }
+  return best!;
+}
+
+/**
  * Every move for me, ranked: first by the result against a greedy opponent
  * (how NPCs tend to play), then, among the leaders, by the result against a
  * perfect one, so the safest of equally good moves is chosen.
  */
 export function rankMoves(game: Game): RankedMove[] {
   if (game.turn !== 'me') throw new Error('rankMoves is for my turn');
-  const greedyMemo = new Map<string, number>();
-  const againstGreedy = (g: Game): number => {
-    if (g.board.every((p) => p) || g.hands[g.turn].length === 0) return score(g, 'me') - score(g, 'them');
-    const key = stateKey(g);
-    const known = greedyMemo.get(key);
-    if (known !== undefined) return known;
-    let value: number;
-    if (g.turn === 'them') value = againstGreedy(play(g, greedyMove(g)!));
-    else {
-      value = -Infinity;
-      for (const move of legalMoves(g)) value = Math.max(value, againstGreedy(play(g, move)));
-    }
-    greedyMemo.set(key, value);
-    return value;
-  };
-
-  const ranked: RankedMove[] = orderedMoves(game).map(({ move, next }) => ({ move, againstGreedy: againstGreedy(next), worstCase: null }));
+  const memo = new Map<string, number>();
+  const ranked: RankedMove[] = orderedMoves(game).map(({ move, next }) => ({ move, againstGreedy: againstGreedy(next, memo), worstCase: null }));
   ranked.sort((a, b) => b.againstGreedy - a.againstGreedy);
   const solver = new Solver();
   for (const r of ranked.filter((r) => r.againstGreedy === ranked[0].againstGreedy).slice(0, WORST_CASE_CANDIDATES)) {

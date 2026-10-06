@@ -1,5 +1,5 @@
-import type { MemoryCollection } from './game-memory';
-import { BASIC_RULES, greedyMove, play, score, type Card, type Game } from './triad';
+import type { MemoryCard, MemoryCollection } from './game-memory';
+import { BASIC_RULES, greedyMove, play, score, type Card, type Game, type Rules } from './triad';
 
 /** A card in the collection: its numbers, which card it is, and how many copies are owned. */
 export interface OwnedCard {
@@ -43,9 +43,15 @@ function quickValue({ top, right, bottom, left }: Card): number {
   return top + right + bottom + left + Math.max(top + right, right + bottom, bottom + left, left + top) / 2;
 }
 
+/** How the test games are played: the rules, and each square's element (Elemental). */
+interface Table {
+  rules: Rules;
+  elements?: number[];
+}
+
 /** Plays a game with both sides moving greedily; returns my final margin. */
-function playOut(mine: Card[], hers: Card[], meFirst: boolean): number {
-  let game: Game = { board: Array(9).fill(null), hands: { me: mine, them: hers }, turn: meFirst ? 'me' : 'them', rules: BASIC_RULES };
+function playOut(mine: Card[], hers: Card[], meFirst: boolean, table: Table): number {
+  let game: Game = { board: Array(9).fill(null), hands: { me: mine, them: hers }, turn: meFirst ? 'me' : 'them', rules: table.rules, elements: table.elements };
   while (game.board.some((cell) => !cell)) {
     const move = greedyMove(game);
     if (!move) break;
@@ -54,13 +60,13 @@ function playOut(mine: Card[], hers: Card[], meFirst: boolean): number {
   return score(game, 'me') - score(game, 'them');
 }
 
-function evaluate(deck: OwnedCard[], opponents: Card[][]): { winRate: number; margin: number } {
+function evaluate(deck: OwnedCard[], opponents: Card[][], table: Table): { winRate: number; margin: number } {
   const mine = deck.map((c) => c.card);
   let wins = 0;
   let margin = 0;
   for (const hers of opponents) {
     for (const meFirst of [true, false]) {
-      const result = playOut(mine, hers, meFirst);
+      const result = playOut(mine, hers, meFirst, table);
       margin += result;
       if (result > 0) wins++;
     }
@@ -75,7 +81,7 @@ function evaluate(deck: OwnedCard[], opponents: Card[][]): { winRate: number; ma
  * and the cards opponents might hold, taken to be those of the levels I have.
  */
 export function deckInputs(collection: MemoryCollection, allowCopies = true): { owned: OwnedCard[]; pool: Card[] } {
-  const toCard = (c: { up: number; right: number; down: number; left: number }) => ({ top: c.up, right: c.right, bottom: c.down, left: c.left });
+  const toCard = (c: MemoryCard): Card => ({ top: c.up, right: c.right, bottom: c.down, left: c.left, element: c.element });
   const owned: OwnedCard[] = collection.owned.map((o) => ({ id: o.card.image, name: o.card.name, card: toCard(o.card), level: o.card.level ?? 1, count: allowCopies ? o.count : Math.min(o.count, 1) }));
   // Cards listed with none owned don't count towards the levels I have.
   const topLevel = Math.max(...owned.filter((o) => o.count > 0).map((o) => o.level));
@@ -85,9 +91,11 @@ export function deckInputs(collection: MemoryCollection, allowCopies = true): { 
 /**
  * The best five cards from the collection: the strongest cards are tried in
  * every combination against random decks drawn from `pool` (the cards
- * opponents might hold), both sides playing the way NPCs do.
+ * opponents might hold), both sides playing the way NPCs do, under `rules`
+ * and, for Elemental, with `elements` on the squares.
  */
-export function chooseDeck(owned: OwnedCard[], pool: Card[], seed = 1): DeckChoice | null {
+export function chooseDeck(owned: OwnedCard[], pool: Card[], seed = 1, rules: Rules = BASIC_RULES, elements?: number[]): DeckChoice | null {
+  const table: Table = { rules, elements };
   // One entry per copy owned, strongest first.
   const copies = owned.flatMap((c) => Array.from({ length: Math.max(0, c.count) }, () => c));
   copies.sort((a, b) => quickValue(b.card) - quickValue(a.card));
@@ -114,11 +122,11 @@ export function chooseDeck(owned: OwnedCard[], pool: Card[], seed = 1): DeckChoi
   pick(0, []);
 
   const quick = opponentDecks(QUICK_OPPONENTS);
-  const ranked = candidates.map((deck) => ({ deck, ...evaluate(deck, quick) })).sort((a, b) => b.margin - a.margin);
+  const ranked = candidates.map((deck) => ({ deck, ...evaluate(deck, quick, table) })).sort((a, b) => b.margin - a.margin);
   const final = opponentDecks(FINAL_OPPONENTS);
   const best = ranked
     .slice(0, FINALISTS)
-    .map(({ deck }) => ({ deck, ...evaluate(deck, final) }))
+    .map(({ deck }) => ({ deck, ...evaluate(deck, final, table) }))
     .sort((a, b) => b.margin - a.margin)[0];
   return { deck: best.deck.map((c) => c.id), winRate: best.winRate, margin: best.margin };
 }

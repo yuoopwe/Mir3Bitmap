@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import type { MemoryCard, MemoryTriad } from '../main/game-memory';
-import { decideFromMemory, herCardsLeft, myIndex, myTurnInMemory, RULE_ELEMENTAL } from '../main/triad-player';
+import { decideFromMemory, herCardsLeft, matchResult, myIndex, myTurnInMemory, RULE_ELEMENTAL } from '../main/triad-player';
 
 /**
  * Hand-built readings shaped like the memory reader's (real cards' numbers;
@@ -102,22 +102,22 @@ test('decideFromMemory: the rule flags reach the search', () => {
   const mid = fixture('mid');
   const decide = (rules: number) => decideFromMemory({ ...mid, rules }).decision;
   const plain = decide(0);
-  assert.ok(plain.kind === 'move' && plain.expected === 2);
+  assert.ok(plain.kind === 'move' && plain.worstCase === 2);
   // Open (1) and First (32) don't change the play.
   assert.deepEqual(decide(1), plain);
   assert.deepEqual(decide(32), plain);
   // Under Same only a card in the middle still wins by 2 (anywhere else her Gayla gets a Same).
   const same = decide(2);
-  assert.ok(same.kind === 'move' && same.cell === 4 && same.expected === 2, JSON.stringify(same));
+  assert.ok(same.kind === 'move' && same.cell === 4 && same.worstCase === 2, JSON.stringify(same));
   // With Same, Plus and Combo she can always hold me to a draw.
   const all = decide(2 | 4 | 8);
-  assert.ok(all.kind === 'move' && all.cell === 4 && all.expected === 0, JSON.stringify(all));
+  assert.ok(all.kind === 'move' && all.cell === 4 && all.worstCase === 0, JSON.stringify(all));
   // The squares' elements count only under Elemental: fire on every empty square weakens my cards
   // (they have none) and strengthens her Fire Minotaur, and the win becomes a draw.
   const fiery = { ...mid, elements: [1, 0, 1, 0, 1, 0, 1, 0, 0] };
   assert.deepEqual(decideFromMemory({ ...fiery, rules: 0 }).decision, plain);
   const elemental = decideFromMemory({ ...fiery, rules: RULE_ELEMENTAL }).decision;
-  assert.ok(elemental.kind === 'move' && elemental.expected === 0, JSON.stringify(elemental));
+  assert.ok(elemental.kind === 'move' && elemental.worstCase === 0, JSON.stringify(elemental));
 });
 
 test('decideFromMemory: cards that have changed hands count for whoever owns them now', () => {
@@ -128,5 +128,56 @@ test('decideFromMemory: cards that have changed hands count for whoever owns the
   assert.ok(decision.kind === 'move');
   assert.equal(decision.cell, 4);
   assert.equal(decision.expected, 0);
+  assert.equal(decision.worstCase, 0);
+});
+
+test('matchResult: cards owned on the full board plus those left in hand', () => {
+  // My last card (Funguar) to the middle, taking the Geezard above it: 5 on the board to her 4,
+  // but she went second and still holds her Gayla, so it's 5 each.
+  const last = fixture('last');
+  const funguar = last.players![0].deck[0];
+  const board = last.board!.map((c, i) => (i === 4 ? { ...funguar, owner: 0 } : i === 1 ? { ...c!, owner: 0 } : c));
+  const final: MemoryTriad = { ...last, complete: true, board, hand: [], players: [{ ...last.players![0], deck: [] }, last.players![1]] };
+  assert.equal(matchResult(final), 'drawn');
+  // Had the Geezard stayed hers: 4 to 6.
+  const lost = { ...final, board: board.map((c, i) => (i === 1 ? { ...c!, owner: 1 } : c)) };
+  assert.equal(matchResult(lost), 'lost');
+  // Taking her Fire Minotaur too: 6 to 4.
+  assert.equal(matchResult({ ...final, board: board.map((c, i) => (i === 5 ? { ...c!, owner: 0 } : c)) }), 'won');
+  // Seen from her side.
+  assert.equal(matchResult({ ...lost, playerName: '[Card Guild] Siren Selka' }), 'won');
+  assert.equal(matchResult({ ...final, playerName: '[Card Guild] Siren Selka' }), 'drawn');
+});
+
+test('matchResult: no result without the full board', () => {
+  assert.equal(matchResult(fixture('start')), null);
+  assert.equal(matchResult(fixture('last')), null, 'the last square is still empty');
+  // Once the match's window has closed, the reader sends the result box's OK button alone.
+  assert.equal(matchResult({ open: false, ok: box }), null);
+});
+
+test('decideFromMemory: of the moves tied against perfect play, the one that beats a greedy opponent', () => {
+  // The position from triad.test.ts: either card in square 9 draws against her best play, but if she then
+  // plays greedily, keeping the 1-1-2-7 back takes her 8-6-3-1 and wins by 2.
+  const mine = [memoryCard('A', 1, 2, 8, 9, 3), memoryCard('B', 2, 9, 1, 5, 8), memoryCard('C', 3, 8, 9, 1, 8), memoryCard('D', 4, 1, 1, 2, 7), memoryCard('E', 5, 3, 1, 3, 2)];
+  const hers = [memoryCard('F', 11, 2, 2, 9, 7), memoryCard('G', 12, 5, 1, 2, 3), memoryCard('H', 13, 4, 7, 3, 2), memoryCard('I', 14, 8, 6, 3, 1), memoryCard('J', 15, 4, 1, 9, 2)];
+  const triad: MemoryTriad = {
+    open: true,
+    rules: 0,
+    current: 0,
+    stage: 0,
+    players: [{ name: 'Me', ai: false, deck: [] }, { name: 'Her', ai: true, deck: [] }],
+    board: [{ ...mine[0], owner: 0 }, null, null, { ...hers[0], owner: 1 }, { ...hers[1], owner: 1 }, { ...mine[1], owner: 0 }, { ...mine[2], owner: 0 }, { ...hers[2], owner: 1 }, null],
+    elements: Array(9).fill(0),
+    hand: [{ ...box, card: mine[4] }, { ...box, card: mine[3] }],
+    myDeck: mine,
+    opponentDeck: hers,
+    playerName: 'Me',
+  };
+  const { decision, card } = decideFromMemory(triad);
+  assert.ok(decision.kind === 'move', JSON.stringify(decision));
+  assert.equal(card!.name, 'E');
+  assert.equal(decision.cell, 8);
+  assert.equal(decision.expected, 2);
   assert.equal(decision.worstCase, 0);
 });

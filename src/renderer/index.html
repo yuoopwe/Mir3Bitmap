@@ -104,9 +104,14 @@
     </main>
 
     <footer>
-      <span id="status">Idle</span>
-      <span id="vitals"></span>
-      <span id="timing"></span>
+      <div class="status-line">
+        <span id="status">Idle</span>
+        <span id="vitals"></span>
+        <span id="timing"></span>
+      </div>
+      <div id="stats">
+        <button id="stats-reset" title="Clear this session's counts (the all-time totals keep them)">Reset session</button>
+      </div>
     </footer>
 
     <script src="../../dist/renderer/renderer.js"></script>

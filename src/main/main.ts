@@ -141,6 +141,8 @@ ipcMain.handle('areas:load', (_event, name: string) => loadArea(name));
 ipcMain.handle('names:list', () => names.list());
 ipcMain.handle('names:rule', (_event, fingerprint: string, rule: NameRule) => names.setRule(fingerprint, rule));
 ipcMain.handle('names:forget', (_event, fingerprint: string) => names.forget(fingerprint));
+ipcMain.handle('stats:load', (_event, saved: unknown) => bot.loadStats(saved));
+ipcMain.handle('stats:reset', () => bot.resetStats());
 
 app.whenReady().then(() => {
   window = new BrowserWindow({
