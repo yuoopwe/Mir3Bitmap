@@ -130,7 +130,7 @@ export interface Status {
 
 /** What the bot has done (counted by src/main/session-stats.ts). */
 export interface StatCounts {
-  /** Targets gone while being attacked (as the kills in Status). */
+  /** Targets that died while being attacked; without the memory reader, gone from view (as the kills in Status). */
   kills: number;
   /** Items that were in reach and then gone from the game's memory; without the memory reader, pick-up tries after kills. */
   items: number;
@@ -140,7 +140,7 @@ export interface StatCounts {
   triadWon: number;
   triadLost: number;
   triadDrawn: number;
-  /** Best deck runs that finished. */
+  /** Best deck runs that changed the deck (not "already the best"). */
   decks: number;
   /** Time spent running a mode, in milliseconds. */
   runningMs: number;
