@@ -186,7 +186,7 @@ export interface Advice {
   move: Move;
   /** My final card count minus theirs with best play from both sides (positive = I win). */
   margin: number;
-  /** Moves known to be as good (`move` first): searchMove looks for them, bestMove doesn't. */
+  /** Moves known to be as good (`move` first): searchMove looks for them after a full search, bestMove doesn't. */
   tied: Move[];
 }
 
@@ -216,8 +216,6 @@ export const SEARCH_POSITIONS = 150_000;
  * have had as many moves when it stops. Under half a second here.
  */
 export const LOOKAHEAD = 6;
-/** Positions the LOOKAHEAD search may spend after that finding the moves that tie with the best (a fifth of a second or so). */
-export const TIE_POSITIONS = 30_000;
 
 /**
  * The best move for whoever's turn it is, assuming both sides play perfectly
@@ -234,10 +232,10 @@ export function searchMove(game: Game, positions = SEARCH_POSITIONS): Search | n
     // The ties share the full search's positions: what it didn't need.
     if (full !== undefined) return full && { ...full, tied: solver.tiedWith(game, full), exact: true, depth: toEnd };
   }
+  // The lookahead is what's left when time is short: no further search for ties, so only its own move.
   const depth = Math.min(LOOKAHEAD, toEnd);
-  const solver = new Solver(filled + depth);
-  const advice = solver.best(game);
-  return advice && { ...advice, tied: solver.tiedWith(game, advice, TIE_POSITIONS), exact: depth === toEnd, depth };
+  const advice = new Solver(filled + depth).best(game);
+  return advice && { ...advice, exact: depth === toEnd, depth };
 }
 
 /** Thrown when a search has looked at as many positions as it may. */
@@ -422,11 +420,6 @@ export interface RankedMove {
 const WORST_CASE_CANDIDATES = 8;
 
 /**
- * Every move for me, ranked: first by the result against a greedy opponent
- * (how NPCs tend to play), then, among the leaders, by the result against a
- * perfect one, so the safest of equally good moves is chosen.
- */
-/**
  * My final margin if she always plays greedyMove and I reply as well as
  * possible. With a `horizon`, stops once the board has that many cards and
  * counts the cards each side has, as a depth-limited search does.
@@ -463,6 +456,11 @@ export function preferAgainstGreedy(game: Game, search: Search): { move: Move; a
   return best!;
 }
 
+/**
+ * Every move for me, ranked: first by the result against a greedy opponent
+ * (how NPCs tend to play), then, among the leaders, by the result against a
+ * perfect one, so the safest of equally good moves is chosen.
+ */
 export function rankMoves(game: Game): RankedMove[] {
   if (game.turn !== 'me') throw new Error('rankMoves is for my turn');
   const memo = new Map<string, number>();

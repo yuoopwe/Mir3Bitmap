@@ -99,12 +99,12 @@ const RULE_PLUS = 4;
 const RULE_COMBO = 8;
 export const RULE_ELEMENTAL = 16;
 
-/** Cards and squares use the game's own element numbers, 0 being none (the reader's stand-in for an unknown card has 0 too). */
 /** The rules from Library.TripleTriadRule flags (Open and First change nothing in the search; Elemental is the squares' elements). */
 export function rulesFromFlags(flags: number): Rules {
   return { same: (flags & RULE_SAME) !== 0, plus: (flags & RULE_PLUS) !== 0, combo: (flags & RULE_COMBO) !== 0 };
 }
 
+/** Cards and squares use the game's own element numbers, 0 being none (the reader's stand-in for an unknown card has 0 too). */
 const cardFromMemory = (c: MemoryCard): Card => ({ top: c.up, right: c.right, bottom: c.down, left: c.left, element: c.element });
 
 /** `from` with one of each of `take`'s cards (by picture) taken out. */

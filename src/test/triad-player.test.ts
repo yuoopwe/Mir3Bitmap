@@ -155,3 +155,29 @@ test('matchResult: no result without the full board', () => {
   // Once the match's window has closed, the reader sends the result box's OK button alone.
   assert.equal(matchResult({ open: false, ok: box }), null);
 });
+
+test('decideFromMemory: of the moves tied against perfect play, the one that beats a greedy opponent', () => {
+  // The position from triad.test.ts: either card in square 9 draws against her best play, but if she then
+  // plays greedily, keeping the 1-1-2-7 back takes her 8-6-3-1 and wins by 2.
+  const mine = [memoryCard('A', 1, 2, 8, 9, 3), memoryCard('B', 2, 9, 1, 5, 8), memoryCard('C', 3, 8, 9, 1, 8), memoryCard('D', 4, 1, 1, 2, 7), memoryCard('E', 5, 3, 1, 3, 2)];
+  const hers = [memoryCard('F', 11, 2, 2, 9, 7), memoryCard('G', 12, 5, 1, 2, 3), memoryCard('H', 13, 4, 7, 3, 2), memoryCard('I', 14, 8, 6, 3, 1), memoryCard('J', 15, 4, 1, 9, 2)];
+  const triad: MemoryTriad = {
+    open: true,
+    rules: 0,
+    current: 0,
+    stage: 0,
+    players: [{ name: 'Me', ai: false, deck: [] }, { name: 'Her', ai: true, deck: [] }],
+    board: [{ ...mine[0], owner: 0 }, null, null, { ...hers[0], owner: 1 }, { ...hers[1], owner: 1 }, { ...mine[1], owner: 0 }, { ...mine[2], owner: 0 }, { ...hers[2], owner: 1 }, null],
+    elements: Array(9).fill(0),
+    hand: [{ ...box, card: mine[4] }, { ...box, card: mine[3] }],
+    myDeck: mine,
+    opponentDeck: hers,
+    playerName: 'Me',
+  };
+  const { decision, card } = decideFromMemory(triad);
+  assert.ok(decision.kind === 'move', JSON.stringify(decision));
+  assert.equal(card!.name, 'E');
+  assert.equal(decision.cell, 8);
+  assert.equal(decision.expected, 2);
+  assert.equal(decision.worstCase, 0);
+});
