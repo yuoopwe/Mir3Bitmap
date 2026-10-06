@@ -25,7 +25,7 @@ import type { NameBook } from './names';
 import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTile } from './pathing';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
-import { chooseDeck, type OwnedCard } from './triad-deck';
+import { chooseDeck, deckInputs } from './triad-deck';
 import {
   createFrame,
   findCharacterOnMap,
@@ -1471,11 +1471,8 @@ export class Bot {
     for (let attempt = 0; attempt < 2; attempt++) {
       this.status('Working out the best deck (trying combinations against random decks)...');
       await new Promise((resolve) => setTimeout(resolve, 50));
-      const toCard = (c: { up: number; right: number; down: number; left: number }) => ({ top: c.up, right: c.right, bottom: c.down, left: c.left });
-      const owned: OwnedCard[] = collection.owned.map((o) => ({ id: o.card.image, name: o.card.name, card: toCard(o.card), level: o.card.level ?? 1, count: allowCopies ? o.count : Math.min(o.count, 1) }));
-      // Opponents are taken to hold cards of the levels I have.
-      const topLevel = Math.max(...owned.map((o) => o.level));
-      const choice = chooseDeck(owned, collection.cards.filter((c) => (c.level ?? 1) <= topLevel).map(toCard));
+      const { owned, pool } = deckInputs(collection, allowCopies);
+      const choice = chooseDeck(owned, pool);
       if (!choice) throw new BotError('Not enough cards owned to make a deck of five.');
       const nameOf = (id: number) => owned.find((o) => o.id === id)?.name ?? `card ${id}`;
       const summary = `${choice.deck.map(nameOf).join(', ')} (won ${Math.round(choice.winRate * 100)}% of test games)`;
