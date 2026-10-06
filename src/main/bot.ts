@@ -4,7 +4,7 @@ import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
 import type { Card } from './triad';
 import type { TriadMemory } from './triad-memory';
-import { cardOf, decideFromMemory, decideTriad, myTurnInMemory, type ReadCard } from './triad-player';
+import { cardOf, decideFromMemory, decideTriad, myTurnInMemory, rulesFromFlags, type ReadCard } from './triad-player';
 import { HAND_SLOTS, OK as TRIAD_OK, boardSampler, cellCentre, centre, readTriad, type TriadScreen } from './triad-vision';
 import { findLabels } from './labels';
 import {
@@ -354,6 +354,8 @@ export class Bot {
   private mp: number | null = null;
   private kills = 0;
   private lastStatusAt = 0;
+  /** The rule flags of the last Triple Triad match read from memory: Best deck picks cards for them. */
+  private triadRules = 0;
 
   constructor(
     private settings: Settings,
@@ -1285,6 +1287,7 @@ export class Bot {
 
   /** One look at a match through the game's memory: plays my move if it's my turn. */
   private async triadTurnFromMemory(live: MemoryTriad): Promise<void> {
+    if (live.rules !== undefined) this.triadRules = live.rules;
     if (!live.players || !live.board) {
       this.statusEvery('Waiting for the game to start');
       await this.sleep(TRIAD_POLL_MS);
@@ -1472,7 +1475,7 @@ export class Bot {
       this.status('Working out the best deck (trying combinations against random decks)...');
       await new Promise((resolve) => setTimeout(resolve, 50));
       const { owned, pool } = deckInputs(collection, allowCopies);
-      const choice = chooseDeck(owned, pool);
+      const choice = chooseDeck(owned, pool, 1, rulesFromFlags(this.triadRules));
       if (!choice) throw new BotError('Not enough cards owned to make a deck of five.');
       const nameOf = (id: number) => owned.find((o) => o.id === id)?.name ?? `card ${id}`;
       const summary = `${choice.deck.map(nameOf).join(', ')} (won ${Math.round(choice.winRate * 100)}% of test games)`;

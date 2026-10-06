@@ -98,9 +98,7 @@ export function place(board: (Placed | null)[], cell: number, card: Card, owner:
       if (equal.length >= 2) for (const t of equal) special.add(t.n);
     }
     if (rules.plus) {
-      const sums = new Map<number, number[]>();
-      for (const t of touching) sums.set(t.mine + t.theirs, [...(sums.get(t.mine + t.theirs) ?? []), t.n]);
-      for (const cells of sums.values()) if (cells.length >= 2) for (const n of cells) special.add(n);
+      for (const t of touching) if (touching.some((u) => u !== t && u.mine + u.theirs === t.mine + t.theirs)) special.add(t.n);
     }
   }
 
@@ -397,14 +395,16 @@ export function heuristicMove(game: Game): Move | null {
  * and among equal grabs, leave the weakest numbers exposed to empty squares.
  */
 export function greedyMove(game: Game): Move | null {
-  const owned = (g: Game) => g.board.filter((p) => p?.owner === game.turn).length;
+  const owned = (board: (Placed | null)[]) => board.filter((p) => p?.owner === game.turn).length;
+  const before = owned(game.board);
   let best: { move: Move; gain: number; exposure: number } | null = null;
   for (const move of legalMoves(game)) {
-    const after = play(game, move);
-    const gain = owned(after) - owned(game);
+    // Only the board matters here: placing the card is enough (deck building plays tens of thousands of these games).
+    const after = place(game.board, move.cell, game.hands[game.turn][move.card], game.turn, game.rules, game.elements);
+    const gain = owned(after) - before;
     let exposure = 0;
-    const placed = after.board[move.cell]!.card;
-    for (const [n, side] of NEIGHBOURS[move.cell]) if (!after.board[n]) exposure += 10 - placed[side];
+    const placed = after[move.cell]!.card;
+    for (const [n, side] of NEIGHBOURS[move.cell]) if (!after[n]) exposure += 10 - placed[side];
     if (!best || gain > best.gain || (gain === best.gain && exposure < best.exposure)) best = { move, gain, exposure };
   }
   return best?.move ?? null;
