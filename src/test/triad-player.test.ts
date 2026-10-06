@@ -102,22 +102,22 @@ test('decideFromMemory: the rule flags reach the search', () => {
   const mid = fixture('mid');
   const decide = (rules: number) => decideFromMemory({ ...mid, rules }).decision;
   const plain = decide(0);
-  assert.ok(plain.kind === 'move' && plain.expected === 2);
+  assert.ok(plain.kind === 'move' && plain.worstCase === 2);
   // Open (1) and First (32) don't change the play.
   assert.deepEqual(decide(1), plain);
   assert.deepEqual(decide(32), plain);
   // Under Same only a card in the middle still wins by 2 (anywhere else her Gayla gets a Same).
   const same = decide(2);
-  assert.ok(same.kind === 'move' && same.cell === 4 && same.expected === 2, JSON.stringify(same));
+  assert.ok(same.kind === 'move' && same.cell === 4 && same.worstCase === 2, JSON.stringify(same));
   // With Same, Plus and Combo she can always hold me to a draw.
   const all = decide(2 | 4 | 8);
-  assert.ok(all.kind === 'move' && all.cell === 4 && all.expected === 0, JSON.stringify(all));
+  assert.ok(all.kind === 'move' && all.cell === 4 && all.worstCase === 0, JSON.stringify(all));
   // The squares' elements count only under Elemental: fire on every empty square weakens my cards
   // (they have none) and strengthens her Fire Minotaur, and the win becomes a draw.
   const fiery = { ...mid, elements: [1, 0, 1, 0, 1, 0, 1, 0, 0] };
   assert.deepEqual(decideFromMemory({ ...fiery, rules: 0 }).decision, plain);
   const elemental = decideFromMemory({ ...fiery, rules: RULE_ELEMENTAL }).decision;
-  assert.ok(elemental.kind === 'move' && elemental.expected === 0, JSON.stringify(elemental));
+  assert.ok(elemental.kind === 'move' && elemental.worstCase === 0, JSON.stringify(elemental));
 });
 
 test('decideFromMemory: cards that have changed hands count for whoever owns them now', () => {

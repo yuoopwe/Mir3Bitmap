@@ -1,4 +1,4 @@
-import { BASIC_RULES, rankMoves, searchMove, type Card, type Game, type Placed, type Rules } from './triad';
+import { BASIC_RULES, preferAgainstGreedy, rankMoves, searchMove, type Card, type Game, type Placed, type Rules } from './triad';
 import type { CardFace, TriadScreen } from './triad-vision';
 import type { MemoryCard, MemoryTriad } from './game-memory';
 
@@ -38,10 +38,7 @@ export type TriadDecision =
       kind: 'move';
       handIndex: number;
       cell: number;
-      /**
-       * Expected final margin (my cards minus hers): from the screen, if she plays
-       * greedily, as NPCs tend to; from memory, if both of us play perfectly.
-       */
+      /** Expected final margin (my cards minus hers) if she plays greedily, as NPCs tend to. */
       expected: number;
       /** Final margin if she plays perfectly, when worked out to the end of the game. */
       worstCase: number | null;
@@ -158,8 +155,10 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
   // The squares' elements only count under the Elemental rule.
   const elements = flags & RULE_ELEMENTAL ? triad.elements : undefined;
   const game: Game = { board, hands: { me: mine.map(cardFromMemory), them: hers.map(cardFromMemory) }, turn: 'me', rules, elements };
-  const best = searchMove(game);
-  if (!best) return { decision: { kind: 'wait', reason: 'No move available' } };
+  const search = searchMove(game);
+  if (!search) return { decision: { kind: 'wait', reason: 'No move available' } };
+  // Safe against her best play first; then, of the equally safe moves, the best if she plays greedily.
+  const best = preferAgainstGreedy(game, search);
   const card = mine[best.move.card];
   return {
     card,
@@ -167,8 +166,8 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
       kind: 'move',
       handIndex: best.move.card,
       cell: best.move.cell,
-      expected: best.margin,
-      worstCase: best.exact ? best.margin : null,
+      expected: best.againstGreedy,
+      worstCase: search.exact ? search.margin : null,
       guessed: false,
       summary: `${card.name} (${card.up}-${card.left}-${card.right}-${card.down}) to square ${best.move.cell + 1}`,
     },
