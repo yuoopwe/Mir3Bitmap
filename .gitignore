@@ -3,7 +3,6 @@ dist/
 frame-*.png
 _work/
 recordings/
-game-data/
 game-reader/lib/
 *.stackdump
 _crop.js

@@ -1,0 +1,1783 @@
+# Quests by level
+
+Every quest by the level it opens at, with where it starts.
+
+- -: [Challenge] Heroic Boss Bounty [Bounties] - The Last Bastion - Challenge Quest Board Area
+- -: [Challenge] Mythic Boss Bounty [Bounties] - The Last Bastion - Challenge Quest Board Area
+- -: [Challenge] Seeds of the Archaic I [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic II [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic III [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic IV [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic IX [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic V [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic VI [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic VII [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic VIII [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic X [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic XI [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic XII [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [Challenge] Seeds of the Archaic XIII [Challenges] - Arcadia Castle - Event NPC Spot
+- -: [XTT] Card Tournament - Bichon Province Cup [Triple Triad] - Bichon Province - Card Players - Quest master
+- -: [XTT] Card Tournament - Darkwater Cup [Triple Triad] - Arcadia Castle - DW XTT NPC 1
+- -: [XTT] Card Tournament - Faraway Cup [Triple Triad] - Faraway Falls - Whole Map
+- -: [XTT] Card Tournament - Prajna Cup [Triple Triad] - Prajna Village - Card Guild
+- -: [XTT] Card Tournament Practice [Triple Triad] - Arcadia Castle - Card Player 1
+- -: [XTT] Daily Booster Pack! [Daily Quests] - Arcadia Castle - Card Player 1
+- -: [XTT] First Win [Legacy Quests] - Arcadia Castle - Card Player 1
+- -: A Hunger That Remains [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: Arcadia Battle Supply Run - 1 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Arcadia Battle Supply Run - 2 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Arcadia Hero Defence - 1 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Arcadia Hero Defence - 2 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Arcadia Scouting Mission - 1 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Arcadia Scouting Mission - 2 [Daily Quests] - Hallowed Hero Defence - Whole map
+- -: Atlas: Abandoned Deepworks — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Deepworks — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Deepworks — Floor 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Deepworks — Floor 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Deepworks — Floor 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Deepworks — Floor 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abandoned Town [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns7 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns8 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Caverns9 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Pond [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Portal Chamber [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Shores [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Abyssal Wasteland [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Wasteland 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Abyssal Wasteland 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ant Colony East [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ant Colony North [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ant Colony South [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ant Colony West [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Arcadia Castle [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Arid Flats [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Astral Sanctum [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Beyond Shore [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Bichon Castle [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Bichon Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Bichon Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Bichon Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace Lv 2-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace Lv 2-W [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Black Palace Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Boar Kings Lair [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Crown Archive Uplands [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Crown Fortress Uplands [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dead Pit Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dead Pit Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dead Pit Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Death Valley Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Death Valley Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Death Valley Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Death Valley Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert City Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert City Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert City Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert City Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Mine Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Mine Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Mine Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Tunnel Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Tunnel Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Desert Tunnel Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss Ent [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Dragon Abyss Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Evil Spirit [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Farshore Anchorage [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: First Kings' Sepulchre — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: First Kings' Sepulchre — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: First Kings' Sepulchre — Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Flea Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Flea Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Flea Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Forgotten Monastery Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Forgotton Monastery Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Frost Village [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Frostwater Eastern March [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Frostwater Western March [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Glasswind Expanse [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Goru Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Goru Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Goru Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Goru Cave Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Hall of Three Bearings [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Hyunmoon Temple Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Hyunmoon Temple Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Hyunmoon Temple Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ice city [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Illusion Woods [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Dungeon [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 2-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 2-N [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 2-S [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 2-W [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 3-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 3-N [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 3-S [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 3-W [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 4-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 4-N [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 4-S [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 5-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 5-N [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Jinchon Palace Lv 6 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lava Temple  Lv 4 East [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple King Room [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple Lv 1 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple Lv 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple Lv 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple Lv 4 West [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lava Temple Lv 5 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Life Death Hall [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Land [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Land 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Land 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Oasis [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Pass [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Lost Realm [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Lost Village [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Meltwater Grotto — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Meltwater Grotto — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Mossfall Caverns — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Floor 4 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mossfall Caverns — Floor 5 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mountain Caverns — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mountain Caverns — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mountain Caverns — Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mountain Caverns — Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mountain Caverns — Floor 4 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mystery Ship [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mystery Ship Lv 1 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mystery Ship Lv 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mystery Ship Lv 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Mystery Ship Lv 4 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Nagaria Ruins - Floor 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 10 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 11 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 12 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 6 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 7 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 8 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Floor 9 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Nagaria Ruins - Lobby [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ninefold Archive — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Ninefold Archive — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: North Way [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: North Way [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Ruins Lv 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Numa Village [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Oakmarsh [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pale Rift — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pale Rift — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pale Rift — Floor 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pale Rift — Floor 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pale Rift — Floor 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pandoras Alley [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Pandoras Box [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Pandoras Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pandoras Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Pandoras Cave Lv 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Phantom Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Phantom Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Phantom Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Phantom Forest North [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Island [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Island [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Prajna Stone Cave Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Stone Cave Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Stone Cave Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Stone Cave Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Stone Cave Lv 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lobby [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 10 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 3-E [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 3-W [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 6 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 7 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 8 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 9 East [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Temple Lv 9 West [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Prajna Valley South [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Quartz Mine [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Quartz Mine Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Quartz Mine Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Quartz Mine Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Quartz Mine Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Red Moon Valley [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Red Moon Valley Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Red Moon Valley Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Red Moon Valley Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Red Moon Valley Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rift Tunnel Network [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rimevein Mines — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rimevein Mines — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rimevein Mines — Floor 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rimevein Mines — Floor 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Rimevein Mines — Floor 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: River Of Flames Lv 1 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: River Of Flames Lv 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: River Of Flames Lv 3  [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Sabuk Keep [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Samak Wall [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Silent Wind City [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Sirocco Deepworks — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Sirocco Deepworks — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Snow Palace Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Palace Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Palace Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Palace Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Palace Lv 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Palace Lv 5 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Snow Palace Lv 5 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Snow Palace Lv 6 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Tower Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Tower Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Tower Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Snow Tower Queen's Chamber [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: South Way [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: South Way [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Southern Check Point [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Southern Coast [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Southern Dunes [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Southern Wall [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Southern Wastes [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Stone Tomb Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Stone Tomb Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Stone Tomb Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Stone Tomb Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Stonebound Prison — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Stonebound Prison — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Stonebound Prison — Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Sunroad Caravan Settlement [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Sunroad Temple Desert [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - Floor 1 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - Floor 4 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - King Room [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Temple of Kings - Lobby [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Thawreach Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Thawreach Snowfields [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: The Last Bastion [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: The Wall [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: The Wall 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Twilight Harbour [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Verdant Reach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Verdant Side Basin [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Vesperhold — Approach [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Vesperhold — Final Depth [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Western Arids [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Western Coast [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Western Ore Mines — Approach [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Western Ore Mines — Final Depth [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Western Ore Mines — Floor 2 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Western Ore Mines — Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Western Ore Mines — Floor 3 [Explorers Guild Atlas] - Arcadia Castle - NPC Spot 5
+- -: Atlas: Western Pass [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Wooma Temple [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Wooma Temple Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Wooma Temple Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Wooma Temple Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple King Room [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple Lv 1 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple Lv 2 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple Lv 3 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple Lv 4 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Atlas: Zuma Temple Lv 5 [Explorers Guild Atlas] - The Last Bastion - Explorer Guild Location
+- -: Beneath the Blood Moon [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: Bounty - The Culling (Gold) [Bounties] - Prajna Village - Quest Board
+- -: Bounty - The Culling (Platinum) [Bounties] - Prajna Village - Quest Board
+- -: Bounty - The Culling (Silver) [Bounties] - Prajna Village - Quest Board
+- -: Break the Body Ritual [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: Bunnys Need Help too [Legacy Quests] - Prajna Village - Bunny home
+- -: Caravan repairs — After Dusk [Continental Field Commissions] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- -: Caravan repairs — Route Commission [Continental Field Commissions] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- -: Caravan repairs — Weather Watch [Continental Field Commissions] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- -: Cards [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Cards [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Cards [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Companions & Chicabos [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Companions & Chicabos [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Companions & Chicabos [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Crown Seal presentation [Continental Convergence]
+- -: Crown Seal victory [Continental Convergence]
+- -: Crushing the Remains Pt. 1 [Legacy Quests] - Bichon Province - Essential Store
+- -: Crushing the Remains Pt. 2 [Legacy Quests] - Bichon Province - Essential Store
+- -: Curing the Poison Pt. 2 [Legacy Quests] - Bichon Province - Weapon Store
+- -: Curing the Poison Pt. 3 [Legacy Quests] - Bichon Province - Weapon Store
+- -: Curing the Poison Pt. 4 [Legacy Quests] - Bichon Province - Weapon Store
+- -: Curing the Poison Pt. 5 [Legacy Quests] - Bichon Province - Potion Store
+- -: Curing the Poison Pt. 6 [Legacy Quests] - Bichon Province - Weapon Store
+- -: Daily Fish Quest 1 [Professions] - Faraway Falls - Fisherman Supplies
+- -: Daily Fish Quest 2 [Professions] - Faraway Falls - Fisherman Supplies
+- -: Daily Fish Quest 3 [Professions] - Faraway Falls - Fisherman Supplies
+- -: Daily Quest: Archaic Boss Bounty [Bounties] - The Last Bastion - Challenge Quest Board Area
+- -: Daily Quest: Bramblebound [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Darkwater Chaos [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Darkwater Tide: Darkwater Kraken [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Easter Bramblebound [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Havoc [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Havoc [Daily] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Havoc Hare [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Mischiefmaw [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Pesterpaw [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Easter Thumpcrush [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Gloomy Glutton [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Grand Master Rollin [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Havoc Hare [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Heroic Boss Bounty [Bounties] - The Last Bastion - Challenge Quest Board Area
+- -: Daily Quest: Inkstigator [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Master Rockin [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Mischiefmaw [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Mythic Boss Bounty [Bounties] - The Last Bastion - Challenge Quest Board Area
+- -: Daily Quest: Pesterpaw [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Daily Quest: Shadowmare [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Daily Quest: Thumpcrush [Daily Quests] - Arcadia Castle - Event NPC Spot
+- -: Darkwater Chaos 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Chaos 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Chaos 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Chaos 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Chaos 5 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Tides 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Tides 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Tides 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Tides 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Darkwater Tides 5 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Descent into Darkness Pt. 2 [Legacy Quests] - Prajna Village - Essential Store
+- -: Descent into Darkness Pt. 3 [Legacy Quests] - Prajna Village - Essential Store
+- -: Descent into Darkness Pt. 4 [Legacy Quests] - Prajna Village - Essential Store
+- -: Desert Seal presentation [Continental Convergence]
+- -: Desert Seal victory [Continental Convergence]
+- -: Dungeons & Activities [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Dungeons & Activities [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Dungeons & Activities [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Easter Havoc 1 [Legacy Quests] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 1 [General] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 2 [Legacy Quests] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 2 [General] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 3 [Legacy Quests] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 3 [General] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 4 [Legacy Quests] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 4 [General] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 5 [Legacy Quests] - Arcadia Castle - Event NPC Spot
+- -: Easter Havoc 5 [General] - Arcadia Castle - Event NPC Spot
+- -: Embers of Eternity I [Legacy Story] - Arcane Library - NPC to AS
+- -: Embers of Eternity II [Legacy Story] - Arcane Library - NPC to AS
+- -: Embers of Eternity III [Legacy Story] - Chamber of the Fayth - Ifrit - Pilgrims Compass
+- -: Essence [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Essence [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Essence [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Eterna Cipher Hunt [Story] - Prajna Temple Lv 5 - Teleport Stone
+- -: Event: Daily Fish Quest [Professions] - Arcadia Castle - Event NPC Spot
+- -: Event: Daily Fish Quest (Darkwater) [Professions] - Hallowed Hero Defence - Whole map
+- -: Expedition supplies — After Dusk [Continental Field Commissions] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- -: Expedition supplies — Route Commission [Continental Field Commissions] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- -: Expedition supplies — Weather Watch [Continental Field Commissions] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- -: Farshore Attunement [Continental Convergence]
+- -: Feeding Banya Village [Legacy Quests] - Prajna Village - Collector Store
+- -: Feeding Bichon Town [Legacy Quests] - Bichon Province - Collector Store
+- -: Feeding Lost Paradise [Legacy Quests] - Lost Paradise - Collector Store
+- -: Forest provisions — After Dusk [Continental Field Commissions] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- -: Forest provisions — Route Commission [Continental Field Commissions] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- -: Forest provisions — Weather Watch [Continental Field Commissions] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- -: Fred's Quest [Legacy Quests] - Prajna Village - Notice Test Area
+- -: Frontier provisions — After Dusk [Continental Field Commissions] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- -: Frontier provisions — Route Commission [Continental Field Commissions] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- -: Frontier provisions — Weather Watch [Continental Field Commissions] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- -: Frostfall Fungalspores 1 - Avaloria Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Fungalspores 2 - Aether Isles Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Fungalspores 3 - Mystic Causeway Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Fungalspores 4 - Heart of the Sky Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Fungalspores 5 - Azure Oasis Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Fungalspores 6 - Faraway Falls Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 1 - Avaloria Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 2 - Aether Isles Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 3 - Mystic Causeway Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 4 - Heart of the Sky Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 5 - Azure Oasis Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Myconids 6 - Faraway Falls Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 1 - Avaloria Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 2 - Aether Isles Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 3 - Mystic Causeway Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 4 - Heart of the Sky Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 5 - Azure Oasis Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Frostfall Shrooms 6 - Faraway Falls Cleansing [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- -: Gear & Skills [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Gear & Skills [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Gear & Skills [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Gresham's Journal is missing [Legacy Quests] - Lost Paradise - Book Store
+- -: Hallowed Heroic Defense [Daily Quests] - Hallowed Hero Defence - Archived Quests
+- -: Henry's Journal is missing [Legacy Quests] - Prajna Village - Book Store
+- -: Hidden Depths [Legacy Story] - Arcane Library - NPC to AS
+- -: Hunting for David's Key [Legacy Quests] - Bichon Province - Potion Store
+- -: Hunting for Haylee's Key [Legacy Quests] - Lost Paradise - Potion Store
+- -: Hunting for Kacy's Key [Legacy Quests] - Prajna Village - Potion Store
+- -: I'm New Here [Newcomer Orientation] - Bichon Province - Notice Board
+- -: I'm New Here [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: I'm New Here [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Isaac's Journal is missing [Legacy Quests] - Bichon Province - Book Store
+- -: Join the Explorers Guild [Explorers Guild Membership] - Arcadia Castle - NPC Spot 5
+- -: Join the Explorers Guild [Explorers Guild Membership] - The Last Bastion - Explorer Guild Location
+- -: October: Cooking for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Crafting for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Farming for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Fishing for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Harvesting for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Mining for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Put the Restless to Rest [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Taming for the Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: October: Three Hands of Fate [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: Pilgrim's Prayer: Alexander [Pilgrim's Prayers] - Chamber of the Fayth - Alexander - Fayth
+- -: Pilgrim's Prayer: Anima [Pilgrim's Prayers] - Chamber of the Fayth - Anima - Fayth
+- -: Pilgrim's Prayer: Carbuncle [Pilgrim's Prayers] - Chamber of the Fayth - Carbuncle - Fayth
+- -: Pilgrim's Prayer: Diabolos [Pilgrim's Prayers] - Chamber of the Fayth - Diabolos - Fayth
+- -: Pilgrim's Prayer: Hades [Pilgrim's Prayers] - Chamber of the Fayth - Hades - Fayth
+- -: Pilgrim's Prayer: Leviathan [Pilgrim's Prayers] - Chamber of the Fayth - Leviathan - Fayth
+- -: Pilgrim's Prayer: Odin [Pilgrim's Prayers] - Chamber of the Fayth - Odin - Fayth
+- -: Pilgrim's Prayer: Titan [Pilgrim's Prayers] - Chamber of the Fayth - Titan - Fayth
+- -: Pilgrim's Prayer: Yojimbo [Pilgrim's Prayers] - Chamber of the Fayth - Yojimbo - Fayth
+- -: Professions & Cooking [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Professions & Cooking [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Professions & Cooking [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Questing & Exploration [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Questing & Exploration [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Questing & Exploration [Newcomer Orientation] - Prajna Village - Quest Board
+- -: Reclaiming the Carved Tomb Pt. 2 [Legacy Quests] - Lost Paradise - Accessory Store
+- -: Reclaiming the Carved Tomb Pt. 3 [Legacy Quests] - Lost Paradise - Accessory Store
+- -: Reclaiming the Carved Tomb Pt. 4 [Legacy Quests] - Lost Paradise - Accessory Store
+- -: Record restoration — After Dusk [Continental Field Commissions] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- -: Record restoration — Route Commission [Continental Field Commissions] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- -: Record restoration — Weather Watch [Continental Field Commissions] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- -: Repeat: Pilgrims Prayer (Garuda) [Daily Quests] - Chamber of the Fayth - Garuda - Fayth
+- -: Repeat: Pilgrims Prayer (Ifrit) [Daily Quests] - Chamber of the Fayth - Ifrit - Fayth
+- -: Repeat: Pilgrims Prayer (Ramuh) [Daily Quests] - Chamber of the Fayth - Ramuh - Fayth
+- -: Repeat: Pilgrims Prayer (Shiva) [Daily Quests] - Chamber of the Fayth - Shiva - Fayth
+- -: River repair supplies — After Dusk [Continental Field Commissions] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- -: River repair supplies — Route Commission [Continental Field Commissions] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- -: River repair supplies — Weather Watch [Continental Field Commissions] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- -: Shadows of the Storm I [Legacy Story] - Arcane Library - NPC to AS
+- -: Shadows of the Storm II [Legacy Story] - Arcane Library - NPC to AS
+- -: Shadows of the Storm III [Legacy Story] - Chamber of the Fayth - Ramuh - Pilgrims Compass
+- -: Social & Economy [Newcomer Orientation] - Bichon Province - Notice Board
+- -: Social & Economy [Newcomer Orientation] - Lost Paradise - Notice Board
+- -: Social & Economy [Newcomer Orientation] - Prajna Village - Quest Board
+- -: The Ashkeeper's First Clue [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: The Ashkeeper's Lasting Record [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: The Gale's Echo I [Legacy Story] - Arcane Library - NPC to AS
+- -: The Gale's Echo II [Legacy Story] - Arcane Library - NPC to AS
+- -: The Gale's Echo III [Legacy Story] - Chamber of the Fayth - Garuda - Pilgrims Compass
+- -: The Hallowed Muster [The Long Dying — October 2026] - Arcadia Castle - long-dying.2026.ashkeeper.arcadia
+- -: The Seals at Rest [Continental Convergence]
+- -: Tide Seal presentation [Continental Convergence]
+- -: Tide Seal victory [Continental Convergence]
+- -: Whispers of the Frost I [Legacy Story] - Arcane Library - NPC to AS
+- -: Whispers of the Frost II [Legacy Story] - Arcane Library - NPC to AS
+- -: Whispers of the Frost III [Legacy Story] - Chamber of the Fayth - Shiva - Pilgrims Compass
+- 1: Arcadia Castle: Stone from the Source [Town Professions — Mining] - Arcadia Castle - Quest Board (Right Facing)
+- 1: Arcadia Castle: Stone from the Source [Town Professions — Mining] - Arcadia Castle - Quest Board (Right Facing)
+- 1: Bichon Castle: A Local Catch [Town Professions — Angling] - Bichon Castle - Notice Board
+- 1: Bichon Castle: A Local Catch [Town Professions — Angling] - Bichon Castle - Notice Board
+- 1: Bichon Castle: A Match Remembered [Town Professions — Triple Triad] - Bichon Castle - Notice Board
+- 1: Bichon Castle: A Match Remembered [Town Professions — Triple Triad] - Bichon Castle - Notice Board
+- 1: Bichon Castle: Stone from the Source [Town Professions — Mining] - Bichon Castle - Notice Board
+- 1: Bichon Castle: Stone from the Source [Town Professions — Mining] - Bichon Castle - Notice Board
+- 1: Bichon Province: A Local Catch [Town Professions — Angling] - Bichon Province - Notice Board
+- 1: Bichon Province: A Local Catch [Town Professions — Angling] - Bichon Province - Notice Board
+- 1: Bichon Province: A Match Remembered [Town Professions — Triple Triad] - Bichon Province - Notice Board
+- 1: Bichon Province: A Match Remembered [Town Professions — Triple Triad] - Bichon Province - Notice Board
+- 1: Bichon Province: Stone from the Source [Town Professions — Mining] - Bichon Province - Notice Board
+- 1: Bichon Province: Stone from the Source [Town Professions — Mining] - Bichon Province - Notice Board
+- 1: Chronicle: Ash of Bichon Province [People of Mir] - Bichon Province - Notice Board
+- 1: Chronicle: Bell of Lost Paradise [People of Mir] - Lost Paradise - Notice Board
+- 1: Chronicle: Cinder of Bichon Castle [People of Mir] - Bichon Castle - Notice Board
+- 1: Chronicle: Dawn of Arcane Library [People of Mir] - Arcane Library - NPC to AS
+- 1: Chronicle: Night of Astral Sanctum [People of Mir] - Astral Sanctum - Quest System V2 Notice Board
+- 1: Chronicle: Pale of Prajna Village [People of Mir] - Prajna Village - Notice Board
+- 1: Lost Paradise: A Local Catch [Town Professions — Angling] - Lost Paradise - Notice Board
+- 1: Lost Paradise: A Local Catch [Town Professions — Angling] - Lost Paradise - Notice Board
+- 1: Lost Paradise: A Match Remembered [Town Professions — Triple Triad] - Lost Paradise - Notice Board
+- 1: Lost Paradise: A Match Remembered [Town Professions — Triple Triad] - Lost Paradise - Notice Board
+- 1: Lost Paradise: Stone from the Source [Town Professions — Mining] - Lost Paradise - Notice Board
+- 1: Lost Paradise: Stone from the Source [Town Professions — Mining] - Lost Paradise - Notice Board
+- 1: Numa Village: A Local Catch [Town Professions — Angling] - Numa Village - Notice Board
+- 1: Numa Village: A Local Catch [Town Professions — Angling] - Numa Village - Notice Board
+- 1: Numa Village: A Match Remembered [Town Professions — Triple Triad] - Numa Village - Notice Board
+- 1: Numa Village: A Match Remembered [Town Professions — Triple Triad] - Numa Village - Notice Board
+- 1: Prajna Island: A Match Remembered [Town Professions — Triple Triad] - Prajna Island - Notice Board
+- 1: Prajna Island: A Match Remembered [Town Professions — Triple Triad] - Prajna Island - Notice Board
+- 1: Prajna Island: Stone from the Source [Town Professions — Mining] - Prajna Island - Notice Board
+- 1: Prajna Island: Stone from the Source [Town Professions — Mining] - Prajna Island - Notice Board
+- 1: Prajna Village: A Local Catch [Town Professions — Angling] - Prajna Village - Quest Board
+- 1: Prajna Village: A Local Catch [Town Professions — Angling] - Prajna Village - Quest Board
+- 1: Prajna Village: A Match Remembered [Town Professions — Triple Triad] - Prajna Village - Quest Board
+- 1: Prajna Village: A Match Remembered [Town Professions — Triple Triad] - Prajna Village - Quest Board
+- 1: Prajna Village: Stone from the Source [Town Professions — Mining] - Prajna Village - Quest Board
+- 1: Prajna Village: Stone from the Source [Town Professions — Mining] - Prajna Village - Quest Board
+- 1: Regional Adventure: Ash of Bichon Province [Regional Adventures] - Bichon Province - Notice Board
+- 1: Regional Adventure: Bell of Lost Paradise [Regional Adventures] - Lost Paradise - Notice Board
+- 1: Regional Adventure: Cinder of Bichon Castle [Regional Adventures] - Bichon Castle - Notice Board
+- 1: Regional Adventure: Dawn of Arcane Library [Regional Adventures] - Arcane Library - NPC to AS
+- 1: Regional Adventure: Jade of Stone Tomb Lv 1 [Regional Adventures] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Adventure: Lantern of Stone Tomb Lv 2 [Regional Adventures] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Adventure: Night of Astral Sanctum [Regional Adventures] - Astral Sanctum - Quest System V2 Notice Board
+- 1: Regional Adventure: Night of Stone Tomb Lv 3 [Regional Adventures] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Adventure: Pale of Prajna Village [Regional Adventures] - Prajna Village - Notice Board
+- 1: Regional Adventure: Pale of Stone Tomb Lv 4 [Regional Adventures] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Adventure: Reed of Boar Kings Lair [Regional Adventures] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Bell at Bichon Province [Regional Chronicles] - Bichon Province - Notice Board
+- 1: Regional Chronicle: Cinder at Bichon Castle [Regional Chronicles] - Bichon Castle - Notice Board
+- 1: Regional Chronicle: Cinder at Stone Tomb Lv 1 [Regional Chronicles] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Dawn at Sabuk Keep [Regional Chronicles] - Sabuk Keep - Generated Quest Board
+- 1: Regional Chronicle: Ember at Stone Tomb Lv 4 [Regional Chronicles] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Fallow at North Way [Regional Chronicles] - Bichon Province - Notice Board
+- 1: Regional Chronicle: Glass at Lost Paradise [Regional Chronicles] - Lost Paradise - Notice Board
+- 1: Regional Chronicle: Lantern at Prajna Village [Regional Chronicles] - Prajna Village - Notice Board
+- 1: Regional Chronicle: Lantern at South Way [Regional Chronicles] - Numa Village - Notice Board
+- 1: Regional Chronicle: Oath at Stone Tomb Lv 3 [Regional Chronicles] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Pale at North Way [Regional Chronicles] - Lost Paradise - Notice Board
+- 1: Regional Chronicle: Reed at Boar Kings Lair [Regional Chronicles] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Umber at Stone Tomb Lv 2 [Regional Chronicles] - Stone Tomb Lv 3 - Waystone
+- 1: Regional Chronicle: Veil at Samak Wall [Regional Chronicles] - Samak Wall - Generated Quest Board
+- 1: Regional Chronicle: Yew at South Way [Regional Chronicles] - Prajna Village - Quest Board
+- 1: Sabuk Keep: A Local Catch [Town Professions — Angling] - Sabuk Keep - Generated Quest Board
+- 1: Sabuk Keep: A Local Catch [Town Professions — Angling] - Sabuk Keep - Generated Quest Board
+- 1: Sabuk Keep: A Match Remembered [Town Professions — Triple Triad] - Sabuk Keep - Generated Quest Board
+- 1: Sabuk Keep: A Match Remembered [Town Professions — Triple Triad] - Sabuk Keep - Generated Quest Board
+- 1: Samak Wall: A Local Catch [Town Professions — Angling] - Samak Wall - Generated Quest Board
+- 1: Samak Wall: A Local Catch [Town Professions — Angling] - Samak Wall - Generated Quest Board
+- 1: Samak Wall: A Match Remembered [Town Professions — Triple Triad] - Samak Wall - Generated Quest Board
+- 1: Samak Wall: A Match Remembered [Town Professions — Triple Triad] - Samak Wall - Generated Quest Board
+- 1: Silent Wind City: A Local Catch [Town Professions — Angling] - Silent Wind City - Notice Board
+- 1: Silent Wind City: A Local Catch [Town Professions — Angling] - Silent Wind City - Notice Board
+- 1: Silent Wind City: A Match Remembered [Town Professions — Triple Triad] - Silent Wind City - Notice Board
+- 1: Silent Wind City: A Match Remembered [Town Professions — Triple Triad] - Silent Wind City - Notice Board
+- 1: Story Arc - Helping the guards - 1 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: Story Arc - Helping the guards - 2 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: Story Arc - Helping the guards - 3 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: Story Arc - The Undead Rising - 1 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: Story Arc - The Undead Rising - 2 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: Story Arc - The Undead Rising - 3 [Legacy Quests] - Prajna Village - Main Quest Board
+- 1: The Ash Circuit: Bladejack [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Ash Circuit: Ironhand [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Ash Vein: Spirit Sword [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Bell Circuit: Bladejack [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Bell Circuit: Captain Rhoswyn [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Bell Vein: Summon Skeleton Warrior [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Cinder Circuit: All in One [The Triple Triad Circuit] - Hallowed Hero Defence - Whole map
+- 1: The Cinder Circuit: Captain Rhoswyn [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Cinder Circuit: Hammerholt [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Cinder Vein: Poison Dust [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Dawn Circuit: All in One [The Triple Triad Circuit] - Hallowed Hero Defence - Whole map
+- 1: The Dawn Circuit: Hammerholt [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Dawn Circuit: Hwan [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Dawn Circuit: Lance Corporal [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Dawn Vein: Call Lesser Spirit [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Ember Circuit: Hate [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Ember Circuit: Hwan [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Ember Circuit: Lance Corporal [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Ember Circuit: Marshal Draevan [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Ember Vein: Lightning Ball [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Fallow Circuit: Hate [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Fallow Circuit: Marshal Draevan [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Fallow Circuit: Neyn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Fallow Circuit: Recruit Pike [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Fallow Vein: Ice Bolt [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Glass Circuit: Neyn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Glass Circuit: Phee [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Glass Circuit: Recruit Pike [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Glass Circuit: Sentry Kael [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Glass Vein: Gust Blast [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Hollow Circuit: Phee [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Hollow Circuit: Pheyv [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Hollow Circuit: Sentry Kael [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Hollow Circuit: Sergeant Varric [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Hollow Vein: Talisman Explosion [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Iron Circuit: Pheyv [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Iron Circuit: Phor [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Iron Circuit: Sergeant Varric [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Iron Circuit: Shieldmae [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Iron Vein: Shout: Leadership [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Jade Circuit: Cutlass Clea [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Jade Circuit: Phor [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Jade Circuit: Pten [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Jade Circuit: Shieldmae [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Jade Vein: Shield Wall [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Keystone Circuit: Cutlass Clea [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Keystone Circuit: First Mate Morren [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Keystone Circuit: Pten [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Keystone Circuit: Shevyn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Lantern Circuit: First Mate Morren [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Lantern Circuit: Reef-Eye Rallo [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Lantern Circuit: Shevyn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Lantern Circuit: Shix [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Mark Inside the Gate [Act I — Roads and Graves] - Bichon Castle - Notice Board
+- 1: The Morrow Circuit: Gunpowder Gritz [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Morrow Circuit: Reef-Eye Rallo [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Morrow Circuit: Shix [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Morrow Circuit: Thu [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Night Circuit: Bosun Brigg [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Night Circuit: Gunpowder Gritz [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Night Circuit: Quartermaster Dravik [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Night Circuit: Thu [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Oath Circuit: Bosun Brigg [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Oath Circuit: Deckhand Finn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Oath Circuit: Quartermaster Dravik [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Oath Circuit: Siren Selka [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Pale Circuit: Deckhand Finn [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Pale Circuit: Netty Knots [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Pale Circuit: Siren Selka [The Triple Triad Circuit] - Lost Paradise - Notice Board
+- 1: The Quartz Circuit: Netty Knots [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Quartz Circuit: Peg-Leg Jory [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Reed Circuit: Crimson Caldera [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Reed Circuit: Peg-Leg Jory [The Triple Triad Circuit] - Prajna Village - Main Quest Board
+- 1: The Salt Circuit: Crimson Caldera [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Salt Circuit: Harpoon Hesk [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Thorn Circuit: Harpoon Hesk [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Thorn Circuit: Mad Marlowe [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Umber Circuit: Mad Marlowe [The Triple Triad Circuit] - Sabuk Keep - Generated Quest Board
+- 1: The Umber Vein: Combat Training [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Veil Vein: Fire Ball [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Wake Vein: Heal [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: The Waystone That Answered [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 1: The Yew Circuit: Ironhand [The Triple Triad Circuit] - Bichon Province - Notice Board
+- 1: The Yew Vein: Cure [The Miners' Archive] - Arcane Library - NPC to AS
+- 1: Tracks Around the Cave Roads [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 3: Chronicle: Bell of Numa Hill [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 3: Regional Adventure: Bell of Numa Hill [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 4: Are they in Banya Yeti? [Legacy Quests] - Prajna Village - Armour Store
+- 4: Are they in Bichon Yeti? [Legacy Quests] - Bichon Province - Armour Store
+- 4: Are they in Lost Paradise Yeti? [Legacy Quests] - Lost Paradise - Armour Store
+- 5: Chronicle: Quartz of Numa Village [People of Mir] - Numa Village - Notice Board
+- 5: Numa Village: Stone from the Source [Town Professions — Mining] - Numa Village - Notice Board
+- 5: Numa Village: Stone from the Source [Town Professions — Mining] - Numa Village - Notice Board
+- 5: Regional Adventure: Quartz of Numa Village [Regional Adventures] - Numa Village - Notice Board
+- 5: Regional Chronicle: Glass at Numa Village [Regional Chronicles] - Numa Village - Notice Board
+- 5: Wolves in Banya [Legacy Quests] - Prajna Village - Armour Store
+- 5: Wolves in Bichon [Legacy Quests] - Bichon Province - Armour Store
+- 5: Wolves in Lost Paradise [Legacy Quests] - Lost Paradise - Armour Store
+- 7: Let's try something new [Legacy Quests] - Bichon Province - Butcher Store
+- 7: Time for the Fleas to Flee [Legacy Quests] - Prajna Village - Weapon Store
+- 9: Chronicle: Ember of Bichon Cave Lv 2 [People of Mir] - Bichon Cave Lv 2 - Waystone
+- 9: Chronicle: Fallow of Bichon Cave Lv 3 [People of Mir] - Bichon Cave Lv 2 - Waystone
+- 9: Chronicle: Pale of Dead Pit Lv 1 [People of Mir] - Dead Pit Lv 2 - Waystone
+- 9: Chronicle: Quartz of Dead Pit Lv 2 [People of Mir] - Dead Pit Lv 2 - Waystone
+- 9: Chronicle: Reed of Dead Pit Lv 3 [People of Mir] - Dead Pit Lv 2 - Waystone
+- 9: Chronicle: Salt of Phantom Cave Lv 1 [People of Mir] - Phantom Cave Lv 2 - Waystone
+- 9: Chronicle: Thorn of Phantom Cave Lv 2 [People of Mir] - Phantom Cave Lv 2 - Waystone
+- 9: Chronicle: Umber of Phantom Cave Lv 3 [People of Mir] - Phantom Cave Lv 2 - Waystone
+- 9: Chronicle: Veil of Prajna Cave Lv 1 [People of Mir] - Prajna Cave Lv 2 - Waystone
+- 9: Chronicle: Wake of Prajna Cave Lv 2 [People of Mir] - Prajna Cave Lv 2 - Waystone
+- 9: Chronicle: Yew of Bichon Cave Lv 1 [People of Mir] - Bichon Cave Lv 2 - Waystone
+- 9: Chronicle: Yew of Prajna Cave Lv 3 [People of Mir] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Adventure: Ember of Bichon Cave Lv 2 [Regional Adventures] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Adventure: Fallow of Bichon Cave Lv 3 [Regional Adventures] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Adventure: Pale of Dead Pit Lv 1 [Regional Adventures] - Dead Pit Lv 2 - Waystone
+- 9: Regional Adventure: Quartz of Dead Pit Lv 2 [Regional Adventures] - Dead Pit Lv 2 - Waystone
+- 9: Regional Adventure: Reed of Dead Pit Lv 3 [Regional Adventures] - Dead Pit Lv 2 - Waystone
+- 9: Regional Adventure: Salt of Phantom Cave Lv 1 [Regional Adventures] - Phantom Cave Lv 2 - Waystone
+- 9: Regional Adventure: Thorn of Phantom Cave Lv 2 [Regional Adventures] - Phantom Cave Lv 2 - Waystone
+- 9: Regional Adventure: Umber of Phantom Cave Lv 3 [Regional Adventures] - Phantom Cave Lv 2 - Waystone
+- 9: Regional Adventure: Veil of Prajna Cave Lv 1 [Regional Adventures] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Adventure: Wake of Prajna Cave Lv 2 [Regional Adventures] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Adventure: Yew of Bichon Cave Lv 1 [Regional Adventures] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Adventure: Yew of Prajna Cave Lv 3 [Regional Adventures] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Ash at Phantom Cave Lv 1 [Regional Chronicles] - Phantom Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Ash at Prajna Cave Lv 1 [Regional Chronicles] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Glass at Bichon Cave Lv 1 [Regional Chronicles] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Hollow at Dead Pit Lv 1 [Regional Chronicles] - Dead Pit Lv 2 - Waystone
+- 9: Regional Chronicle: Hollow at Dead Pit Lv 3 [Regional Chronicles] - Dead Pit Lv 2 - Waystone
+- 9: Regional Chronicle: Morrow at Prajna Cave Lv 2 [Regional Chronicles] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Night at Prajna Cave Lv 3 [Regional Chronicles] - Prajna Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Quartz at Bichon Cave Lv 2 [Regional Chronicles] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Reed at Bichon Cave Lv 3 [Regional Chronicles] - Bichon Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Reed at Phantom Cave Lv 2 [Regional Chronicles] - Phantom Cave Lv 2 - Waystone
+- 9: Regional Chronicle: Salt at Dead Pit Lv 2 [Regional Chronicles] - Dead Pit Lv 2 - Waystone
+- 9: Regional Chronicle: Salt at Phantom Cave Lv 3 [Regional Chronicles] - Phantom Cave Lv 2 - Waystone
+- 9: Sabuk Keep: Stone from the Source [Town Professions — Mining] - Sabuk Keep - Generated Quest Board
+- 9: Sabuk Keep: Stone from the Source [Town Professions — Mining] - Sabuk Keep - Generated Quest Board
+- 9: Samak Wall: Stone from the Source [Town Professions — Mining] - Samak Wall - Generated Quest Board
+- 9: Samak Wall: Stone from the Source [Town Professions — Mining] - Samak Wall - Generated Quest Board
+- 9: Silent Wind City: Stone from the Source [Town Professions — Mining] - Silent Wind City - Notice Board
+- 9: Silent Wind City: Stone from the Source [Town Professions — Mining] - Silent Wind City - Notice Board
+- 9: The Ash Vein: Copper Ore [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Bell Vein: Iron Ore [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Cinder Vein: Black Iron Ore [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Dawn Vein: Silver Ore [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Ember Vein: Gold Ore [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Fallow Vein: Amethyst [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Glass Vein: Garnet [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Hollow Vein: Diamond [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 9: The Iron Vein: Corundum [The Miners' Archive] - Dead Pit Lv 2 - Waystone
+- 10: Bichon Cave: Daily Challenge Contract [Dungeon Contracts — Bichon Province] - Bichon Province - Notice Board
+- 10: Bichon Cave: The First Descent [Dungeon Adventures — Bichon Province] - Bichon Province - Notice Board
+- 10: Bounty - The Culling (Bronze) [Bounties] - Prajna Village - Quest Board
+- 10: Chaos Frost Desert Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Desert Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Desert Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Desert Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Siege Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Siege Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Siege Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Siege Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Snow Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Snow Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Snow Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Chaos Frost Snow Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Desert Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Desert Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Desert Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Desert Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Siege Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Siege Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Siege Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Siege Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Snow Defense - 1 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Snow Defense - 2 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Snow Defense - 3 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Hallowed Snow Defense - 4 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 10: Phantom Cave: Daily Challenge Contract [Dungeon Contracts — Lost Paradise] - Lost Paradise - Notice Board
+- 10: Phantom Cave: The First Descent [Dungeon Adventures — Lost Paradise] - Lost Paradise - Notice Board
+- 10: Prajna Cave: Daily Challenge Contract [Dungeon Contracts — Prajna Village] - Prajna Village - Quest Board
+- 10: Prajna Cave: The First Descent [Dungeon Adventures — Prajna Village] - Prajna Village - Quest Board
+- 11: Regional Adventure: Fallow of Flea Cave Lv 1 [Regional Adventures] - Flea Cave Lv 2 - Waystone
+- 11: Regional Adventure: Glass of Flea Cave Lv 2 [Regional Adventures] - Flea Cave Lv 2 - Waystone
+- 11: Regional Adventure: Hollow of Flea Cave Lv 3 [Regional Adventures] - Flea Cave Lv 2 - Waystone
+- 11: Regional Chronicle: Bell at Flea Cave Lv 1 [Regional Chronicles] - Flea Cave Lv 2 - Waystone
+- 11: Regional Chronicle: Hollow at Flea Cave Lv 3 [Regional Chronicles] - Flea Cave Lv 2 - Waystone
+- 11: Regional Chronicle: Oath at Flea Cave Lv 2 [Regional Chronicles] - Flea Cave Lv 2 - Waystone
+- 12: Regional Adventure: Oath of Ant Colony North [Regional Adventures] - Ant Colony West - Waystone
+- 12: Regional Adventure: Pale of Ant Colony South [Regional Adventures] - Ant Colony West - Waystone
+- 12: Regional Adventure: Quartz of Ant Colony West [Regional Adventures] - Ant Colony West - Waystone
+- 12: Regional Adventure: Reed of Ant Colony East [Regional Adventures] - Ant Colony West - Waystone
+- 12: Regional Chronicle: Dawn at Ant Colony East [Regional Chronicles] - Ant Colony West - Waystone
+- 12: Regional Chronicle: Iron at Ant Colony North [Regional Chronicles] - Ant Colony West - Waystone
+- 12: Regional Chronicle: Iron at Ant Colony West [Regional Chronicles] - Ant Colony West - Waystone
+- 12: Regional Chronicle: Thorn at Ant Colony South [Regional Chronicles] - Ant Colony West - Waystone
+- 14: Descent into Darkness Pt. 1 [Legacy Quests] - Prajna Village - Essential Store
+- 14: Regional Adventure: Ash of Wooma Temple Lv 3 [Regional Adventures] - Wooma Temple Lv 2 - Waystone
+- 14: Regional Adventure: Bell of Warped Wooma Temple Lv 3 [Regional Adventures] - Warped Wooma Temple Lv 1 - Quest System V2 Notice Board
+- 14: Regional Adventure: Cinder of Wooma Temple [Regional Adventures] - Wooma Temple Lv 2 - Waystone
+- 14: Regional Adventure: Dawn of Warped Wooma Temple [Regional Adventures] - Warped Wooma Temple Lv 1 - Quest System V2 Notice Board
+- 14: Regional Adventure: Wake of Wooma Temple Lv 2 [Regional Adventures] - Wooma Temple Lv 2 - Waystone
+- 14: Regional Adventure: Yew of Warped Wooma Temple Lv 2 [Regional Adventures] - Warped Wooma Temple Lv 1 - Quest System V2 Notice Board
+- 14: Regional Chronicle: Dawn at Wooma Temple [Regional Chronicles] - Wooma Temple Lv 2 - Waystone
+- 14: Regional Chronicle: Night at Wooma Temple Lv 3 [Regional Chronicles] - Wooma Temple Lv 2 - Waystone
+- 14: Regional Chronicle: Thorn at Wooma Temple Lv 2 [Regional Chronicles] - Wooma Temple Lv 2 - Waystone
+- 15: Regional Adventure: Umber of Wooma Temple Lv 1 [Regional Adventures] - Wooma Temple Lv 2 - Waystone
+- 15: Regional Adventure: Veil of Warped Wooma Temple Lv 1 [Regional Adventures] - Warped Wooma Temple Lv 1 - Quest System V2 Notice Board
+- 15: Regional Chronicle: Bell at Wooma Temple Lv 1 [Regional Chronicles] - Wooma Temple Lv 2 - Waystone
+- 16: Regional Adventure: Ember of Prajna Stone Cave Lv 1 [Regional Adventures] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Adventure: Fallow of Prajna Stone Cave Lv 2 [Regional Adventures] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Adventure: Glass of Prajna Stone Cave Lv 3 [Regional Adventures] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Adventure: Hollow of Prajna Stone Cave Lv 4 [Regional Adventures] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Adventure: Iron of Prajna Stone Cave Lv 5 [Regional Adventures] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Chronicle: Ash at Prajna Stone Cave Lv 4 [Regional Chronicles] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Chronicle: Cinder at Prajna Stone Cave Lv 1 [Regional Chronicles] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Chronicle: Iron at Prajna Stone Cave Lv 3 [Regional Chronicles] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Chronicle: Pale at Prajna Stone Cave Lv 2 [Regional Chronicles] - Prajna Stone Cave Lv 3 - Waystone
+- 16: Regional Chronicle: Reed at Prajna Stone Cave Lv 5 [Regional Chronicles] - Prajna Stone Cave Lv 3 - Waystone
+- 17: Regional Adventure: Quartz of Warped Stone Tomb Lv 4 [Regional Adventures] - Warped Stone Tomb Lv 1 - Quest System V2 Notice Board
+- 17: Regional Adventure: Salt of Warped Boar Kings Lair [Regional Adventures] - Warped Stone Tomb Lv 1 - Quest System V2 Notice Board
+- 20: Chronicle: Ember of Prajna Island [People of Mir] - Prajna Island - Notice Board
+- 20: Chronicle: Fallow of Desert [People of Mir] - Lost Paradise - Notice Board
+- 20: Chronicle: Hollow of Prajna Valley South [People of Mir] - Prajna Village - Main Quest Board
+- 20: Curing the Poison Pt. 1 [Legacy Quests] - Prajna Village - Main Quest Board
+- 20: Elite Bounty: Demonic Kektal [Grade F] [Bounties] - Arcadia Castle - Quest Board (Right Facing)
+- 20: Prajna Island: A Local Catch [Town Professions — Angling] - Prajna Island - Notice Board
+- 20: Prajna Island: A Local Catch [Town Professions — Angling] - Prajna Island - Notice Board
+- 20: Regional Adventure: Ember of Prajna Island [Regional Adventures] - Prajna Island - Notice Board
+- 20: Regional Adventure: Fallow of Desert [Regional Adventures] - Lost Paradise - Notice Board
+- 20: Regional Adventure: Hollow of Prajna Valley South [Regional Adventures] - Prajna Village - Main Quest Board
+- 20: Regional Adventure: Keystone of Warped Stone Tomb Lv 1 [Regional Adventures] - Warped Stone Tomb Lv 1 - Quest System V2 Notice Board
+- 20: Regional Adventure: Morrow of Warped Stone Tomb Lv 2 [Regional Adventures] - Warped Stone Tomb Lv 1 - Quest System V2 Notice Board
+- 20: Regional Adventure: Oath of Warped Stone Tomb Lv 3 [Regional Adventures] - Warped Stone Tomb Lv 1 - Quest System V2 Notice Board
+- 20: Regional Chronicle: Wake at Desert [Regional Chronicles] - Lost Paradise - Notice Board
+- 20: Regional Chronicle: Wake at Prajna Valley South [Regional Chronicles] - Prajna Village - Main Quest Board
+- 20: The Ash Current: Golden River Roamer [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Bell Current: Standard Float [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Cinder Current: Standard Finder [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Dawn Current: Golden River Roamer [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Ember Current: Standard Float [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Fallow Current: Standard Finder [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Glass Current: Reeds [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Hollow Current: Crimson Razorback [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Iron Current: Standard Hook [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Jade Current: Standard Reel [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Keystone Current: Crimson Razorback [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Lantern Current: Standard Hook [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Morrow Current: Standard Reel [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Night Current: Reeds [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Oath Current: Glacier Pike [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Pale Current: Golden River Roamer [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Quartz Current: Crimson Razorback [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Reed Current: Glacier Pike [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Salt Current: Golden River Roamer [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Salt Current: Reeds [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Thorn Current: Crimson Razorback [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Thorn Current: Glacier Pike [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Umber Current: Standard Bait [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Umber Current: Standard Bait [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Veil Current: Glacier Pike [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Veil Current: Standard Float [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Wake Current: Standard Bait [The Anglers' Ledger] - Prajna Island - Notice Board
+- 20: The Yew Current: Reeds [The Anglers' Ledger] - Prajna Island - Notice Board
+- 22: Chronicle: Ember of Illusion Woods [People of Mir] - Bichon Province - Notice Board
+- 22: Footprints on North Way [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 22: Glass Over Bichon Cave Lv 1 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 22: Hollow Over Dead Pit Lv 1 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 22: Iron Over Ant Colony North [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 22: Regional Adventure: Ash of Red Moon Valley Lv 1 [Regional Adventures] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Adventure: Bell of Red Moon Valley Lv 2 [Regional Adventures] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Adventure: Cinder of Red Moon Valley Lv 3 [Regional Adventures] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Adventure: Dawn of Red Moon Valley Lv 4 [Regional Adventures] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Adventure: Ember of Illusion Woods [Regional Adventures] - Bichon Province - Notice Board
+- 22: Regional Adventure: Ember of Red Moon Valley [Regional Adventures] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Chronicle: Dawn at Red Moon Valley [Regional Chronicles] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Chronicle: Ember at Illusion Woods [Regional Chronicles] - Bichon Province - Notice Board
+- 22: Regional Chronicle: Fallow at Red Moon Valley Lv 2 [Regional Chronicles] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Chronicle: Lantern at Red Moon Valley Lv 4 [Regional Chronicles] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Chronicle: Oath at Red Moon Valley Lv 1 [Regional Chronicles] - Red Moon Valley Lv 3 - Waystone
+- 22: Regional Chronicle: Thorn at Red Moon Valley Lv 3 [Regional Chronicles] - Red Moon Valley Lv 3 - Waystone
+- 22: Silk Over the Old Road [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 23: Jade Over Death Valley Lv 1 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 23: Regional Adventure: Thorn of Death Valley Lv 1 [Regional Adventures] - Death Valley Lv 3 - Waystone
+- 23: Regional Adventure: Umber of Death Valley Lv 2 [Regional Adventures] - Death Valley Lv 3 - Waystone
+- 23: Regional Adventure: Veil of Death Valley Lv 3 [Regional Adventures] - Death Valley Lv 3 - Waystone
+- 23: Regional Adventure: Wake of Death Valley Lv 4 [Regional Adventures] - Death Valley Lv 3 - Waystone
+- 23: Regional Adventure: Yew of Life Death Hall [Regional Adventures] - Death Valley Lv 3 - Waystone
+- 23: Regional Chronicle: Ember at Death Valley Lv 4 [Regional Chronicles] - Death Valley Lv 3 - Waystone
+- 23: Regional Chronicle: Jade at Death Valley Lv 1 [Regional Chronicles] - Death Valley Lv 3 - Waystone
+- 23: Regional Chronicle: Jade at Death Valley Lv 3 [Regional Chronicles] - Death Valley Lv 3 - Waystone
+- 23: Regional Chronicle: Umber at Death Valley Lv 2 [Regional Chronicles] - Death Valley Lv 3 - Waystone
+- 23: Regional Chronicle: Veil at Life Death Hall [Regional Chronicles] - Death Valley Lv 3 - Waystone
+- 24: Chronicle: Dawn of Silent Wind City [People of Mir] - Silent Wind City - Notice Board
+- 24: Chronicle: Glass of Phantom Forest North [People of Mir] - Lost Paradise - Notice Board
+- 24: Flea Cave: Daily Challenge Contract [Dungeon Contracts — Prajna Village] - Prajna Village - Quest Board
+- 24: Flea Cave: The First Descent [Dungeon Adventures — Prajna Village] - Prajna Village - Quest Board
+- 24: Regional Adventure: Dawn of Silent Wind City [Regional Adventures] - Silent Wind City - Notice Board
+- 24: Regional Adventure: Glass of Phantom Forest North [Regional Adventures] - Lost Paradise - Notice Board
+- 24: Regional Chronicle: Umber at Silent Wind City [Regional Chronicles] - Silent Wind City - Notice Board
+- 24: Regional Chronicle: Yew at Phantom Forest North [Regional Chronicles] - Lost Paradise - Notice Board
+- 25: Arcadia Castle: A Local Catch [Town Professions — Angling] - Arcadia Castle - Quest Board (Right Facing)
+- 25: Arcadia Castle: A Local Catch [Town Professions — Angling] - Arcadia Castle - Quest Board (Right Facing)
+- 25: Elephants on Parade [Legacy Quests] - Lost Paradise - Weapon Store
+- 25: Reclaiming the Carved Tomb Pt. 1 [Legacy Quests] - Lost Paradise - Accessory Store
+- 25: The Ash Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Ash Current: Sapphire Surgeon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Ash Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Bell Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Bell Current: Leafy Lurker [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Bell Current: Lemon Lance [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Cinder Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Cinder Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Cinder Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Dawn Current: Lemon Lance [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Dawn Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Dawn Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Ember Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Ember Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Ember Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Fallow Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Fallow Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Fallow Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Glass Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Glass Current: Sapphire Surgeon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Glass Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Hollow Current: Anglerdon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Hollow Current: Leafy Lurker [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Hollow Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Iron Current: Anglerdon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Iron Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Iron Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Jade Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Jade Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Jade Current: Sapphire Surgeon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Keystone Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Keystone Current: Leafy Lurker [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Keystone Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Lantern Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Lantern Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Lantern Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Morrow Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Morrow Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Morrow Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Night Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Night Current: Standard Bait [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Night Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Oath Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Oath Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Oath Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Pale Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Pale Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Pale Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Quartz Current: Anglerdon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Quartz Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Quartz Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Reed Current: Anglerdon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Reed Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Reed Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Salt Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Salt Current: Standard Reel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Thorn Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Thorn Current: Standard Float [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Umber Current: Lemon Lance [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Umber Current: Standard Finder [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Veil Current: Reeds [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Veil Current: Sapphire Surgeon [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Wake Current: Emerald Eel [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Wake Current: Leafy Lurker [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Yew Current: Lemon Lance [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 25: The Yew Current: Standard Hook [The Anglers' Ledger] - The Last Bastion - Challenge Quest Board Area
+- 27: Chronicle: Glass of Zuma Temple Lv 1 [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 27: Chronicle: Hollow of Warped Zuma Temple Lv 1 [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Chronicle: Iron of Zuma Temple Lv 2 [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 27: Chronicle: Jade of Warped Zuma Temple Lv 2 [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Chronicle: Keystone of Zuma Temple Lv 3 [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 27: Chronicle: Lantern of Warped Zuma Temple Lv 3 [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Chronicle: Morrow of Zuma Temple Lv 4 [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 27: Chronicle: Night of Warped Zuma Temple Lv 4 [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Chronicle: Pale of Warped Zuma Temple Lv 5 [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Dead Pit: Daily Challenge Contract [Dungeon Contracts — Bichon Province] - Bichon Province - Notice Board
+- 27: Dead Pit: The First Descent [Dungeon Adventures — Bichon Province] - Bichon Province - Notice Board
+- 27: Regional Adventure: Glass of Zuma Temple Lv 1 [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Adventure: Hollow of Warped Zuma Temple Lv 1 [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Regional Adventure: Iron of Zuma Temple Lv 2 [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Adventure: Jade of Warped Zuma Temple Lv 2 [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Regional Adventure: Keystone of Zuma Temple Lv 3 [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Adventure: Lantern of Warped Zuma Temple Lv 3 [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Regional Adventure: Morrow of Zuma Temple Lv 4 [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Adventure: Night of Warped Zuma Temple Lv 4 [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Regional Adventure: Pale of Warped Zuma Temple Lv 5 [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 27: Regional Chronicle: Ember at Zuma Temple Lv 2 [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Chronicle: Keystone at Zuma Temple Lv 4 [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Chronicle: Night at Zuma Temple Lv 1 [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 27: Regional Chronicle: Salt at Zuma Temple Lv 3 [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 28: Chronicle: Ash of Prajna Temple Lv 9 West [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Bell of Prajna Temple Lv 9 East [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Cinder of Prajna Temple Lv 10 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Dawn of Prajna Temple [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Oath of Zuma Temple Lv 5 [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 28: Chronicle: Quartz of Prajna Temple Lv 3-W [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Quartz of Zuma Temple King Room [People of Mir] - Zuma Temple Lv 4 - Waystone
+- 28: Chronicle: Reed of Prajna Temple Lv 3-E [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Reed of Warped Zuma Temple King Room [People of Mir] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 28: Chronicle: Salt of Prajna Temple Lv 4 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Thorn of Prajna Temple Lv 5 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Umber of Prajna Temple Lv 6 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Veil of Prajna Temple Lv 7 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Chronicle: Wake of Prajna Temple Lv 8 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Ash of Prajna Temple Lv 9 West [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Bell of Prajna Temple Lv 9 East [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Cinder of Prajna Temple Lv 10 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Dawn of Prajna Temple [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Oath of Zuma Temple Lv 5 [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 28: Regional Adventure: Quartz of Prajna Temple Lv 3-W [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Quartz of Zuma Temple King Room [Regional Adventures] - Zuma Temple Lv 4 - Waystone
+- 28: Regional Adventure: Reed of Prajna Temple Lv 3-E [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Reed of Warped Zuma Temple King Room [Regional Adventures] - Warped Zuma Temple Lv 1 - Quest System V2 Notice Board
+- 28: Regional Adventure: Salt of Prajna Temple Lv 4 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Thorn of Prajna Temple Lv 5 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Umber of Prajna Temple Lv 6 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Veil of Prajna Temple Lv 7 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Adventure: Wake of Prajna Temple Lv 8 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Chronicle: Bell at Prajna Temple Lv 5 [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Chronicle: Cinder at Zuma Temple Lv 5 [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 28: Regional Chronicle: Jade at Prajna Temple Lv 4 [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Chronicle: Quartz at Prajna Temple Lv 3-W [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Chronicle: Reed at Prajna Temple Lv 3-E [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 28: Regional Chronicle: Salt at Zuma Temple King Room [Regional Chronicles] - Zuma Temple Lv 4 - Waystone
+- 29: Chronicle: Oath of Prajna Temple Lv 1 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 29: Chronicle: Pale of Prajna Temple Lv 2 [People of Mir] - Prajna Temple Lv 8 - Waystone
+- 29: Regional Adventure: Oath of Prajna Temple Lv 1 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 29: Regional Adventure: Pale of Prajna Temple Lv 2 [Regional Adventures] - Prajna Temple Lv 8 - Waystone
+- 29: Regional Chronicle: Dawn at Prajna Temple Lv 2 [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 29: Regional Chronicle: Morrow at Prajna Temple Lv 1 [Regional Chronicles] - Prajna Temple Lv 8 - Waystone
+- 30: Elite Bounty: Arachnid Brood Queen [Grade F] [Bounties] - Arcadia Castle - Quest Board (Right Facing)
+- 30: Prajna Temple: Daily Challenge Contract [Dungeon Contracts — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 30: Prajna Temple: The First Descent [Dungeon Adventures — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 31: Ant Colony North: Daily Challenge Contract [Dungeon Contracts — Bichon Province] - Bichon Province - Notice Board
+- 31: Ant Colony North: The First Descent [Dungeon Adventures — Bichon Province] - Bichon Province - Notice Board
+- 32: Chronicle: Ash of Black Palace Lv 1 [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Ash of Jinchon Palace Lv 2-S [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Bell of Black Palace Lv 2-W [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Bell of Jinchon Palace Lv 2-E [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Cinder of Black Palace Lv 2-E [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Cinder of Jinchon Palace Lv 2-N [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Dawn of Black Palace Lv 3 [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Dawn of Jinchon Palace Lv 3-W [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Ember of Black Palace Lv 4 [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Ember of Jinchon Palace Lv 3-S [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Fallow of Black Palace [People of Mir] - Black Palace Lv 3 - Waystone
+- 32: Chronicle: Fallow of Jinchon Palace Lv 3-E [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Glass of Jinchon Palace Lv 3-N [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Hollow of Warped Jinchon Palace Lv 2 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Iron of Jinchon Palace Lv 4-S [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Jade of Jinchon Palace Lv 4-E [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Keystone of Jinchon Palace Lv 4-N [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Lantern of Numa Ruins Lv 1 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Lantern of Warped Jinchon Palace Lv 3 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Morrow of Jinchon Palace Lv 5-E [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Night of Jinchon Palace Lv 5-N [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Night of Numa Ruins Lv 2 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Oath of Warped Jinchon Palace Lv 4 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Oath of Warped Numa Ruins Lv 2 [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Chronicle: Pale of Jinchon Palace Lv 6 [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Pale of Numa Ruins Lv 3 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Quartz of Numa Ruins Lv 3 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Quartz of Warped Jinchon Palace Lv 5 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Reed of Jinchon Palace [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Reed of Numa Ruins Lv 3 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Salt of Numa Ruins Lv 3 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Salt of Warped Jinchon Palace Lv 6 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Thorn of Warped Jinchon Palace Lv 7 [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Thorn of Warped Numa Ruins Lv 3 [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Chronicle: Umber of Numa Ruins Lv 4 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Umber of Warped Jinchon Palace [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Veil of Jinchon Dungeon [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Veil of Warped Numa Ruins Lv 4 [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Chronicle: Wake of Numa Ruins Lv 5 [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 32: Chronicle: Wake of Warped Jinchon Dungeon [People of Mir] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Chronicle: Yew of Jinchon Palace Lv 2-W [People of Mir] - Jinchon Palace Lv 6 - Waystone
+- 32: Chronicle: Yew of Warped Numa Ruins Lv 5 [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Regional Adventure: Ash of Black Palace Lv 1 [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Ash of Jinchon Palace Lv 2-S [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Bell of Black Palace Lv 2-W [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Bell of Jinchon Palace Lv 2-E [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Cinder of Black Palace Lv 2-E [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Cinder of Jinchon Palace Lv 2-N [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Dawn of Black Palace Lv 3 [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Dawn of Jinchon Palace Lv 3-W [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Ember of Black Palace Lv 4 [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Ember of Jinchon Palace Lv 3-S [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Fallow of Black Palace [Regional Adventures] - Black Palace Lv 3 - Waystone
+- 32: Regional Adventure: Fallow of Jinchon Palace Lv 3-E [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Glass of Jinchon Palace Lv 3-N [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Hollow of Warped Jinchon Palace Lv 2 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Iron of Jinchon Palace Lv 4-S [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Jade of Jinchon Palace Lv 4-E [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Keystone of Jinchon Palace Lv 4-N [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Lantern of Numa Ruins Lv 1 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Lantern of Warped Jinchon Palace Lv 3 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Morrow of Jinchon Palace Lv 5-E [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Night of Jinchon Palace Lv 5-N [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Night of Numa Ruins Lv 2 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Oath of Warped Jinchon Palace Lv 4 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Oath of Warped Numa Ruins Lv 2 [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Regional Adventure: Pale of Jinchon Palace Lv 6 [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Pale of Numa Ruins Lv 3 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Quartz of Numa Ruins Lv 3 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Quartz of Warped Jinchon Palace Lv 5 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Reed of Jinchon Palace [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Reed of Numa Ruins Lv 3 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Salt of Numa Ruins Lv 3 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Salt of Warped Jinchon Palace Lv 6 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Thorn of Warped Jinchon Palace Lv 7 [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Thorn of Warped Numa Ruins Lv 3 [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Regional Adventure: Umber of Numa Ruins Lv 4 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Umber of Warped Jinchon Palace [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Veil of Jinchon Dungeon [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Veil of Warped Numa Ruins Lv 4 [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Regional Adventure: Wake of Numa Ruins Lv 5 [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Adventure: Wake of Warped Jinchon Dungeon [Regional Adventures] - Warped Jinchon Dungeon - Quest System V2 Notice Board
+- 32: Regional Adventure: Yew of Jinchon Palace Lv 2-W [Regional Adventures] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Adventure: Yew of Warped Numa Ruins Lv 5 [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 32: Regional Chronicle: Cinder at Numa Ruins Lv 5 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Fallow at Jinchon Palace Lv 2-W [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Fallow at Jinchon Palace Lv 5-N [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Fallow at Numa Ruins Lv 3 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Glass at Jinchon Palace Lv 2-S [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Glass at Numa Ruins Lv 3 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Hollow at Jinchon Palace Lv 2-E [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Hollow at Numa Ruins Lv 3 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Iron at Jinchon Palace Lv 2-N [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Iron at Numa Ruins Lv 3 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Jade at Black Palace Lv 2-W [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 32: Regional Chronicle: Keystone at Black Palace Lv 2-E [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 32: Regional Chronicle: Keystone at Jinchon Palace Lv 3-S [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Lantern at Jinchon Palace Lv 4-E [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Morrow at Jinchon Palace Lv 4-N [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Night at Black Palace Lv 4 [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 32: Regional Chronicle: Night at Jinchon Dungeon [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Oath at Black Palace Lv 1 [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 32: Regional Chronicle: Pale at Numa Ruins Lv 2 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Salt at Numa Ruins Lv 4 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Umber at Jinchon Palace Lv 3-W [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Umber at Jinchon Palace Lv 4-S [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Veil at Jinchon Palace Lv 3-E [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Veil at Jinchon Palace Lv 5-E [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Wake at Black Palace [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 32: Regional Chronicle: Wake at Jinchon Palace Lv 3-N [Regional Chronicles] - Jinchon Palace Lv 6 - Waystone
+- 32: Regional Chronicle: Wake at Numa Ruins Lv 1 [Regional Chronicles] - Numa Ruins Lv 4 - Waystone
+- 32: Regional Chronicle: Yew at Black Palace Lv 3 [Regional Chronicles] - Black Palace Lv 3 - Waystone
+- 33: Chronicle: Ember of Desert Tunnel Lv 1 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Fallow of Desert Tunnel Lv 2 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Glass of Desert Tunnel Lv 3 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Hollow of Desert City Lv 1 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Iron of Desert City Lv 2 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Jade of Desert City Lv 3 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Keystone of Desert City Lv 4 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Lantern of Desert Mine Lv 1 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Morrow of Desert Mine Lv 2 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Chronicle: Night of Desert Mine Lv 3 [People of Mir] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Ember of Desert Tunnel Lv 1 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Fallow of Desert Tunnel Lv 2 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Glass of Desert Tunnel Lv 3 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Hollow of Desert City Lv 1 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Iron of Desert City Lv 2 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Jade of Desert City Lv 3 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Keystone of Desert City Lv 4 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Lantern of Desert Mine Lv 1 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Morrow of Desert Mine Lv 2 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Adventure: Night of Desert Mine Lv 3 [Regional Adventures] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Ash at Desert Tunnel Lv 3 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Glass at Desert City Lv 3 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Hollow at Desert Mine Lv 1 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Lantern at Desert Tunnel Lv 2 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Oath at Desert City Lv 1 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Pale at Desert Tunnel Lv 1 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 33: Regional Chronicle: Yew at Desert City Lv 2 [Regional Chronicles] - Desert Mine Lv 1 - Waystone
+- 34: Chronicle: Morrow of Warped Numa Ruins Lv 1 [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 34: Regional Adventure: Morrow of Warped Numa Ruins Lv 1 [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 35: Chronicle: Glass of Mystery Ship Lv 4 [People of Mir] - Lost Realm - Waystone
+- 35: Chronicle: Hollow of Mystery Ship Lv 3 [People of Mir] - Lost Realm - Waystone
+- 35: Chronicle: Iron of Mystery Ship Lv 2 [People of Mir] - Lost Realm - Waystone
+- 35: Chronicle: Jade of Mystery Ship Lv 1 [People of Mir] - Lost Realm - Waystone
+- 35: Chronicle: Keystone of Mystery Ship [People of Mir] - Lost Realm - Waystone
+- 35: Regional Adventure: Glass of Mystery Ship Lv 4 [Regional Adventures] - Lost Realm - Waystone
+- 35: Regional Adventure: Hollow of Mystery Ship Lv 3 [Regional Adventures] - Lost Realm - Waystone
+- 35: Regional Adventure: Iron of Mystery Ship Lv 2 [Regional Adventures] - Lost Realm - Waystone
+- 35: Regional Adventure: Jade of Mystery Ship Lv 1 [Regional Adventures] - Lost Realm - Waystone
+- 35: Regional Adventure: Keystone of Mystery Ship [Regional Adventures] - Lost Realm - Waystone
+- 37: Wooma Temple: Daily Challenge Contract [Dungeon Contracts — Lost Paradise] - Lost Paradise - Notice Board
+- 37: Wooma Temple: The First Descent [Dungeon Adventures — Lost Paradise] - Lost Paradise - Notice Board
+- 40: Ash Over Desert Tunnel Lv 3 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Ash Over Dragon Abyss Lv 2 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Ash Over Phantom Cave Lv 1 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Ash Over Prajna Cave Lv 1 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Ash Over Prajna Stone Cave Lv 4 [Act II — Temples and Claimants] - Prajna Village - Quest Board
+- 40: Bell Over Dragon Abyss Ent [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Bell Over Flea Cave Lv 1 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Bell Over Prajna Temple Lv 5 [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Bell Over Snow Palace Lv 3 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Bell Over Wooma Temple Lv 1 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Chronicle: Ash of Snow Tower Lv 1 [People of Mir] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Chronicle: Bell of Snow Tower Lv 2 [People of Mir] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Chronicle: Cinder of Snow Tower Lv 3 [People of Mir] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Chronicle: Dawn of Snow Tower Queen's Chamber [People of Mir] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Chronicle: Ember of Goru Cave Lv 1 [People of Mir] - Goru Cave Lv 2 - Waystone
+- 40: Chronicle: Fallow of Goru Cave Lv 2 [People of Mir] - Goru Cave Lv 2 - Waystone
+- 40: Chronicle: Iron of Beyond Shore [People of Mir] - Southern Check Point - Waypoint
+- 40: Chronicle: Iron of Ice city [People of Mir] - Ice city - Generated Quest Board
+- 40: Chronicle: Jade of River Of Flames Lv 1 [People of Mir] - River Of Flames Lv 2 - Waystone
+- 40: Chronicle: Jade of Western Coast [People of Mir] - Western Arids - Waystone
+- 40: Chronicle: Keystone of River Of Flames Lv 2 [People of Mir] - River Of Flames Lv 2 - Waystone
+- 40: Chronicle: Lantern of Dragon Abyss Ent [People of Mir] - Dragon Abyss Lv 3 - Waystone
+- 40: Chronicle: Morrow of Oakmarsh [People of Mir] - Arcadia Castle - Quest Board (Right Facing)
+- 40: Chronicle: Night of Lost Village [People of Mir] - Lost Village - Generated Quest Board
+- 40: Chronicle: Oath of Lost Pass [People of Mir] - Lost Village - Waystone
+- 40: Chronicle: Reed of Frost Village [People of Mir] - Frost Village - Generated Quest Board
+- 40: Chronicle: Salt of Snow Palace Lv 1 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Chronicle: Thorn of Snow Palace Lv 2 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Chronicle: Umber of Snow Palace Lv 3 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Chronicle: Veil of Snow Palace Lv 4 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Chronicle: Wake of Snow Palace Lv 5 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Chronicle: Yew of Snow Palace Lv 6 [People of Mir] - Snow Palace Lv 4 - Waystone
+- 40: Cinder Over Numa Ruins Lv 5 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Cinder Over Prajna Stone Cave Lv 1 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Cinder Over Snow Palace Lv 1 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Cinder Over Stone Tomb Lv 1 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Cinder Over Zuma Temple Lv 5 [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Dawn Over Ant Colony East [Act II — Temples and Claimants] - Bichon Province - Notice Board
+- 40: Dawn Over Beyond Shore [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 40: Dawn Over Prajna Temple Lv 2 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Dawn Over Red Moon Valley [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Dawn Over Wooma Temple [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Death Valley: Daily Challenge Contract [Dungeon Contracts — Bichon Province] - Bichon Province - Notice Board
+- 40: Death Valley: The First Descent [Dungeon Adventures — Bichon Province] - Bichon Province - Notice Board
+- 40: Dragon Abyss: Daily Challenge Contract [Dungeon Contracts — Frost Village] - Frost Village - Generated Quest Board
+- 40: Dragon Abyss: The First Descent [Dungeon Adventures — Frost Village] - Frost Village - Generated Quest Board
+- 40: Ember Over Death Valley Lv 4 [Act II — Temples and Claimants] - Bichon Province - Notice Board
+- 40: Ember Over Hyunmoon Temple Lv 2 [Act II — Temples and Claimants] - Silent Wind City - Notice Board
+- 40: Ember Over Stone Tomb Lv 4 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Ember Over The Wall [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Ember Over Zuma Temple Lv 2 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Fallow Over Goru Cave Lv 4 [Act II — Temples and Claimants] - Bichon Castle - Notice Board
+- 40: Fallow Over Jinchon Palace Lv 2-W [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Fallow Over Jinchon Palace Lv 5-N [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Fallow Over Numa Ruins Lv 3 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Fallow Over Red Moon Valley Lv 2 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Frost Village: A Local Catch [Town Professions — Angling] - Frost Village - Generated Quest Board
+- 40: Frost Village: A Local Catch [Town Professions — Angling] - Frost Village - Generated Quest Board
+- 40: Frost Village: A Match Remembered [Town Professions — Triple Triad] - Frost Village - Generated Quest Board
+- 40: Frost Village: A Match Remembered [Town Professions — Triple Triad] - Frost Village - Generated Quest Board
+- 40: Frost Village: Stone from the Source [Town Professions — Mining] - Frost Village - Generated Quest Board
+- 40: Frost Village: Stone from the Source [Town Professions — Mining] - Frost Village - Generated Quest Board
+- 40: Glass Over Desert City Lv 3 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Glass Over Jinchon Palace Lv 2-S [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Glass Over Lost Paradise [Act I — Roads and Graves] - Lost Paradise - Notice Board
+- 40: Glass Over Numa Ruins Lv 3 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Glass Over Numa Village [Act II — Temples and Claimants] - Numa Village - Notice Board
+- 40: Goru Cave: Daily Challenge Contract [Dungeon Contracts — Bichon Castle] - Bichon Castle - Notice Board
+- 40: Goru Cave: The First Descent [Dungeon Adventures — Bichon Castle] - Bichon Castle - Notice Board
+- 40: Hollow Over Dead Pit Lv 3 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Hollow Over Desert Mine Lv 1 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Hollow Over Flea Cave Lv 3 [Act II — Temples and Claimants] - Prajna Village - Quest Board
+- 40: Hollow Over Jinchon Palace Lv 2-E [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Hollow Over Numa Ruins Lv 3 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Hyunmoon Temple: Daily Challenge Contract [Dungeon Contracts — Silent Wind City] - Silent Wind City - Notice Board
+- 40: Hyunmoon Temple: The First Descent [Dungeon Adventures — Silent Wind City] - Silent Wind City - Notice Board
+- 40: Ice city: A Local Catch [Town Professions — Angling] - Ice city - Generated Quest Board
+- 40: Ice city: A Local Catch [Town Professions — Angling] - Ice city - Generated Quest Board
+- 40: Ice city: A Match Remembered [Town Professions — Triple Triad] - Ice city - Generated Quest Board
+- 40: Ice city: A Match Remembered [Town Professions — Triple Triad] - Ice city - Generated Quest Board
+- 40: Ice city: Stone from the Source [Town Professions — Mining] - Ice city - Generated Quest Board
+- 40: Ice city: Stone from the Source [Town Professions — Mining] - Ice city - Generated Quest Board
+- 40: Iron Over Ant Colony West [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Iron Over Dragon Abyss Lv 3 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Iron Over Jinchon Palace Lv 2-N [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Iron Over Numa Ruins Lv 3 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Iron Over Prajna Stone Cave Lv 3 [Act II — Temples and Claimants] - Prajna Village - Quest Board
+- 40: Jade Over Black Palace Lv 2-W [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Jade Over Death Valley Lv 3 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Jade Over Prajna Temple Lv 4 [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Jade Over Snow Palace Lv 4 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Jade Over Southern Coast [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Keystone Over Black Palace Lv 2-E [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Keystone Over Goru Cave Lv 1 [Act I — Roads and Graves] - Bichon Castle - Notice Board
+- 40: Keystone Over Goru Cave Lv 3 [Act I — Roads and Graves] - Bichon Castle - Notice Board
+- 40: Keystone Over Jinchon Palace Lv 3-S [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Keystone Over Western Coast [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 40: Keystone Over Zuma Temple Lv 4 [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Lantern Over Desert Tunnel Lv 2 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Lantern Over Jinchon Palace Lv 4-E [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Lantern Over Prajna Village [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Lantern Over Red Moon Valley Lv 4 [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Lantern Over South Way [Act I — Roads and Graves] - Numa Village - Notice Board
+- 40: Lantern Over Southern Wall [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 40: Lost Village: A Local Catch [Town Professions — Angling] - Lost Village - Generated Quest Board
+- 40: Lost Village: A Local Catch [Town Professions — Angling] - Lost Village - Generated Quest Board
+- 40: Lost Village: A Match Remembered [Town Professions — Triple Triad] - Lost Village - Generated Quest Board
+- 40: Lost Village: A Match Remembered [Town Professions — Triple Triad] - Lost Village - Generated Quest Board
+- 40: Lost Village: Stone from the Source [Town Professions — Mining] - Lost Village - Generated Quest Board
+- 40: Lost Village: Stone from the Source [Town Professions — Mining] - Lost Village - Generated Quest Board
+- 40: Morrow Over Frost Village [Act II — Temples and Claimants] - Frost Village - Generated Quest Board
+- 40: Morrow Over Hyunmoon Temple Lv 1 [Act II — Temples and Claimants] - Silent Wind City - Notice Board
+- 40: Morrow Over Jinchon Palace Lv 4-N [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Morrow Over Prajna Cave Lv 2 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Morrow Over Prajna Temple Lv 1 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Morrow Over The Wall 2 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Night Over Black Palace Lv 4 [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Night Over Jinchon Dungeon [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Night Over Jinchon Palace Lv 6 [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Night Over Prajna Cave Lv 3 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Night Over Wooma Temple Lv 3 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Night Over Zuma Temple Lv 1 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Oath Over Black Palace Lv 1 [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Oath Over Desert City Lv 1 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Oath Over Desert City Lv 4 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Oath Over Flea Cave Lv 2 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Oath Over Red Moon Valley Lv 1 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Oath Over Stone Tomb Lv 3 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Pale Over Desert Mine Lv 2 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Pale Over Desert Tunnel Lv 1 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Pale Over Dragon Abyss Lv 1 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Pale Over North Way [Act I — Roads and Graves] - Lost Paradise - Notice Board
+- 40: Pale Over Numa Ruins Lv 2 [Act II — Temples and Claimants] - Numa Village - Notice Board
+- 40: Pale Over Prajna Stone Cave Lv 2 [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Quartz Over Bichon Cave Lv 2 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Quartz Over Dragon Abyss Lv 4 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Quartz Over Ice city [Act II — Temples and Claimants] - Ice city - Generated Quest Board
+- 40: Quartz Over Prajna Temple Lv 3-W [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Quartz Over Snow Palace Lv 2 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Quartz Over Southern Wastes [Act II — Temples and Claimants] - Numa Village - Notice Board
+- 40: Reed Over Bichon Cave Lv 3 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Reed Over Boar Kings Lair [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Reed Over Phantom Cave Lv 2 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Reed Over Prajna Stone Cave Lv 5 [Act II — Temples and Claimants] - Prajna Village - Quest Board
+- 40: Reed Over Prajna Temple Lv 3-E [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Reed Over Snow Palace Lv 5 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 40: Regional Adventure: Ash of Dragon Abyss Lv 2 [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Ash of Snow Tower Lv 1 [Regional Adventures] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Regional Adventure: Bell of Dragon Abyss Lv 3 [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Bell of Snow Tower Lv 2 [Regional Adventures] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Regional Adventure: Cinder of Dragon Abyss Lv 4 [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Cinder of Snow Tower Lv 3 [Regional Adventures] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Regional Adventure: Dawn of Dragon Abyss Lv 5 [Regional Adventures] - Dragon Abyss Lv 5 - Quest System V2 Notice Board
+- 40: Regional Adventure: Dawn of Snow Tower Queen's Chamber [Regional Adventures] - Snow Tower Lv 1 - Quest System V2 Notice Board
+- 40: Regional Adventure: Ember of Dragon Abyss [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Ember of Goru Cave Lv 1 [Regional Adventures] - Goru Cave Lv 2 - Waystone
+- 40: Regional Adventure: Fallow of Goru Cave Lv 2 [Regional Adventures] - Goru Cave Lv 2 - Waystone
+- 40: Regional Adventure: Fallow of Lost Land 3 [Regional Adventures] - Lost Realm - Waystone
+- 40: Regional Adventure: Glass of Goru Cave Lv 3 [Regional Adventures] - Goru Cave Lv 2 - Waystone
+- 40: Regional Adventure: Glass of The Wall [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Hollow of Goru Cave Lv 4 [Regional Adventures] - Goru Cave Lv 2 - Waystone
+- 40: Regional Adventure: Hollow of The Wall 2 [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Iron of Beyond Shore [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Iron of Hyunmoon Temple Lv 1 [Regional Adventures] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Adventure: Iron of Ice city [Regional Adventures] - Ice city - Generated Quest Board
+- 40: Regional Adventure: Iron of Lost Land [Regional Adventures] - Lost Land - Sailor NPC
+- 40: Regional Adventure: Iron of Quartz Mine Lv 1 [Regional Adventures] - Quartz Mine Lv 3 - Waystone
+- 40: Regional Adventure: Jade of Hyunmoon Temple Lv 2 [Regional Adventures] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Adventure: Jade of Lost Land 2 [Regional Adventures] - Lost Realm - Waystone
+- 40: Regional Adventure: Jade of Quartz Mine Lv 2 [Regional Adventures] - Quartz Mine Lv 3 - Waystone
+- 40: Regional Adventure: Jade of River Of Flames Lv 1 [Regional Adventures] - River Of Flames Lv 2 - Waystone
+- 40: Regional Adventure: Jade of Western Coast [Regional Adventures] - Western Arids - Waystone
+- 40: Regional Adventure: Keystone of Hyunmoon Temple Lv 3 [Regional Adventures] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Adventure: Keystone of Quartz Mine Lv 3 [Regional Adventures] - Quartz Mine Lv 3 - Waystone
+- 40: Regional Adventure: Keystone of River Of Flames Lv 2 [Regional Adventures] - River Of Flames Lv 2 - Waystone
+- 40: Regional Adventure: Keystone of Southern Dunes [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Keystone of Temple of Kings - Floor 1 [Regional Adventures] - Temple of Kings - Floor 1 - ToK - F1 - Waystone
+- 40: Regional Adventure: Lantern of Dragon Abyss Ent [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Lantern of Quartz Mine Lv 4 [Regional Adventures] - Quartz Mine Lv 3 - Waystone
+- 40: Regional Adventure: Lantern of Southern Wastes [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Lantern of Temple of Kings - Floor 1 (PvP) [Regional Adventures] - Temple of Kings - Floor 1 (PvP) - Quest System V2 Notice Board
+- 40: Regional Adventure: Morrow of Oakmarsh [Regional Adventures] - Arcadia Castle - Quest Board (Right Facing)
+- 40: Regional Adventure: Morrow of Quartz Mine [Regional Adventures] - Quartz Mine Lv 3 - Waystone
+- 40: Regional Adventure: Morrow of Southern Coast [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Morrow of Temple of Kings - Floor 2 [Regional Adventures] - Temple of Kings - Floor 1 - ToK - F1 - Waystone
+- 40: Regional Adventure: Night of Abandoned Town [Regional Adventures] - Forgotten Monastery Lv 1 - Waystone
+- 40: Regional Adventure: Night of Lost Village [Regional Adventures] - Lost Village - Generated Quest Board
+- 40: Regional Adventure: Night of Southern Check Point [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Night of Temple of Kings - Floor 2 (PvP) [Regional Adventures] - Temple of Kings - Floor 1 (PvP) - Quest System V2 Notice Board
+- 40: Regional Adventure: Oath of Forgotten Monastery Lv 1 [Regional Adventures] - Forgotten Monastery Lv 1 - Waystone
+- 40: Regional Adventure: Oath of Lost Pass [Regional Adventures] - Lost Village - Waystone
+- 40: Regional Adventure: Oath of Temple of Kings - Floor 3 [Regional Adventures] - Temple of Kings - Floor 1 - ToK - F1 - Waystone
+- 40: Regional Adventure: Pale of Forgotton Monastery Lv 2 [Regional Adventures] - Forgotten Monastery Lv 1 - Waystone
+- 40: Regional Adventure: Pale of River Of Flames Lv 3 [Regional Adventures] - River Of Flames Lv 2 - Waystone
+- 40: Regional Adventure: Pale of Temple of Kings - Floor 3 (PvP) [Regional Adventures] - Temple of Kings - Floor 1 (PvP) - Quest System V2 Notice Board
+- 40: Regional Adventure: Quartz of Lava Temple Lv 1 [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Quartz of Temple of Kings - Floor 4 [Regional Adventures] - Temple of Kings - Floor 1 - ToK - F1 - Waystone
+- 40: Regional Adventure: Reed of Frost Village [Regional Adventures] - Frost Village - Generated Quest Board
+- 40: Regional Adventure: Reed of Lava Temple Lv 2 [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Reed of Temple of Kings - Floor 4 (PvP) [Regional Adventures] - Temple of Kings - Floor 1 (PvP) - Quest System V2 Notice Board
+- 40: Regional Adventure: Salt of Lava Temple Lv 3 [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Salt of Snow Palace Lv 1 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Adventure: Salt of Southern Wall [Regional Adventures] - Southern Check Point - Waypoint
+- 40: Regional Adventure: Thorn of Lava Temple Lv 4 West [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Thorn of Lost Way [Regional Adventures] - Lost Village - Waystone
+- 40: Regional Adventure: Thorn of Snow Palace Lv 2 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Adventure: Umber of Lava Temple Lv 4 East [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Umber of Snow Palace Lv 3 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Adventure: Veil of Lava Temple Lv 5 [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Veil of Snow Palace Lv 4 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Adventure: Wake of Lava Temple King Room [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 40: Regional Adventure: Wake of Snow Palace Lv 5 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Adventure: Yew of Dragon Abyss Lv 1 [Regional Adventures] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Adventure: Yew of Snow Palace Lv 6 [Regional Adventures] - Snow Palace Lv 4 - Waystone
+- 40: Regional Chronicle: Ash at Dragon Abyss Lv 2 [Regional Chronicles] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Chronicle: Bell at Dragon Abyss Ent [Regional Chronicles] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Chronicle: Bell at Snow Palace Lv 3 [Regional Chronicles] - Snow Palace Lv 4 - Waystone
+- 40: Regional Chronicle: Cinder at Snow Palace Lv 1 [Regional Chronicles] - Snow Palace Lv 4 - Waystone
+- 40: Regional Chronicle: Dawn at Beyond Shore [Regional Chronicles] - Southern Check Point - Waypoint
+- 40: Regional Chronicle: Ember at Hyunmoon Temple Lv 2 [Regional Chronicles] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Chronicle: Ember at The Wall [Regional Chronicles] - Southern Check Point - Waypoint
+- 40: Regional Chronicle: Fallow at Goru Cave Lv 4 [Regional Chronicles] - Goru Cave Lv 2 - Waystone
+- 40: Regional Chronicle: Iron at Dragon Abyss Lv 3 [Regional Chronicles] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Chronicle: Jade at Snow Palace Lv 4 [Regional Chronicles] - Snow Palace Lv 4 - Waystone
+- 40: Regional Chronicle: Jade at Southern Coast [Regional Chronicles] - Southern Check Point - Waypoint
+- 40: Regional Chronicle: Keystone at Goru Cave Lv 1 [Regional Chronicles] - Goru Cave Lv 2 - Waystone
+- 40: Regional Chronicle: Keystone at Goru Cave Lv 3 [Regional Chronicles] - Goru Cave Lv 2 - Waystone
+- 40: Regional Chronicle: Keystone at Western Coast [Regional Chronicles] - Western Arids - Waystone
+- 40: Regional Chronicle: Morrow at Frost Village [Regional Chronicles] - Frost Village - Generated Quest Board
+- 40: Regional Chronicle: Morrow at Hyunmoon Temple Lv 1 [Regional Chronicles] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Chronicle: Pale at Dragon Abyss Lv 1 [Regional Chronicles] - Dragon Abyss Lv 3 - Waystone
+- 40: Regional Chronicle: Quartz at Ice city [Regional Chronicles] - Ice city - Generated Quest Board
+- 40: Regional Chronicle: Quartz at Snow Palace Lv 2 [Regional Chronicles] - Snow Palace Lv 4 - Waystone
+- 40: Regional Chronicle: Quartz at Southern Wastes [Regional Chronicles] - Southern Check Point - Waypoint
+- 40: Regional Chronicle: Thorn at Hyunmoon Temple Lv 3 [Regional Chronicles] - Hyunmoon Temple Lv 2 - Waystone
+- 40: Regional Chronicle: Thorn at Southern Check Point [Regional Chronicles] - Numa Village - Notice Board
+- 40: Regional Chronicle: Veil at Goru Cave Lv 2 [Regional Chronicles] - Goru Cave Lv 2 - Waystone
+- 40: Regional Chronicle: Yew at Southern Dunes [Regional Chronicles] - Southern Check Point - Waypoint
+- 40: Salt Over Dead Pit Lv 2 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Salt Over Numa Ruins Lv 4 [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Salt Over Phantom Cave Lv 3 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Salt Over Zuma Temple King Room [Act II — Temples and Claimants] - Sabuk Keep - Generated Quest Board
+- 40: Salt Over Zuma Temple Lv 3 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Seasonal Supply Hunt - Grade E [Seasonal Supplies] - Arcadia Castle - Soul Evolution Quests
+- 40: Snow Palace: Daily Challenge Contract [Dungeon Contracts — Frost Village] - Frost Village - Generated Quest Board
+- 40: Snow Palace: The First Descent [Dungeon Adventures — Frost Village] - Frost Village - Generated Quest Board
+- 40: Soul Evolution Quest - Grade E [Legacy Quests] - Arcadia Castle - Soul Evolution Quests
+- 40: The Jade Vein: Helmet Of Dragon Abyss [The Miners' Archive] - Dragon Abyss Lv 3 - Waystone
+- 40: The Keystone Vein: Pendant Of Dragon Abyss [The Miners' Archive] - Dragon Abyss Lv 3 - Waystone
+- 40: The Lantern Vein: Armguard Of Dragon Abyss [The Miners' Archive] - Dragon Abyss Lv 3 - Waystone
+- 40: The Morrow Vein: Band Of Dragon Abyss [The Miners' Archive] - Dragon Abyss Lv 3 - Waystone
+- 40: The Night Vein: Greaves Of Dragon Abyss [The Miners' Archive] - Dragon Abyss Lv 3 - Waystone
+- 40: The Oath Vein: Pure Quartz [The Miners' Archive] - Quartz Mine Lv 3 - Waystone
+- 40: The Pale Vein: Pure Quartz [The Miners' Archive] - Quartz Mine Lv 3 - Waystone
+- 40: The Quartz Vein: Ancestral Tablet Of Sama Mage [The Miners' Archive] - Dragon Abyss Lv 5 - Quest System V2 Notice Board
+- 40: The Reed Vein: Ancestral Tablet Of Sama Mage [The Miners' Archive] - Dragon Abyss Lv 5 - Quest System V2 Notice Board
+- 40: The Salt Vein: Ancestral Tablet Of Sama Mage [The Miners' Archive] - Dragon Abyss Lv 5 - Quest System V2 Notice Board
+- 40: The Thorn Vein: Ancestral Tablet Of Sama Mage [The Miners' Archive] - Dragon Abyss Lv 5 - Quest System V2 Notice Board
+- 40: Thorn Over Ant Colony South [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Thorn Over Hyunmoon Temple Lv 3 [Act III — The Broken Record] - Silent Wind City - Notice Board
+- 40: Thorn Over Red Moon Valley Lv 3 [Act I — Roads and Graves] - Sabuk Keep - Generated Quest Board
+- 40: Thorn Over Southern Check Point [Act III — The Broken Record] - Numa Village - Notice Board
+- 40: Thorn Over Wooma Temple Lv 2 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Twilight Descent - 1 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 2 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 3 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 4 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 5 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 6 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 7 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Twilight Descent - 8 [Legacy Story] - The Last Bastion - LadySerin
+- 40: Umber Over Death Valley Lv 2 [Act I — Roads and Graves] - Bichon Province - Notice Board
+- 40: Umber Over Jinchon Palace Lv 3-W [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Umber Over Jinchon Palace Lv 4-S [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Umber Over Silent Wind City [Act II — Temples and Claimants] - Silent Wind City - Notice Board
+- 40: Umber Over Stone Tomb Lv 2 [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Veil Over Goru Cave Lv 2 [Act I — Roads and Graves] - Bichon Castle - Notice Board
+- 40: Veil Over Jinchon Palace Lv 3-E [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Veil Over Jinchon Palace Lv 5-E [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Veil Over Life Death Hall [Act II — Temples and Claimants] - Bichon Province - Notice Board
+- 40: Veil Over Samak Wall [Act II — Temples and Claimants] - Samak Wall - Generated Quest Board
+- 40: Wake Over Black Palace [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Wake Over Desert [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Wake Over Jinchon Palace Lv 3-N [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Wake Over Numa Ruins Lv 1 [Act II — Temples and Claimants] - Numa Village - Notice Board
+- 40: Wake Over Prajna Valley South [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Yew Over Black Palace Lv 3 [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 40: Yew Over Desert City Lv 2 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 40: Yew Over Phantom Forest North [Act II — Temples and Claimants] - Lost Paradise - Notice Board
+- 40: Yew Over South Way [Act I — Roads and Graves] - Prajna Village - Quest Board
+- 40: Yew Over Southern Dunes [Act II — Temples and Claimants] - Numa Village - Notice Board
+- 41: Prajna Stone Cave: Daily Challenge Contract [Dungeon Contracts — Prajna Village] - Prajna Village - Quest Board
+- 41: Prajna Stone Cave: The First Descent [Dungeon Adventures — Prajna Village] - Prajna Village - Quest Board
+- 41: Stone Tomb: Daily Challenge Contract [Dungeon Contracts — Lost Paradise] - Lost Paradise - Notice Board
+- 41: Stone Tomb: The First Descent [Dungeon Adventures — Lost Paradise] - Lost Paradise - Notice Board
+- 43: Chronicle: Oath of Evil Spirit [People of Mir] - Evil Spirit - Quest System V2 Notice Board
+- 43: Red Moon Valley: Daily Challenge Contract [Dungeon Contracts — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 43: Red Moon Valley: The First Descent [Dungeon Adventures — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 43: Regional Adventure: Oath of Evil Spirit [Regional Adventures] - Evil Spirit - Quest System V2 Notice Board
+- 44: Chronicle: Dawn of Purgatory [People of Mir] - Lava Temple Lv 3 - Waystone
+- 44: Regional Adventure: Dawn of Purgatory [Regional Adventures] - Lava Temple Lv 3 - Waystone
+- 44: Zuma Temple: Daily Challenge Contract [Dungeon Contracts — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 44: Zuma Temple: The First Descent [Dungeon Adventures — Sabuk Keep] - Sabuk Keep - Generated Quest Board
+- 45: Chronicle: Fallow of Prajna Island [People of Mir] - Prajna Island - Notice Board
+- 45: Regional Adventure: Fallow of Prajna Island [Regional Adventures] - Prajna Island - Notice Board
+- 45: Regional Adventure: Oath of Pandoras Box [Regional Adventures] - Pandoras Box - Quest System V2 Notice Board
+- 49: Black Palace: Daily Challenge Contract [Dungeon Contracts — Samak Wall] - Samak Wall - Generated Quest Board
+- 49: Black Palace: The First Descent [Dungeon Adventures — Samak Wall] - Samak Wall - Generated Quest Board
+- 49: Jinchon Dungeon: Daily Challenge Contract [Dungeon Contracts — Samak Wall] - Samak Wall - Generated Quest Board
+- 49: Jinchon Dungeon: The First Descent [Dungeon Adventures — Samak Wall] - Samak Wall - Generated Quest Board
+- 50: Chronicle: Ash of Warped Numa Ruins King Room [People of Mir] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 50: Heroic: Black Palace [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Death Valley [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Dragon Abyss [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Jinchon Palace [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Lava Temple [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Numa Ruins [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Prajna Temple [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Red Moon Valley [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Snow Palace [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Snow Tower [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Stone Tomb [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Wooma Temple [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Heroic: Zuma Temple [Heroic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 50: Regional Adventure: Ash of Warped Numa Ruins King Room [Regional Adventures] - Warped Numa Ruins Lv 1 - Quest System V2 Notice Board
+- 51: Numa Ruins: Daily Challenge Contract [Dungeon Contracts — Numa Village] - Numa Village - Notice Board
+- 51: Numa Ruins: The First Descent [Dungeon Adventures — Numa Village] - Numa Village - Notice Board
+- 51: Regional Adventure: Lantern of Pandoras Cave Lv 1 [Regional Adventures] - Pandoras Cave Lv 2 - Waystone
+- 51: Regional Adventure: Morrow of Pandoras Cave Lv 2 [Regional Adventures] - Pandoras Cave Lv 2 - Waystone
+- 51: Regional Adventure: Night of Pandoras Cave Lv 3 [Regional Adventures] - Pandoras Cave Lv 2 - Waystone
+- 61: Ash Over Western Arids [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Bell Over Lost Oasis [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Chronicle: Hollow of Western Arids [People of Mir] - Western Arids - Waystone
+- 61: Chronicle: Keystone of Western Pass [People of Mir] - Western Arids - Waystone
+- 61: Chronicle: Lantern of Lost Oasis [People of Mir] - Arid Flats - Waystone
+- 61: Chronicle: Morrow of Arid Flats [People of Mir] - Arid Flats - Waystone
+- 61: Cinder Over Arid Flats [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Dawn Over Quartz Mine Lv 1 [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Ember Over Quartz Mine Lv 2 [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Fallow Over Quartz Mine Lv 3 [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Glass Over Quartz Mine Lv 4 [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Hollow Over Quartz Mine [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Regional Adventure: Hollow of Western Arids [Regional Adventures] - Western Arids - Waystone
+- 61: Regional Adventure: Keystone of Western Pass [Regional Adventures] - Western Arids - Waystone
+- 61: Regional Adventure: Lantern of Lost Oasis [Regional Adventures] - Arid Flats - Waystone
+- 61: Regional Adventure: Morrow of Arid Flats [Regional Adventures] - Arid Flats - Waystone
+- 61: Salt Over Western Pass [Act III — The Broken Record] - Lost Village - Generated Quest Board
+- 61: Thorn Over Jinchon Palace [Act III — The Broken Record] - Samak Wall - Generated Quest Board
+- 61: Umber Over Evil Spirit [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 61: Veil Over Desert Mine Lv 3 [Act III — The Broken Record] - Lost Paradise - Notice Board
+- 61: Wake Over Dragon Abyss [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 61: Yew Over Snow Palace Lv 6 [Act III — The Broken Record] - Frost Village - Generated Quest Board
+- 65: Chronicle: Cinder of Numa Stronghold [People of Mir] - Numa Ruins Lv 4 - Waystone
+- 65: Regional Adventure: Cinder of Numa Stronghold [Regional Adventures] - Numa Ruins Lv 4 - Waystone
+- 68: Pandoras Cave: Daily Challenge Contract [Dungeon Contracts — Prajna Island] - Prajna Island - Notice Board
+- 68: Pandoras Cave: The First Descent [Dungeon Adventures — Prajna Island] - Prajna Island - Notice Board
+- 70: Elite Bounty: Tiger War Lord [Grade E] [Bounties] - Arcadia Castle - Quest Board (Right Facing)
+- 75: The Citadel Without Gates [Chambers Unseen] - Chamber of the Fayth - Alexander - Pilgrims Compass
+- 75: The Last Measure [Chambers Unseen] - Chamber of the Fayth - Odin - Pilgrims Compass
+- 75: The Name of Every Blight [Chambers Unseen] - Chamber of the Fayth - Hades - Pilgrims Compass
+- 75: The Prayer in Chains [Chambers Unseen] - Chamber of the Fayth - Anima - Pilgrims Compass
+- 75: The Price of One Stroke [Chambers Unseen] - Chamber of the Fayth - Yojimbo - Pilgrims Compass
+- 75: The Ruby That Answers [Chambers Unseen] - Chamber of the Fayth - Carbuncle - Pilgrims Compass
+- 75: The Sea Beneath the Hull [Chambers Unseen] - Chamber of the Fayth - Leviathan - Pilgrims Compass
+- 75: The Weight Below [Chambers Unseen] - Chamber of the Fayth - Diabolos - Pilgrims Compass
+- 75: The Wounded Root [Chambers Unseen] - Chamber of the Fayth - Titan - Pilgrims Compass
+- 90: Elite Bounty: Adamantoise [Grade D] [Bounties] - Arcadia Castle - Quest Board (Right Facing)
+- 90: Seasonal Supply Hunt - Grade D [Seasonal Supplies] - Arcadia Castle - Soul Evolution Quests
+- 90: Soul Evolution Quest - Grade D [Legacy Quests] - Arcadia Castle - Soul Evolution Quests
+- 100: Ascension Quest 100 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 100: Elite Bounty: Naga Overlord [Grade D] [Bounties] - Arcadia Castle - Quest Board (Right Facing)
+- 100: Mythic: Black Palace [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Death Valley [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Dragon Abyss [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Jinchon Palace [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Lava Temple [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Numa Ruins [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Prajna Temple [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Red Moon Valley [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Snow Palace [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Snow Tower [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Stone Tomb [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Wooma Temple [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Mythic: Zuma Temple [Mythic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 100: Nagaria Ruins: Iron at Nagaria Ruins - Lobby [Act IV — Nagaria Ruins] - The Last Bastion - Explorer Guild Location
+- 100: Nagaria Ruins: Jade at Nagaria Ruins - Floor 1 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Keystone at Nagaria Ruins - Floor 2 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Lantern at Nagaria Ruins - Floor 3 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Morrow at Nagaria Ruins - Floor 4 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Night at Nagaria Ruins - Floor 5 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Oath at Nagaria Ruins - Floor 6 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Pale at Nagaria Ruins - Floor 7 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Quartz at Nagaria Ruins - Floor 8 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Reed at Nagaria Ruins - Floor 9 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Salt at Nagaria Ruins - Floor 10 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Thorn at Nagaria Ruins - Floor 11 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Umber at Nagaria Ruins - Floor 12 [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Nagaria Ruins: Veil at Nagaria Ruins - Unknown Location [Act IV — Nagaria Ruins] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Ash of Nagaria Ruins - Floor 3 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Bell of Nagaria Ruins - Floor 4 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Cinder of Nagaria Ruins - Floor 5 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Dawn of Nagaria Ruins - Floor 6 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Ember of Nagaria Ruins - Floor 7 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Fallow of Nagaria Ruins - Floor 8 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Glass of Nagaria Ruins - Floor 9 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Hollow of Nagaria Ruins - Floor 10 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Iron of Nagaria Ruins - Floor 11 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Jade of Nagaria Ruins - Floor 12 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Quartz of Golden Temple Lv 1 [Regional Adventures] - Golden Temple Lv 1 - Quest System V2 Notice Board
+- 100: Regional Adventure: Reed of Golden Temple Lv 2 [Regional Adventures] - Golden Temple Lv 1 - Quest System V2 Notice Board
+- 100: Regional Adventure: Salt of Golden Temple Lv 3 [Regional Adventures] - Golden Temple Lv 1 - Quest System V2 Notice Board
+- 100: Regional Adventure: Thorn of Golden Temple Lv 4 [Regional Adventures] - Golden Temple Lv 1 - Quest System V2 Notice Board
+- 100: Regional Adventure: Umber of Golden Temple Lv 5 [Regional Adventures] - Golden Temple Lv 1 - Quest System V2 Notice Board
+- 100: Regional Adventure: Veil of Cluckthulhu's Lair [Regional Adventures] - Cluckthulhu's Lair - Quest System V2 Notice Board
+- 100: Regional Adventure: Wake of Nagaria Ruins - Floor 1 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: Regional Adventure: Yew of Nagaria Ruins - Floor 2 [Regional Adventures] - Nagaria Ruins - Lobby - Quest System V2 Notice Board
+- 100: The Forest Remembers Paths [The Forest Remembers Paths] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- 100: The Rift and Wastelands: Ash at Rift Tunnel Network [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: The Rift and Wastelands: Bell at Abyssal Wasteland 2 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: The Rift and Wastelands: Cinder at Abyssal Wasteland 3 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: The Rift and Wastelands: Dawn at Abyssal Wasteland [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: The Rift and Wastelands: Ember at Abyssal Wasteland 2 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: The Rift and Wastelands: Fallow at Abyssal Wasteland 3 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: The Rift and Wastelands: Glass at Abyssal Wasteland [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: The Rift and Wastelands: Hollow at Abyssal Wasteland 2 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: The Rift and Wastelands: Iron at Abyssal Portal Chamber [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: The Rift and Wastelands: Jade at Rift Tunnel Network [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: The Rift and Wastelands: Keystone at Abyssal Wasteland 2 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: The Rift and Wastelands: Lantern at Abyssal Wasteland 3 [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: The Rift and Wastelands: Morrow at Abyssal Wasteland [Act IV — The Rift and Wastelands] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: The Road Beneath the Snow [The Road Beneath the Snow] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- 100: The Umber Circuit: Ghost-Eye Garreth [The Triple Triad Circuit] - Abyssal Wasteland 2 - DW XTT NPC 15
+- 100: The Veil Circuit: Dread Admiral Veyne [The Triple Triad Circuit] - Abyssal Wasteland - DW XTT NPC 16
+- 100: The Veil Circuit: Ghost-Eye Garreth [The Triple Triad Circuit] - Abyssal Wasteland 2 - DW XTT NPC 15
+- 100: The Wake Circuit: Dread Admiral Veyne [The Triple Triad Circuit] - Abyssal Wasteland - DW XTT NPC 16
+- 100: Twilight Harbour: Wake at Twilight Harbour [Act IV — Twilight Harbour] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Twilight Harbour: Yew at Abyssal Portal Chamber [Act IV — Twilight Harbour] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Ash of Twilight Harbour [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Ash of Twilight Harbour [Unanswered Margins] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Unanswered Margins: Bell of Abyssal Portal Chamber [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Bell of Abyssal Portal Chamber [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Cinder of Rift Tunnel Network [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Cinder of Rift Tunnel Network [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Dawn of Abyssal Wasteland 2 [Unanswered Margins] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: Unanswered Margins: Dawn of Abyssal Wasteland 2 [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Ember of Abyssal Wasteland [Unanswered Margins] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Unanswered Margins: Fallow of Abyssal Wasteland 3 [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Glass of Nagaria Ruins - Unknown Location [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Hollow of Nagaria Ruins - Lobby [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Iron of Twilight Harbour [Unanswered Margins] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: Unanswered Margins: Jade of Abyssal Portal Chamber [Unanswered Margins] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Unanswered Margins: Keystone of Rift Tunnel Network [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Lantern of Abyssal Wasteland 2 [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Morrow of Abyssal Wasteland [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Night of Abyssal Wasteland 3 [Unanswered Margins] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: Unanswered Margins: Oath of Nagaria Ruins - Unknown Location [Unanswered Margins] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Unanswered Margins: Pale of Nagaria Ruins - Lobby [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Quartz of Twilight Harbour [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Reed of Abyssal Portal Chamber [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Salt of Rift Tunnel Network [Unanswered Margins] - Twilight Harbour - Lore Cast - Tovan Grell
+- 100: Unanswered Margins: Thorn of Abyssal Wasteland 2 [Unanswered Margins] - Twilight Harbour - Lore Cast - Kestrel Vale
+- 100: Unanswered Margins: Umber of Abyssal Wasteland [Unanswered Margins] - Twilight Harbour - Lore Cast - Mara Venn
+- 100: Unanswered Margins: Veil of Abyssal Wasteland 3 [Unanswered Margins] - Twilight Harbour - Lore Cast - Ilyan Rook
+- 100: Unanswered Margins: Wake of Nagaria Ruins - Unknown Location [Unanswered Margins] - Twilight Harbour - Lore Cast - Sera Nhal
+- 100: Unanswered Margins: Yew of Nagaria Ruins - Lobby [Unanswered Margins] - Twilight Harbour - Lore Cast - Tovan Grell
+- 110: Ascension Quest 110 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 115: A Basin, Not a Passage [The Forest Remembers Paths] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- 115: The Unpaid Winter [The Road Beneath the Snow] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- 120: Ascension Quest 120 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 120: Chronicle: Ash of Abyssal Caverns8 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Bell of Abyssal Caverns9 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Cinder of Abyssal Shores [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Salt of Abyssal Caverns1 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Thorn of Abyssal Caverns2 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Umber of Abyssal Caverns3 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Veil of Abyssal Caverns4 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Wake of Abyssal Caverns5 [People of Mir] - Abyssal Pond - waypoint
+- 120: Chronicle: Yew of Abyssal Caverns7 [People of Mir] - Abyssal Pond - waypoint
+- 120: Iron Over Abyssal Caverns1 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Jade Over Abyssal Caverns2 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Keystone Over Abyssal Caverns3 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Lantern Over Abyssal Caverns4 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Morrow Over Abyssal Caverns5 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Night Over Abyssal Pond [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Oath Over Abyssal Caverns7 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Pale Over Abyssal Caverns8 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Quartz Over Abyssal Caverns9 [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Reed Over Abyssal Shores [Act V — Beneath the Abyss] - Bichon Province - Notice Board
+- 120: Regional Adventure: Ash of Abyssal Caverns8 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Bell of Abyssal Caverns9 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Cinder of Abyssal Shores [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Salt of Abyssal Caverns1 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Thorn of Abyssal Caverns2 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Umber of Abyssal Caverns3 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Veil of Abyssal Caverns4 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Wake of Abyssal Caverns5 [Regional Adventures] - Abyssal Pond - waypoint
+- 120: Regional Adventure: Yew of Abyssal Caverns7 [Regional Adventures] - Abyssal Pond - waypoint
+- 130: Ascension Quest 130 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 135: Where the Water Went [The Road Beneath the Snow] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- 140: Ascension Quest 140 [Legacy Quests] - Hallowed Hero Defence - Archived Quests
+- 140: Below the Boundary Stones [The Forest Remembers Paths] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- 145: The Stranded Team's Account [The Road Beneath the Snow] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- 150: Two Rivers, One Promise [Two Rivers, One Promise] - Thawreach Approach - second-continent:shared:camp.thawreach.npc0
+- 155: The Forest Accord [The Forest Remembers Paths] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- 165: The Kings' Unfinished Road [The Kings' Unfinished Road] - Verdant Reach - second-continent:shared:camp.verdant.npc0
+- 170: The Other River [Two Rivers, One Promise] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- 185: The Public Face of the Road [The Kings' Unfinished Road] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- 190: Seasonal Supply Hunt - Grade C [Seasonal Supplies] - Arcadia Castle - Soul Evolution Quests
+- 190: Soul Evolution Quest - Grade C [Legacy Quests] - Arcadia Castle - Soul Evolution Quests
+- 200: A Schedule in Two Hands [Two Rivers, One Promise] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- 200: Archaic: Black Palace [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Death Valley [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Dragon Abyss [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Jinchon Palace [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Lava Temple [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Numa Ruins [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Prajna Temple [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Red Moon Valley [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Snow Palace [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Snow Tower [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Stone Tomb [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Wooma Temple [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 200: Archaic: Zuma Temple [Archaic Instance Chain] - Arcadia Castle - Dungeon Instances
+- 210: Those Who Carried the Stone [The Kings' Unfinished Road] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- 215: The Last Gauge [Two Rivers, One Promise] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- 225: The Missing Dedication [The Kings' Unfinished Road] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- 230: Names Left in Stone [Names Left in Stone] - Frostwater Western March - second-continent:shared:camp.frostwater.npc0
+- 230: The Price of Silence [The Price of Silence] - Sunroad Caravan Settlement - second-continent:shared:camp.sunroad.npc0
+- 250: Air for the Last Shift [The Price of Silence] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- 250: Catalogue of the Living North [Names Left in Stone] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- 270: An Order Without a Signature [Names Left in Stone] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- 275: A Name Between Two Doors [The Price of Silence] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- 280: The Northern Testimony [Names Left in Stone] - Crown Archive Uplands - second-continent:shared:camp.crown.npc0
+- 290: The Desert Deposition [The Price of Silence] - Glasswind Expanse - second-continent:shared:camp.glasswind.npc0
+- 340: Seasonal Supply Hunt - Grade B [Seasonal Supplies] - Arcadia Castle - Soul Evolution Quests
+- 340: Soul Evolution Quest - Grade B [Legacy Quests] - Arcadia Castle - Soul Evolution Quests
+- 350: Primordial: Black Palace [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Death Valley [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Dragon Abyss [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Jinchon Palace [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Lava Temple [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Numa Ruins [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Prajna Temple [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Red Moon Valley [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Snow Palace [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Snow Tower [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Stone Tomb [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Wooma Temple [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 350: Primordial: Zuma Temple [Primordial Instance Chain] - Arcadia Castle - Dungeon Instances
+- 450: Buried Flag [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 450: Developer Dream — Cache [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 450: First Cup [Extinction Protocol] - Bichon Province - Notice Board
+- 450: Steeped Signal [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 475: Decaf Mirror [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 475: Developer Dream — Glitch [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 500: Developer Dream — Pixel [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 500: Unwritten Hour [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Developer Dream — Bolt [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Developer Dream — Forge [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Developer Dream — Reaper [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Developer Dream — Sentinel [Developer Dreams] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Developer Dreams [Extinction Protocol] - Bichon Province - Notice Board
+- 525: Extinction Protocol [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Five Stand at Frostfall [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 525: Ten Locks Turn [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 549: What Survives [Extinction Protocol] - Rift Tunnel Network - Landing from Portal Room (Entrance)
+- 999: Arcadia Castle: A Match Remembered [Town Professions — Triple Triad] - Arcadia Castle - Quest Board (Right Facing)
+- 999: Arcadia Castle: A Match Remembered [Town Professions — Triple Triad] - Arcadia Castle - Quest Board (Right Facing)
+- 999: Chronicle: Glass of Arcadia Castle [People of Mir] - Arcadia Castle - Quest Board (Right Facing)
+- 999: Regional Adventure: Glass of Arcadia Castle [Regional Adventures] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Ash Circuit: Hotel [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Ash Circuit: Indigo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Bell Circuit: Captain Blackwake [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Bell Circuit: Indigo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Cinder Circuit: Captain Blackwake [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Pale Circuit: Alpha [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Quartz Circuit: Alpha [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Quartz Circuit: Juliet [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Reed Circuit: Bravo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Reed Circuit: Juliet [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Salt Circuit: Bravo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Salt Circuit: Charlie [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Thorn Circuit: Charlie [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Thorn Circuit: Delta [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Umber Circuit: Delta [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Umber Circuit: Echo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Veil Circuit: Echo [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Veil Circuit: Foxtrot [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Wake Circuit: Foxtrot [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Wake Circuit: Golf [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Yew Circuit: Golf [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
+- 999: The Yew Circuit: Hotel [The Triple Triad Circuit] - Arcadia Castle - Quest Board (Right Facing)
