@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:">
+    <title>Bitmat Bot</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header>
+      <label class="field grow">
+        Game window title starts with
+        <input id="window-title" type="text">
+      </label>
+      <label class="field">
+        Capture
+        <select id="capture">
+          <option value="print">Background (works when covered)</option>
+          <option value="blt">Screen (faster, game must be visible)</option>
+        </select>
+      </label>
+    </header>
+
+    <div class="actions">
+      <button id="attack-button">Hunt</button>
+      <button id="explore-button" title="Run around until the map is uncovered, steering by the big map (B). Pets do the fighting.">Explore</button>
+      <button id="triad-button" title="Play Triple Triad matches as you start them, picking the best move each turn">Triple Triad</button>
+      <button id="gather-button" title="Walk to plants and ore on screen and gather them, wandering when there are none (needs the memory reader and the tool in your Toolbelt)">Gather</button>
+      <button id="deck-button" title="Put the best five cards you own into your Triple Triad deck: open the card collection window first (needs the memory reader)">Best deck</button>
+      <button id="train-button" title="Cast a spell on yourself over and over to train it">Train</button>
+      <button id="travel-button">Travel</button>
+      <button id="stop-button" disabled>Stop</button>
+    </div>
+
+    <main>
+      <div class="column">
+        <section>
+          <h2>Keys</h2>
+          <table>
+            <thead>
+              <tr><th>Every (s)</th><th>Key</th></tr>
+            </thead>
+            <tbody id="keys"></tbody>
+          </table>
+        </section>
+
+        <fieldset>
+          <legend>Timing (ms)</legend>
+          <div id="delays" class="grid"></div>
+        </fieldset>
+      </div>
+
+      <div class="column">
+        <fieldset>
+          <legend>Hunting</legend>
+          <div class="grid">
+            <label><input id="attack" type="checkbox"> Melee (keep clicking)</label>
+            <label title="Archers attack by holding the mouse down on the target: the bot holds it on the target until it dies"><input id="archer" type="checkbox"> Archer (hold on target)</label>
+            <label title="Head for monsters on the minimap; wander if there are none"><input id="roam" type="checkbox"> Seek when idle</label>
+            <label title="Clicks the ground at your feet between every attack, cast and step (the character picks up everything in reach)"><input id="loot" type="checkbox"> Pick up items</label>
+            <label><input id="sell-items" type="checkbox"> Sell items</label>
+            <label title="Whatever the bot is doing stops while your mouse is over the game window, and carries on when it leaves"><input id="pause-on-mouse" type="checkbox"> Pause while my mouse is over the game</label>
+            <label title="If Explore stops with an error, start it again after a few seconds"><input id="explore-restart" type="checkbox"> Auto-restart Explore</label>
+            <label title="Gather mode picks plants (needs a Scavenging Dagger in the Toolbelt)"><input id="gather-plants" type="checkbox"> Gather plants</label>
+            <label title="Gather mode mines ore (needs a Pick Axe in the Toolbelt)"><input id="gather-ore" type="checkbox"> Gather ore</label>
+            <label title="Press the teleport key while exploring, to go faster and get past pets. Untick for characters without a teleport."><input id="explore-teleport" type="checkbox"> Teleport while exploring</label>
+          </div>
+          <div class="potions">
+            <label>Explore until <input id="explore-percent" type="number" min="1" max="100"> % of the map is uncovered</label>
+            <label>Teleport key <select id="unstuck-key"></select> (exploring: pressed constantly to go faster and get past pets)</label>
+            <label>Random teleport key <select id="random-key"></select> (exploring, from 60%: when far from unexplored ground)</label>
+            <label>Pick-up key <select id="pickup-key"></select> (if the game needs one)</label>
+            <label>Train: cast <select id="train-key"></select> on yourself every <input id="train-interval" type="number" min="100" step="100"> ms</label>
+            <label>HP potion <select id="hp-key"></select> below <input id="hp-percent" type="number" min="0" max="100"> %</label>
+            <label>MP potion <select id="mp-key"></select> below <input id="mp-percent" type="number" min="0" max="100"> %</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Monsters to hunt</legend>
+          <p class="hint">Read from the game's memory while hunting (needs the memory reader set up). Untick a monster to leave it alone.</p>
+          <ul id="monsters"></ul>
+        </fieldset>
+
+        <fieldset class="names-box">
+          <legend>Names seen</legend>
+          <p class="hint">Learned from the target frame as the bot fights: things that never take damage (herbs, pets) are skipped after a few tries. Override any of them here.</p>
+          <ul id="names"></ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Activity</legend>
+          <ol id="log"></ol>
+        </fieldset>
+
+        <fieldset>
+          <legend>Travel</legend>
+          <div class="travel">
+            <select id="area"></select>
+            <select id="destination" size="4"></select>
+          </div>
+        </fieldset>
+      </div>
+    </main>
+
+    <footer>
+      <span id="status">Idle</span>
+      <span id="vitals"></span>
+      <span id="timing"></span>
+    </footer>
+
+    <script src="../../dist/renderer/renderer.js"></script>
+  </body>
+</html>

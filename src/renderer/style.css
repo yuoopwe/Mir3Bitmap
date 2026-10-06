@@ -1,0 +1,237 @@
+:root {
+  color-scheme: light dark;
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+  --line: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+body {
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+header {
+  display: flex;
+  gap: 12px;
+}
+
+.grow {
+  flex: 1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  flex: 1;
+  padding: 6px 0;
+}
+
+main {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.column:last-child {
+  flex: 1;
+  /* Too much to fit: scroll the column rather than squash its boxes into each other. */
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.column > * {
+  flex-shrink: 0;
+}
+
+h2 {
+  font-size: inherit;
+  margin: 0 0 4px;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+
+td {
+  padding: 1px 8px 1px 0;
+}
+
+input[type="number"] {
+  width: 56px;
+}
+
+fieldset {
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--line);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+
+#delays label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.potions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.names-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.hint {
+  margin: 0 0 6px;
+  opacity: 0.7;
+}
+
+#names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+#names li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#names li.skipped img {
+  opacity: 0.4;
+}
+
+#names img {
+  image-rendering: pixelated;
+  height: 24px;
+  background: #000;
+}
+
+#names .stats {
+  flex: 1;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+#names button {
+  padding: 0 6px;
+}
+
+#log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 7.2em;
+  overflow-y: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#log time {
+  opacity: 0.6;
+  margin-right: 6px;
+}
+
+.travel {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+}
+
+.travel select {
+  flex: 1;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+#vitals,
+#timing {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monsters to hunt: compact columns of tick boxes. */
+#monsters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0 12px;
+  align-content: start;
+}
+
+#monsters:empty::after {
+  content: 'Start Hunt to fill this list.';
+  opacity: 0.6;
+}
+
+#monsters label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+#monsters input {
+  margin: 0;
+}
+
+#monsters li.skipped label {
+  opacity: 0.5;
+  text-decoration: line-through;
+}

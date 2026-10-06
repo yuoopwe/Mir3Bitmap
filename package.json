@@ -1,0 +1,21 @@
+{
+  "name": "bitmat-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Screen-reading bot for the Zircon (Legend of Mir 3) client",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.renderer.json && tsc -p tsconfig.json",
+    "start": "npm run build && node scripts/start.js",
+    "test": "npm run build && node --test dist/test/vision.test.js dist/test/hunting.test.js dist/test/triad.test.js",
+    "record": "npm run build && node scripts/start-script.js scripts/record-frames.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "electron": "^44.5.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "koffi": "^3.3.2"
+  }
+}

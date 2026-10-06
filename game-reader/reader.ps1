@@ -1,0 +1,318 @@
+# Reads what's around the player straight from the running game's memory (read-only, using Microsoft's
+# ClrMD) and prints it as one JSON line every ~150 ms, for the bot to use instead of reading the screen.
+# Needs the libraries in .\lib (scripts/setup-game-reader.ps1 downloads them). Runs until stdin closes.
+param([int]$IntervalMs = 150)
+$ErrorActionPreference = 'Stop'
+$lib = Join-Path $PSScriptRoot 'lib'
+# ClrMD's helpers (Azure.Core is only used for symbol downloads, but has to load).
+Get-ChildItem $lib -Filter *.dll | Where-Object { $_.Name -ne 'Microsoft.Diagnostics.Runtime.dll' } | ForEach-Object { try { Add-Type -Path $_.FullName } catch {} }
+Add-Type -Path (Join-Path $lib 'Microsoft.Diagnostics.Runtime.dll')
+
+function Write-State($state) {
+  [Console]::Out.WriteLine(($state | ConvertTo-Json -Compress -Depth 6))
+  [Console]::Out.Flush()
+}
+
+# Library.Stat.PickUpRadius: how far (in tiles) clicking at the feet picks things up.
+$PickUpRadius = 40
+
+# One of the player's stats: Stats.Values is a SortedDictionary, i.e. a binary search tree keyed by stat number.
+function Read-Stat($userObject, [int]$stat) {
+  $stats = $userObject.ReadObjectField('_Stats')
+  if ($stats.IsNull) { return 0 }
+  $node = $stats.ReadObjectField('<Values>k__BackingField').ReadObjectField('_set').ReadObjectField('root')
+  while (-not $node.IsNull) {
+    $pair = $node.ReadValueTypeField('<Item>k__BackingField')
+    $key = $pair.ReadField[int]('key')
+    if ($key -eq $stat) { return $pair.ReadField[int]('value') }
+    $node = $node.ReadObjectField($(if ($stat -lt $key) { '<Left>k__BackingField' } else { '<Right>k__BackingField' }))
+  }
+  return 0
+}
+
+# One element of an array of numbers or enums, whatever their size.
+function Read-Number($array, $index) {
+  switch ($array.Type.ComponentSize) {
+    1 { return [int]$array.GetValue[byte]($index) }
+    2 { return [int]$array.GetValue[int16]($index) }
+    8 { return [long]$array.GetValue[long]($index) }
+    default { return $array.GetValue[int]($index) }
+  }
+}
+
+# Items of a List<T> or array of objects.
+function Read-List($list) {
+  $out = [System.Collections.Generic.List[object]]::new()
+  if ($list.IsNull) { return ,$out }
+  if ($list.IsArray) {
+    $array = $list.AsArray()
+    for ($i = 0; $i -lt $array.Length; $i++) { $out.Add($array.GetObjectValue($i)) }
+    return ,$out
+  }
+  $size = $list.ReadField[int]('_size')
+  $items = $list.ReadObjectField('_items').AsArray()
+  for ($i = 0; $i -lt $size; $i++) { $out.Add($items.GetObjectValue($i)) }
+  return ,$out
+}
+
+function Read-Card($card) {
+  if ($card.IsNull) { return $null }
+  return @{
+    name = $card.ReadStringField('<Name>k__BackingField'); image = $card.ReadField[int]('<ImageIndex>k__BackingField')
+    up = $card.ReadField[int]('<Up>k__BackingField'); right = $card.ReadField[int]('<Right>k__BackingField')
+    down = $card.ReadField[int]('<Down>k__BackingField'); left = $card.ReadField[int]('<Left>k__BackingField')
+    element = [int]$card.ReadField[byte]('<Element>k__BackingField'); level = $card.ReadField[int]('<Level>k__BackingField')
+  }
+}
+
+# A control's top-left corner on the game's screen (its own position plus all its parents').
+function Read-ScreenLocation($control) {
+  $x = 0; $y = 0
+  while (-not $control.IsNull) {
+    $location = $control.ReadValueTypeField('_Location')
+    $x += $location.ReadField[int]('x'); $y += $location.ReadField[int]('y')
+    $control = $control.ReadObjectField('_Parent')
+  }
+  return @($x, $y)
+}
+
+# Every Triple Triad card by its picture number (the decks are lists of these), read once per attach.
+$script:cardsByImage = $null
+function Find-Card($module, $domain, [int]$image) {
+  if (-not $script:cardsByImage) {
+    $script:cardsByImage = @{}
+    $all = $module.GetTypeByName('Client.Scenes.Views.TripleTriad.TripleTriadCardDB').GetStaticFieldByName('<AllCards>k__BackingField').ReadObject($domain)
+    foreach ($card in (Read-List $all)) { $c = Read-Card $card; if ($c -and -not $script:cardsByImage.ContainsKey($c.image)) { $script:cardsByImage[$c.image] = $c } }
+  }
+  $found = $script:cardsByImage[$image]
+  if ($found) { return $found.Clone() }
+  return @{ image = $image; name = '?'; up = 0; right = 0; down = 0; left = 0; element = 0 }
+}
+
+# A control's box on the game's screen.
+function Read-Box($control) {
+  $at = Read-ScreenLocation $control
+  $size = $control.ReadValueTypeField('_Size')
+  return @{ x = $at[0]; y = $at[1]; width = $size.ReadField[int]('width'); height = $size.ReadField[int]('height') }
+}
+
+# A List<int> (or int array) of picture numbers.
+function Read-IntList($list) {
+  $out = @()
+  if ($list.IsNull) { return $out }
+  if ($list.IsArray) { $array = $list.AsArray(); for ($i = 0; $i -lt $array.Length; $i++) { $out += Read-Number $array $i }; return $out }
+  $size = $list.ReadField[int]('_size')
+  $items = $list.ReadObjectField('_items').AsArray()
+  for ($i = 0; $i -lt $size; $i++) { $out += Read-Number $items $i }
+  return $out
+}
+
+# The Triple Triad match on screen, if any: the board, both decks, whose turn it is, and where the hand's cards are.
+function Read-Triad($scene, $module, $domain) {
+  # The result box's OK button, once a game is over.
+  $ok = $null
+  $result = $scene.ReadObjectField('_tripleTriadResultBox')
+  if (-not $result.IsNull -and $result.ReadField[bool]('_IsVisible')) {
+    $button = $result.ReadObjectField('OKButton')
+    if (-not $button.IsNull -and $button.ReadField[bool]('_IsVisible')) { $ok = Read-Box $button }
+  }
+  $dialog = $scene.ReadObjectField('TripleTriadBox')
+  if ($dialog.IsNull -or -not $dialog.ReadField[bool]('_IsVisible')) { if ($ok) { return @{ open = $false; ok = $ok } }; return $null }
+  $game = $dialog.ReadObjectField('_manager').ReadObjectField('<Game>k__BackingField')
+  if ($game.IsNull) { return @{ open = $true; ok = $ok } }
+  $players = Read-List ($game.ReadObjectField('<Players>k__BackingField'))
+  $current = $game.ReadObjectField('<CurrentPlayer>k__BackingField')
+  $board = $game.ReadObjectField('<Board>k__BackingField')
+  $cells = $board.ReadObjectField('_cells').AsArray()
+  $elements = $board.ReadObjectField('_elements').AsArray()
+  $placed = @(); $boardElements = @()
+  for ($row = 0; $row -lt 3; $row++) {
+    for ($col = 0; $col -lt 3; $col++) {
+      $cell = $cells.GetObjectValue(@($row, $col))
+      $card = if ($cell.IsNull) { $null } else { Read-Card ($cell.ReadObjectField('<Card>k__BackingField')) }
+      if ($card) {
+        $owner = $cell.ReadObjectField('<Owner>k__BackingField')
+        $card.owner = [array]::IndexOf(@($players | ForEach-Object { $_.Address }), $owner.Address)
+      }
+      $placed += ,$card
+      $boardElements += Read-Number $elements @($row, $col)
+    }
+  }
+  $rules = 0
+  foreach ($rule in (Read-RuleList ($game.ReadObjectField('<ActiveRules>k__BackingField')))) { $rules = $rules -bor $rule }
+  # My hand as drawn (each card and where it is), and where the board's squares are.
+  $hand = @()
+  $deckCells = $dialog.ReadObjectField('_deckCells').AsArray()
+  for ($i = 0; $i -lt $deckCells.Length; $i++) {
+    $control = $deckCells.GetObjectValue($i)
+    if ($control.IsNull -or -not $control.ReadField[bool]('_IsVisible')) { continue }
+    $box = Read-Box $control
+    $box.card = Find-Card $module $domain ($control.ReadField[int]('_Index'))
+    $hand += ,$box
+  }
+  $squares = @()
+  $boardCells = $dialog.ReadObjectField('_boardCells').AsArray()
+  for ($row = 0; $row -lt 3; $row++) { for ($col = 0; $col -lt 3; $col++) { $square = $boardCells.GetObjectValue(@($row, $col)); $box = Read-Box $square; $box.image = $square.ReadField[int]('_Index'); $squares += ,$box } }
+  $turns = $dialog.ReadObjectField('_authoritativeTurns')
+  return @{
+    open = $true
+    ok = $ok
+    rules = $rules
+    current = [array]::IndexOf(@($players | ForEach-Object { $_.Address }), $current.Address)
+    stage = if ($turns.IsNull) { -1 } else { $turns.ReadField[int]('_stage') }
+    complete = $dialog.ReadField[bool]('_authoritativeMatchComplete')
+    players = @($players | ForEach-Object { @{ name = $_.ReadStringField('<Name>k__BackingField'); ai = $_.ReadField[bool]('<IsAI>k__BackingField'); deck = @(Read-List ($_.ReadObjectField('<Deck>k__BackingField')) | ForEach-Object { Read-Card $_ }) } })
+    board = $placed
+    elements = $boardElements
+    hand = $hand
+    squares = $squares
+    myDeck = @(Read-IntList ($dialog.ReadObjectField('<PlayerDeck>k__BackingField')) | ForEach-Object { Find-Card $module $domain $_ })
+    opponentDeck = @(Read-IntList ($dialog.ReadObjectField('<OpponentDeck>k__BackingField')) | ForEach-Object { Find-Card $module $domain $_ })
+    playerName = $dialog.ReadStringField('<PlayerName>k__BackingField')
+    opponentName = $dialog.ReadStringField('<OpponentName>k__BackingField')
+  }
+}
+
+# A button: where it is, whether it can be pressed, and what it says.
+function Read-Button($button) {
+  if ($button.IsNull) { return $null }
+  $box = Read-Box $button
+  $box.enabled = $button.ReadField[bool]('_IsEnabled') -and $button.ReadField[bool]('_IsVisible')
+  $label = $button.ReadObjectField('<Label>k__BackingField')
+  $box.text = if ($label.IsNull) { '' } else { $label.ReadStringField('_Text') }
+  return $box
+}
+
+# The card collection window, if open: the cards owned, the deck being edited, and where everything is drawn.
+function Read-Collection($scene, $module, $domain) {
+  $dialog = $scene.ReadObjectField('TripleTriadCollectionBox')
+  if ($dialog.IsNull -or -not $dialog.ReadField[bool]('_IsVisible')) { return $null }
+  $user = $scene.ReadObjectField('_User')
+  $owned = @()
+  foreach ($entry in (Read-List ($user.ReadObjectField('TripleTriadCards')))) {
+    $owned += ,@{ card = (Find-Card $module $domain ($entry.ReadField[int]('<Index>k__BackingField'))); count = $entry.ReadField[int]('<Count>k__BackingField') }
+  }
+  $deckSlots = @()
+  $cells = $dialog.ReadObjectField('_deckCells').AsArray()
+  for ($i = 0; $i -lt $cells.Length; $i++) { $deckSlots += ,(Read-Box ($cells.GetObjectValue($i))) }
+  $tabs = @()
+  $levelTabs = $dialog.ReadObjectField('_levelTabs')
+  $entries = $levelTabs.ReadObjectField('_entries').AsArray()
+  for ($e = 0; $e -lt $levelTabs.ReadField[int]('_count'); $e++) {
+    $entry = $entries.GetStructValue($e)
+    $info = $entry.ReadObjectField('value')
+    if ($info.IsNull) { continue }
+    $tab = $info.ReadObjectField('Tab')
+    $panel = $info.ReadObjectField('CardPanel')
+    $scroll = $info.ReadObjectField('ScrollBar')
+    $slots = @()
+    foreach ($slot in (Read-List ($info.ReadObjectField('Slots')))) {
+      $image = $slot.ReadObjectField('Image')
+      if ($image.IsNull) { continue }
+      $box = Read-Box $image
+      $box.image = $slot.ReadField[int]('CardIndex')
+      $box.shown = $slot.ReadField[bool]('FilteredIn') -and $image.ReadField[bool]('_IsVisible')
+      $slots += ,$box
+    }
+    $tabs += ,@{
+      level = $entry.ReadField[int]('key'); selected = $tab.ReadField[bool]('_Selected')
+      button = Read-Button ($tab.ReadObjectField('<TabButton>k__BackingField')); panel = Read-Box $panel
+      up = if ($scroll.IsNull) { $null } else { Read-Button ($scroll.ReadObjectField('UpButton')) }
+      down = if ($scroll.IsNull) { $null } else { Read-Button ($scroll.ReadObjectField('DownButton')) }
+      slots = $slots
+    }
+  }
+  return @{
+    owned = $owned
+    saved = @(Read-IntList ($user.ReadObjectField('TripleTriadDeck')))
+    draft = @(Read-IntList ($dialog.ReadObjectField('_draftDeck')))
+    dirty = $dialog.ReadField[bool]('_deckDirty')
+    selectedSlot = $dialog.ReadField[int]('_selectedDeckSlot')
+    detail = $dialog.ReadField[int]('_selectedDetailCard')
+    feedback = $dialog.ReadStringField('_deckFeedback')
+    deckSlots = $deckSlots
+    action = Read-Button ($dialog.ReadObjectField('_deckActionButton'))
+    save = Read-Button ($dialog.ReadObjectField('_saveDeckButton'))
+    undo = Read-Button ($dialog.ReadObjectField('_revertDeckButton'))
+    tabs = $tabs
+    cards = @($script:cardsByImage.Values)
+  }
+}
+
+# The values of a List<TripleTriadRule> (an enum list, so plain ints).
+function Read-RuleList($list) {
+  $out = @()
+  if ($list.IsNull) { return $out }
+  if ($list.Type.Name -notlike 'System.Collections.Generic.List*') { return $out }
+  $size = $list.ReadField[int]('_size')
+  $items = $list.ReadObjectField('_items').AsArray()
+  for ($i = 0; $i -lt $size; $i++) { $out += Read-Number $items $i }
+  return $out
+}
+
+$kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
+
+while ($true) {
+  $game = Get-Process -Name Xtreme -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $game) {
+    Write-State @{ inGame = $false; reason = 'Game not running' }
+    Start-Sleep -Seconds 2
+    continue
+  }
+  $target = $null
+  try {
+    $target = [Microsoft.Diagnostics.Runtime.DataTarget]::AttachToProcess($game.Id, $false)
+    $runtime = $target.ClrVersions[0].CreateRuntime()
+    $domain = $runtime.AppDomains[0]
+    $module = $runtime.EnumerateModules() | Where-Object { $_.Name -like '*Xtreme.dll' } | Select-Object -First 1
+    $script:cardsByImage = $null
+    $sceneField = $module.GetTypeByName('Client.Scenes.GameScene').GetStaticFieldByName('Game')
+    # Reads go straight to the game's live memory; attach afresh now and then all the same.
+    $attachedAt = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $game.HasExited -and $attachedAt.Elapsed.TotalSeconds -lt 30) {
+      $scene = $sceneField.ReadObject($domain)
+      if ($scene.IsNull) {
+        Write-State @{ inGame = $false; reason = 'Not in game' }
+      } else {
+        $list = $scene.ReadObjectField('MapControl').ReadObjectField('Objects')
+        $size = $list.ReadField[int]('_size')
+        $items = $list.ReadObjectField('_items').AsArray()
+        $user = $null
+        $objects = [System.Collections.Generic.List[object]]::new()
+        for ($i = 0; $i -lt $size; $i++) {
+          $o = $items.GetObjectValue($i)
+          if ($o.IsNull) { continue }
+          $location = $o.ReadValueTypeField('_CurrentLocation')
+          $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
+          $name = $o.ReadStringField('_Name')
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius) }; continue }
+          $kind = $kinds[$o.Type.Name]
+          if (-not $kind) { continue }
+          $objects.Add(@{
+            id = $o.ReadField[uint32]('ObjectID'); kind = $kind; name = $name; x = $x; y = $y
+            dead = $o.ReadField[bool]('_Dead'); level = $o.ReadField[int]('<Level>k__BackingField')
+            pet = [bool]$o.ReadStringField('_PetOwner')
+          })
+          if ($kind -eq 'node') {
+            # Gathering nodes: which node it is (GatheringNodeInfo), plant (0) or ore (1), and whether it's been picked.
+            $node = $objects[$objects.Count - 1]
+            $node.node = $o.ReadField[int]('<NodeIndex>k__BackingField')
+            $node.mining = $o.ReadField[int]('<Kind>k__BackingField') -eq 1
+            $node.harvested = $o.ReadField[bool]('_harvested')
+          }
+        }
+        $triad = $null
+        try { $triad = Read-Triad $scene $module $domain } catch { $triad = @{ open = $true; error = $_.Exception.Message } }
+        $collection = $null
+        try { $collection = Read-Collection $scene $module $domain } catch { $collection = @{ error = $_.Exception.Message } }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection }
+      }
+      Start-Sleep -Milliseconds $IntervalMs
+    }
+  } catch {
+    Write-State @{ inGame = $false; reason = "Reader error: $($_.Exception.Message)" }
+    Start-Sleep -Seconds 2
+  } finally {
+    if ($target) { $target.Dispose() }
+  }
+}

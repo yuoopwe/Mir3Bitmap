@@ -1,0 +1,151 @@
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export type KeyId =
+  | 'F1' | 'F2' | 'F3' | 'F4' | 'F5' | 'F6'
+  | 'F7' | 'F8' | 'F9' | 'F10' | 'F11' | 'F12'
+  | 'N1';
+
+export interface KeySetting {
+  enabled: boolean;
+  /** Minimum whole seconds between presses. */
+  seconds: number;
+}
+
+/** Waits around each kind of action, in milliseconds. */
+export interface Delays {
+  /** How long the mouse is held on a monster. */
+  attackClick: number;
+  pickUpClick: number;
+  /** After pressing F2-F5. */
+  quickKey: number;
+  /** Around F6-F12, so buffs aren't swallowed by another cast. */
+  buffKey: number;
+  /** Before pressing the item key (1). */
+  itemKey: number;
+  /** Between steps when travelling. */
+  runStep: number;
+  /** Between clicks and key presses while selling. */
+  menu: number;
+}
+
+/** A key the bot can press: '1'-'9', 'A'-'Z', 'F1'-'F12', 'Tab', 'Space' or '`'; '' for none. */
+export type BindableKey = string;
+
+export interface HuntSettings {
+  /** When no monsters are in view, head for one on the minimap (or wander). */
+  roam: boolean;
+  /** Pick up items lying nearby (after kills, and when idle). */
+  loot: boolean;
+  /** Extra key pressed after walking onto an item, if the client uses one. */
+  pickUpKey: BindableKey;
+  hpPotionKey: BindableKey;
+  /** Drink when HP falls below this percentage. */
+  hpPotionPercent: number;
+  mpPotionKey: BindableKey;
+  mpPotionPercent: number;
+  /** A free random teleport to anywhere explored (unlocks at 60% explored), used while exploring when far from unexplored ground. */
+  randomTeleportKey: BindableKey;
+  /** A teleport skill, pressed while exploring (aiming where the bot wants to go) when off cooldown and when stuck. */
+  unstuckKey: BindableKey;
+}
+
+export interface Settings {
+  windowTitle: string;
+  /** 'print' works while the game is covered by other windows; 'blt' is faster but needs it visible. */
+  capture: 'print' | 'blt';
+  attack: boolean;
+  /** Archer: attack by holding the left button down on the target until it dies. */
+  archer: boolean;
+  /** Pause whatever the bot is doing while the user's mouse is over the game window. */
+  pauseOnMouse: boolean;
+  /** Monster names Hunt leaves alone (when it reads the game's memory). */
+  skipMonsters: string[];
+  sellItems: boolean;
+  keys: Record<KeyId, KeySetting>;
+  delays: Delays;
+  /** Every wait is randomly lengthened or shortened by up to this percentage. */
+  fuzzPercent: number;
+  hunt: HuntSettings;
+  /** Explore mode stops once this much of the map is uncovered (or nothing reachable is left). */
+  explorePercent: number;
+  /** Start Explore again by itself if it stops with an error. */
+  exploreAutoRestart: boolean;
+  /** Use the teleport key while exploring (not every character has a teleport). */
+  exploreTeleport: boolean;
+  /** Gather mode: pick plants (Scavenging Dagger) and/or mine ore (Pick Axe). */
+  gatherPlants: boolean;
+  gatherOre: boolean;
+  /** Train mode: the spell key cast on the character over and over, and how often. */
+  trainKey: BindableKey;
+  trainIntervalMs: number;
+}
+
+export interface Destination {
+  name: string;
+  location: Point;
+}
+
+export interface Area {
+  name: string;
+  destinations: Destination[];
+}
+
+/**
+ * How the bot treats a name it has seen. 'auto' attacks anything that isn't
+ * known to be harmless; the others are the user's override.
+ */
+export type NameRule = 'auto' | 'attack' | 'ignore';
+
+export interface NameEntry {
+  /** Identifies the name (how the target frame writes it). */
+  fingerprint: string;
+  /** PNG data URL of the name as drawn in game. */
+  image: string;
+  rule: NameRule;
+  kills: number;
+  /** Fights where it never lost HP (herbs, pets, trees...). */
+  strikes: number;
+  /** Whether it's currently attacked. */
+  attacking: boolean;
+}
+
+export interface Status {
+  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel';
+  message: string;
+  /** Time spent grabbing the last frame from the game window. */
+  captureMs?: number;
+  /** Time spent scanning the last frame. */
+  scanMs?: number;
+  /** Player HP and MP from the bottom bars, 0-1. */
+  hp?: number | null;
+  mp?: number | null;
+  kills?: number;
+  /** Share of the current map uncovered, 0-1, from the last look at the big map. */
+  explored?: number | null;
+}
+
+export interface BotApi {
+  startAttack(): Promise<void>;
+  startExplore(): Promise<void>;
+  startTriad(): Promise<void>;
+  startTrain(): Promise<void>;
+  /** Puts the best five cards owned into the Triple Triad deck (the card collection window must be open). */
+  startDeck(): Promise<void>;
+  /** Walks to gathering nodes on screen and gathers them, wandering when there are none. */
+  startGather(): Promise<void>;
+  startTravel(destination: Destination): Promise<void>;
+  stop(): Promise<void>;
+  updateSettings(settings: Settings): Promise<void>;
+  listAreas(): Promise<string[]>;
+  loadArea(name: string): Promise<Area>;
+  listNames(): Promise<NameEntry[]>;
+  setNameRule(fingerprint: string, rule: NameRule): Promise<void>;
+  forgetName(fingerprint: string): Promise<void>;
+  onStatus(listener: (status: Status) => void): void;
+  onNames(listener: (names: NameEntry[]) => void): void;
+  /** Monster names seen in the game's memory while hunting. */
+  onMonsters(listener: (names: string[]) => void): void;
+}
