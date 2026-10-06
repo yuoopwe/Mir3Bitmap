@@ -1,3 +1,4 @@
+import type { MemoryCollection } from './game-memory';
 import { BASIC_RULES, greedyMove, play, score, type Card, type Game } from './triad';
 
 /** A card in the collection: its numbers, which card it is, and how many copies are owned. */
@@ -66,6 +67,19 @@ function evaluate(deck: OwnedCard[], opponents: Card[][]): { winRate: number; ma
   }
   const games = opponents.length * 2;
   return { winRate: wins / games, margin: margin / games };
+}
+
+/**
+ * What chooseDeck needs from the card collection window: the cards owned
+ * (one of each unless `allowCopies`: the game may not allow two of a card),
+ * and the cards opponents might hold, taken to be those of the levels I have.
+ */
+export function deckInputs(collection: MemoryCollection, allowCopies = true): { owned: OwnedCard[]; pool: Card[] } {
+  const toCard = (c: { up: number; right: number; down: number; left: number }) => ({ top: c.up, right: c.right, bottom: c.down, left: c.left });
+  const owned: OwnedCard[] = collection.owned.map((o) => ({ id: o.card.image, name: o.card.name, card: toCard(o.card), level: o.card.level ?? 1, count: allowCopies ? o.count : Math.min(o.count, 1) }));
+  // Cards listed with none owned don't count towards the levels I have.
+  const topLevel = Math.max(...owned.filter((o) => o.count > 0).map((o) => o.level));
+  return { owned, pool: collection.cards.filter((c) => (c.level ?? 1) <= topLevel).map(toCard) };
 }
 
 /**

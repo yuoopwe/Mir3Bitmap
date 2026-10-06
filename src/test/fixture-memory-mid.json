@@ -1,0 +1,71 @@
+{
+  "open": true,
+  "rules": 1,
+  "current": 1,
+  "stage": 0,
+  "complete": false,
+  "players": [
+    {
+      "name": "[Card Guild] Siren Selka",
+      "ai": true,
+      "deck": [
+        {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1},
+        {"name": "Fire Minotaur", "image": 204, "up": 5, "right": 3, "down": 3, "left": 4, "element": 1, "level": 2}
+      ]
+    },
+    {
+      "name": "Hero",
+      "ai": false,
+      "deck": [
+        {"name": "Ant Healer", "image": 101, "up": 3, "right": 3, "down": 3, "left": 3, "element": 0, "level": 1},
+        {"name": "Bite Bug", "image": 103, "up": 1, "right": 3, "down": 3, "left": 5, "element": 0, "level": 1},
+        {"name": "Funguar", "image": 105, "up": 5, "right": 1, "down": 1, "left": 3, "element": 0, "level": 1}
+      ]
+    }
+  ],
+  "board": [
+    null,
+    {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1, "owner": 0},
+    null,
+    {"name": "Geezard", "image": 202, "up": 1, "right": 4, "down": 1, "left": 5, "element": 0, "level": 1, "owner": 0},
+    null,
+    {"name": "Caterchipillar", "image": 104, "up": 4, "right": 2, "down": 4, "left": 3, "element": 0, "level": 1, "owner": 1},
+    null,
+    {"name": "Cockatrice", "image": 102, "up": 2, "right": 1, "down": 2, "left": 6, "element": 0, "level": 1, "owner": 0},
+    {"name": "Blobra", "image": 203, "up": 2, "right": 3, "down": 1, "left": 5, "element": 0, "level": 1, "owner": 1}
+  ],
+  "elements": [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "hand": [
+    {"x": 470, "y": 640, "width": 64, "height": 88, "card": {"name": "Ant Healer", "image": 101, "up": 3, "right": 3, "down": 3, "left": 3, "element": 0, "level": 1}},
+    {"x": 545, "y": 640, "width": 64, "height": 88, "card": {"name": "Bite Bug", "image": 103, "up": 1, "right": 3, "down": 3, "left": 5, "element": 0, "level": 1}},
+    {"x": 620, "y": 640, "width": 64, "height": 88, "card": {"name": "Funguar", "image": 105, "up": 5, "right": 1, "down": 1, "left": 3, "element": 0, "level": 1}}
+  ],
+  "squares": [
+    {"x": 560, "y": 250, "width": 80, "height": 100, "image": -1},
+    {"x": 650, "y": 250, "width": 80, "height": 100, "image": 201},
+    {"x": 740, "y": 250, "width": 80, "height": 100, "image": -1},
+    {"x": 560, "y": 360, "width": 80, "height": 100, "image": 202},
+    {"x": 650, "y": 360, "width": 80, "height": 100, "image": -1},
+    {"x": 740, "y": 360, "width": 80, "height": 100, "image": 104},
+    {"x": 560, "y": 470, "width": 80, "height": 100, "image": -1},
+    {"x": 650, "y": 470, "width": 80, "height": 100, "image": 102},
+    {"x": 740, "y": 470, "width": 80, "height": 100, "image": 203}
+  ],
+  "myDeck": [
+    {"name": "Ant Healer", "image": 101, "up": 3, "right": 3, "down": 3, "left": 3, "element": 0, "level": 1},
+    {"name": "Cockatrice", "image": 102, "up": 2, "right": 1, "down": 2, "left": 6, "element": 0, "level": 1},
+    {"name": "Bite Bug", "image": 103, "up": 1, "right": 3, "down": 3, "left": 5, "element": 0, "level": 1},
+    {"name": "Caterchipillar", "image": 104, "up": 4, "right": 2, "down": 4, "left": 3, "element": 0, "level": 1},
+    {"name": "Funguar", "image": 105, "up": 5, "right": 1, "down": 1, "left": 3, "element": 0, "level": 1}
+  ],
+  "opponentDeck": [
+    {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1},
+    {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1},
+    {"name": "Geezard", "image": 202, "up": 1, "right": 4, "down": 1, "left": 5, "element": 0, "level": 1},
+    {"name": "Blobra", "image": 203, "up": 2, "right": 3, "down": 1, "left": 5, "element": 0, "level": 1},
+    {"name": "Fire Minotaur", "image": 204, "up": 5, "right": 3, "down": 3, "left": 4, "element": 1, "level": 2}
+  ],
+  "ok": null,
+  "playerName": "Hero",
+  "opponentName": "[Card Guild] Siren Selka"
+}

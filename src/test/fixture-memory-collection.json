@@ -1,0 +1,65 @@
+{
+  "owned": [
+    {"card": {"name": "Ant Healer", "image": 101, "up": 3, "right": 3, "down": 3, "left": 3, "element": 0, "level": 1}, "count": 1},
+    {"card": {"name": "Cockatrice", "image": 102, "up": 2, "right": 1, "down": 2, "left": 6, "element": 0, "level": 1}, "count": 1},
+    {"card": {"name": "Bite Bug", "image": 103, "up": 1, "right": 3, "down": 3, "left": 5, "element": 0, "level": 1}, "count": 1},
+    {"card": {"name": "Caterchipillar", "image": 104, "up": 4, "right": 2, "down": 4, "left": 3, "element": 0, "level": 1}, "count": 1},
+    {"card": {"name": "Funguar", "image": 105, "up": 5, "right": 1, "down": 1, "left": 3, "element": 0, "level": 1}, "count": 2},
+    {"card": {"name": "Geezard", "image": 202, "up": 1, "right": 4, "down": 1, "left": 5, "element": 0, "level": 1}, "count": 2},
+    {"card": {"name": "Blobra", "image": 203, "up": 2, "right": 3, "down": 1, "left": 5, "element": 0, "level": 1}, "count": 1},
+    {"card": {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1}, "count": 0}
+  ],
+  "saved": [101, 102, 103, 104, 105],
+  "draft": [101, 102, 103, 104, 105],
+  "dirty": false,
+  "selectedSlot": -1,
+  "detail": -1,
+  "feedback": null,
+  "deckSlots": [
+    {"x": 400, "y": 120, "width": 70, "height": 96},
+    {"x": 480, "y": 120, "width": 70, "height": 96},
+    {"x": 560, "y": 120, "width": 70, "height": 96},
+    {"x": 640, "y": 120, "width": 70, "height": 96},
+    {"x": 720, "y": 120, "width": 70, "height": 96}
+  ],
+  "action": {"x": 500, "y": 700, "width": 100, "height": 30, "enabled": false, "text": null},
+  "save": {"x": 620, "y": 700, "width": 100, "height": 30, "enabled": false, "text": "Save Deck"},
+  "undo": {"x": 740, "y": 700, "width": 100, "height": 30, "enabled": false, "text": "Undo"},
+  "tabs": [
+    {
+      "level": 1,
+      "selected": true,
+      "button": {"x": 300, "y": 700, "width": 100, "height": 30, "enabled": true, "text": "1"},
+      "panel": {"x": 300, "y": 250, "width": 700, "height": 400},
+      "slots": [
+        {"x": 310, "y": 260, "width": 64, "height": 88, "image": 101, "shown": true},
+        {"x": 380, "y": 260, "width": 64, "height": 88, "image": 102, "shown": true},
+        {"x": 450, "y": 260, "width": 64, "height": 88, "image": 103, "shown": true},
+        {"x": 520, "y": 260, "width": 64, "height": 88, "image": 104, "shown": true},
+        {"x": 590, "y": 260, "width": 64, "height": 88, "image": 105, "shown": true},
+        {"x": 660, "y": 260, "width": 64, "height": 88, "image": 201, "shown": true},
+        {"x": 730, "y": 260, "width": 64, "height": 88, "image": 202, "shown": true},
+        {"x": 800, "y": 260, "width": 64, "height": 88, "image": 203, "shown": true}
+      ]
+    },
+    {
+      "level": 2,
+      "selected": false,
+      "button": {"x": 360, "y": 700, "width": 100, "height": 30, "enabled": true, "text": "2"},
+      "panel": {"x": 300, "y": 250, "width": 700, "height": 400},
+      "slots": []
+    }
+  ],
+  "cards": [
+    {"name": "Ant Healer", "image": 101, "up": 3, "right": 3, "down": 3, "left": 3, "element": 0, "level": 1},
+    {"name": "Cockatrice", "image": 102, "up": 2, "right": 1, "down": 2, "left": 6, "element": 0, "level": 1},
+    {"name": "Bite Bug", "image": 103, "up": 1, "right": 3, "down": 3, "left": 5, "element": 0, "level": 1},
+    {"name": "Caterchipillar", "image": 104, "up": 4, "right": 2, "down": 4, "left": 3, "element": 0, "level": 1},
+    {"name": "Funguar", "image": 105, "up": 5, "right": 1, "down": 1, "left": 3, "element": 0, "level": 1},
+    {"name": "Gayla", "image": 201, "up": 2, "right": 1, "down": 4, "left": 4, "element": 0, "level": 1},
+    {"name": "Geezard", "image": 202, "up": 1, "right": 4, "down": 1, "left": 5, "element": 0, "level": 1},
+    {"name": "Blobra", "image": 203, "up": 2, "right": 3, "down": 1, "left": 5, "element": 0, "level": 1},
+    {"name": "Fire Minotaur", "image": 204, "up": 5, "right": 3, "down": 3, "left": 4, "element": 1, "level": 2},
+    {"name": "Bomb", "image": 401, "up": 2, "right": 7, "down": 6, "left": 3, "element": 0, "level": 4}
+  ]
+}

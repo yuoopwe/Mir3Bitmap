@@ -1,4 +1,4 @@
-import { BASIC_RULES, rankMoves, type Card, type Game, type Placed, type Rules } from './triad';
+import { BASIC_RULES, rankMoves, searchMove, type Card, type Game, type Placed, type Rules } from './triad';
 import type { CardFace, TriadScreen } from './triad-vision';
 import type { MemoryCard, MemoryTriad } from './game-memory';
 
@@ -38,9 +38,12 @@ export type TriadDecision =
       kind: 'move';
       handIndex: number;
       cell: number;
-      /** Expected final margin (my cards minus hers) if she plays greedily, as NPCs tend to. */
+      /**
+       * Expected final margin (my cards minus hers): from the screen, if she plays
+       * greedily, as NPCs tend to; from memory, if both of us play perfectly.
+       */
       expected: number;
-      /** Final margin if she plays perfectly, when worked out. */
+      /** Final margin if she plays perfectly, when worked out to the end of the game. */
       worstCase: number | null;
       /** Some numbers were guessed: cards of hers never seen, or digits that couldn't be read. */
       guessed: boolean;
@@ -99,7 +102,8 @@ const RULE_PLUS = 4;
 const RULE_COMBO = 8;
 export const RULE_ELEMENTAL = 16;
 
-const cardFromMemory = (c: MemoryCard): Card => ({ top: c.up, right: c.right, bottom: c.down, left: c.left });
+/** Cards and squares use the game's own element numbers, 0 being none (the reader's stand-in for an unknown card has 0 too). */
+const cardFromMemory = (c: MemoryCard): Card => ({ top: c.up, right: c.right, bottom: c.down, left: c.left, element: c.element });
 
 /** `from` with one of each of `take`'s cards (by picture) taken out. */
 function without(from: MemoryCard[], take: MemoryCard[]): MemoryCard[] {
@@ -137,8 +141,9 @@ export function myTurnInMemory(triad: MemoryTriad): boolean {
 
 /**
  * Works out the best move from the game's own memory: every number exact, and
- * her remaining cards known. The decision's handIndex points into my deck in
- * memory; `card` is that card.
+ * her remaining cards known, so the whole game can be searched (see
+ * searchMove). The decision's handIndex points into my hand in memory; `card`
+ * is that card.
  */
 export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision; card?: MemoryCard } {
   const me = myIndex(triad);
@@ -150,8 +155,10 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
   if (board.every((cell) => cell)) return { decision: { kind: 'wait', reason: 'The board is full' } };
   const flags = triad.rules ?? 0;
   const rules: Rules = { same: (flags & RULE_SAME) !== 0, plus: (flags & RULE_PLUS) !== 0, combo: (flags & RULE_COMBO) !== 0 };
-  const game: Game = { board, hands: { me: mine.map(cardFromMemory), them: hers.map(cardFromMemory) }, turn: 'me', rules };
-  const best = rankMoves(game)[0];
+  // The squares' elements only count under the Elemental rule.
+  const elements = flags & RULE_ELEMENTAL ? triad.elements : undefined;
+  const game: Game = { board, hands: { me: mine.map(cardFromMemory), them: hers.map(cardFromMemory) }, turn: 'me', rules, elements };
+  const best = searchMove(game);
   if (!best) return { decision: { kind: 'wait', reason: 'No move available' } };
   const card = mine[best.move.card];
   return {
@@ -160,8 +167,8 @@ export function decideFromMemory(triad: MemoryTriad): { decision: TriadDecision;
       kind: 'move',
       handIndex: best.move.card,
       cell: best.move.cell,
-      expected: best.againstGreedy,
-      worstCase: best.worstCase,
+      expected: best.margin,
+      worstCase: best.exact ? best.margin : null,
       guessed: false,
       summary: `${card.name} (${card.up}-${card.left}-${card.right}-${card.down}) to square ${best.move.cell + 1}`,
     },

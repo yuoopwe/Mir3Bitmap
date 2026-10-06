@@ -10,7 +10,11 @@ export interface Card {
   right: number;
   bottom: number;
   left: number;
+  /** Its element for the Elemental rule (the game's numbering; 0 or missing = none). */
+  element?: number;
 }
+
+type Side = 'top' | 'right' | 'bottom' | 'left';
 
 export type Player = 'me' | 'them';
 
@@ -36,6 +40,8 @@ export interface Game {
   hands: Record<Player, Card[]>;
   turn: Player;
   rules: Rules;
+  /** Elemental rule: each square's element (cells 0-8, 0 = none). Left out when the rule is off. */
+  elements?: number[];
 }
 
 export interface Move {
@@ -47,9 +53,9 @@ export interface Move {
 const other = (p: Player): Player => (p === 'me' ? 'them' : 'me');
 
 /** For each cell: its neighbours as [cell, my side facing it, their side facing me]. */
-const NEIGHBOURS: [number, keyof Card, keyof Card][][] = Array.from({ length: 9 }, (_, cell) => {
+const NEIGHBOURS: [number, Side, Side][][] = Array.from({ length: 9 }, (_, cell) => {
   const r = Math.floor(cell / 3), c = cell % 3;
-  const list: [number, keyof Card, keyof Card][] = [];
+  const list: [number, Side, Side][] = [];
   if (r > 0) list.push([cell - 3, 'top', 'bottom']);
   if (c < 2) list.push([cell + 1, 'right', 'left']);
   if (r < 2) list.push([cell + 3, 'bottom', 'top']);
@@ -57,15 +63,36 @@ const NEIGHBOURS: [number, keyof Card, keyof Card][][] = Array.from({ length: 9 
   return list;
 });
 
+/**
+ * Elemental: whether Same and Plus compare the numbers after the square's
+ * +1/-1 (true, as in FF8) or the printed ones (false). Not checked against
+ * this game; flip here if it turns out to use the printed numbers.
+ */
+const ELEMENTAL_AFFECTS_SAME_PLUS = true;
+
+/**
+ * A card's number on one side, standing on a square with `element`: +1 if
+ * the card's element matches, -1 if it doesn't (or the card has none). Kept
+ * to 1-10, the range the printed numbers have (A = 10). No element, no change.
+ */
+export function sideValue(card: Card, side: Side, element: number | undefined): number {
+  if (!element) return card[side];
+  const value = card[side] + (card.element === element ? 1 : -1);
+  return Math.min(10, Math.max(1, value));
+}
+
 /** Places a card and applies captures. Returns the new board (the input isn't changed). */
-export function place(board: (Placed | null)[], cell: number, card: Card, owner: Player, rules: Rules): (Placed | null)[] {
+export function place(board: (Placed | null)[], cell: number, card: Card, owner: Player, rules: Rules, elements: number[] = []): (Placed | null)[] {
   const next = board.slice();
   next[cell] = { card, owner };
+  // The number on a side of the card in square n, after its square's element.
+  const at = (n: number, side: Side) => sideValue(next[n]!.card, side, elements[n]);
 
   // Same and Plus look at every neighbour, friend or foe, but only flip foes.
   const special = new Set<number>();
   if (rules.same || rules.plus) {
-    const touching = NEIGHBOURS[cell].filter(([n]) => next[n]).map(([n, mine, theirs]) => ({ n, mine: card[mine], theirs: next[n]!.card[theirs] }));
+    const number = ELEMENTAL_AFFECTS_SAME_PLUS ? at : (n: number, side: Side) => next[n]!.card[side];
+    const touching = NEIGHBOURS[cell].filter(([n]) => next[n]).map(([n, mine, theirs]) => ({ n, mine: number(cell, mine), theirs: number(n, theirs) }));
     if (rules.same) {
       const equal = touching.filter((t) => t.mine === t.theirs);
       if (equal.length >= 2) for (const t of equal) special.add(t.n);
@@ -87,17 +114,16 @@ export function place(board: (Placed | null)[], cell: number, card: Card, owner:
   // Ordinary captures: higher touching number wins.
   for (const [n, mine, theirs] of NEIGHBOURS[cell]) {
     const there = next[n];
-    if (there && there.owner !== owner && card[mine] > there.card[theirs]) next[n] = { card: there.card, owner };
+    if (there && there.owner !== owner && at(cell, mine) > at(n, theirs)) next[n] = { card: there.card, owner };
   }
   // Combo: cards flipped by Same/Plus capture their weaker neighbours in turn.
   if (rules.combo) {
     const queue = [...flipped];
     while (queue.length) {
       const from = queue.shift()!;
-      const attacker = next[from]!.card;
       for (const [n, mine, theirs] of NEIGHBOURS[from]) {
         const there = next[n];
-        if (there && there.owner !== owner && attacker[mine] > there.card[theirs]) {
+        if (there && there.owner !== owner && at(from, mine) > at(n, theirs)) {
           next[n] = { card: there.card, owner };
           queue.push(n);
         }
@@ -116,10 +142,11 @@ export function play(game: Game, move: Move): Game {
   const hand = game.hands[game.turn];
   const card = hand[move.card];
   return {
-    board: place(game.board, move.cell, card, game.turn, game.rules),
+    board: place(game.board, move.cell, card, game.turn, game.rules, game.elements),
     hands: { ...game.hands, [game.turn]: hand.filter((_, i) => i !== move.card) },
     turn: other(game.turn),
     rules: game.rules,
+    elements: game.elements,
   };
 }
 
@@ -137,10 +164,20 @@ export function legalMoves(game: Game): Move[] {
   return moves;
 }
 
+/** Card keys worked out already: positions are keyed hundreds of thousands of times in a search. */
+const cardKeys = new WeakMap<Card, string>();
+
 function cardKey(c: Card): string {
-  return `${c.top}${c.right}${c.bottom}${c.left}`.replace(/10/g, 'A');
+  let key = cardKeys.get(c);
+  if (key === undefined) {
+    // The element matters on elemental squares: same numbers, different element, different card.
+    key = `${c.top}${c.right}${c.bottom}${c.left}`.replace(/10/g, 'A') + (c.element ? `e${c.element}` : '');
+    cardKeys.set(c, key);
+  }
+  return key;
 }
 
+/** A position (the squares' elements stay the same all game, so they're left out). */
 function stateKey(game: Game): string {
   const board = game.board.map((p) => (p ? (p.owner === 'me' ? 'm' : 't') + cardKey(p.card) : '-')).join('');
   const hand = (cards: Card[]) => cards.map(cardKey).sort().join(',');
@@ -161,12 +198,61 @@ export function bestMove(game: Game): Advice | null {
   return new Solver().best(game);
 }
 
+export interface Search extends Advice {
+  /** Searched to the end of the game; if not, `margin` is the card count `depth` moves ahead. */
+  exact: boolean;
+  depth: number;
+}
+
+/**
+ * Positions the full search may look at for one move before giving up (half
+ * a second or so here). The second move of a game, 8 squares empty, mostly
+ * fits; with every rule on, now and then it doesn't.
+ */
+export const SEARCH_POSITIONS = 150_000;
+/**
+ * How many moves ahead to look when the whole game is too big to search: the
+ * opening (about a million positions, seconds). An even number, so both sides
+ * have had as many moves when it stops. Under half a second here.
+ */
+export const LOOKAHEAD = 6;
+
+/**
+ * The best move for whoever's turn it is, assuming both sides play perfectly
+ * (both hands known). Searches to the end of the game if it fits in
+ * `positions`; otherwise LOOKAHEAD moves ahead, valued there by the cards each
+ * side holds. An empty board never fits, so it isn't tried.
+ */
+export function searchMove(game: Game, positions = SEARCH_POSITIONS): Search | null {
+  const filled = game.board.filter((p) => p).length;
+  const toEnd = 9 - filled;
+  if (filled > 0) {
+    const full = new Solver(9, positions).tryBest(game);
+    if (full !== undefined) return full && { ...full, exact: true, depth: toEnd };
+  }
+  const depth = Math.min(LOOKAHEAD, toEnd);
+  const advice = new Solver(filled + depth).best(game);
+  return advice && { ...advice, exact: depth === toEnd, depth };
+}
+
+/** Thrown when a search has looked at as many positions as it may. */
+class OutOfPositions extends Error {}
+
 /**
  * Perfect-play search (negamax with alpha-beta pruning) with a memory of
  * positions already worked out, which can be shared between searches.
+ *
+ * The score is the final margin (my cards minus theirs), so a win always
+ * beats a draw, a draw beats a loss, and a bigger win beats a smaller one.
  */
 export class Solver {
   private readonly memo = new Map<string, { value: number; flag: 0 | 1 | 2 }>(); // 0 exact, 1 lower bound, 2 upper bound
+
+  /**
+   * @param horizon stop once the board has this many cards and count the cards each side has (9 = play to the end)
+   * @param positions how many positions it may look at before giving up (see tryBest)
+   */
+  constructor(private readonly horizon = 9, private positions = Infinity) {}
 
   /** My final card count minus theirs if both sides play perfectly from here. */
   value(game: Game): number {
@@ -178,8 +264,8 @@ export class Solver {
     const sign = game.turn === 'me' ? 1 : -1;
     let result: Advice | null = null;
     let alpha = -Infinity;
-    for (const move of orderedMoves(game)) {
-      const v = -this.negamax(play(game, move), -Infinity, -alpha);
+    for (const { move, next } of orderedMoves(game)) {
+      const v = -this.negamax(next, -Infinity, -alpha);
       if (!result || v > result.margin * sign) {
         result = { move, margin: v * sign };
         alpha = v;
@@ -188,11 +274,32 @@ export class Solver {
     return result;
   }
 
+  /** As best, but undefined if it ran out of positions to look at. */
+  tryBest(game: Game): Advice | null | undefined {
+    try {
+      return this.best(game);
+    } catch (e) {
+      if (e instanceof OutOfPositions) return undefined;
+      throw e;
+    }
+  }
+
   /** Value from the point of view of the player to move. */
   private negamax(g: Game, alpha: number, beta: number): number {
-    if (g.board.every((p) => p) || g.hands[g.turn].length === 0) {
+    const filled = g.board.filter((p) => p).length;
+    if (filled >= this.horizon || g.hands[g.turn].length === 0) {
       const v = score(g, 'me') - score(g, 'them');
       return g.turn === 'me' ? v : -v;
+    }
+    if (--this.positions < 0) throw new OutOfPositions();
+    // A move or two from the end there's too little left for sorting moves or remembering positions to pay.
+    if (this.horizon - filled <= 2) {
+      let best = -Infinity;
+      for (const move of legalMoves(g)) {
+        best = Math.max(best, -this.negamax(play(g, move), -beta, -Math.max(alpha, best)));
+        if (best >= beta) break;
+      }
+      return best;
     }
     const key = stateKey(g);
     const hit = this.memo.get(key);
@@ -204,8 +311,8 @@ export class Solver {
       if (alpha >= beta) return hit.value;
     }
     let best = -Infinity;
-    for (const move of orderedMoves(g)) {
-      const v = -this.negamax(play(g, move), -beta, -alpha);
+    for (const { next } of orderedMoves(g)) {
+      const v = -this.negamax(next, -beta, -alpha);
       if (v > best) best = v;
       if (best > alpha) alpha = best;
       if (alpha >= beta) break;
@@ -215,33 +322,42 @@ export class Solver {
   }
 }
 
-/** Captures first: searching good moves early makes the pruning much more effective. */
-function orderedMoves(game: Game): Move[] {
-  const mine = (g: Game) => g.board.filter((p) => p?.owner === game.turn).length;
-  const before = mine(game);
+/**
+ * Every move with the position it leads to, the most promising first by
+ * heuristicMove's measure: searching good moves early makes the pruning much
+ * more effective.
+ */
+function orderedMoves(game: Game): { move: Move; next: Game }[] {
   return legalMoves(game)
-    .map((move) => ({ move, gain: mine(play(game, move)) - before }))
-    .sort((a, b) => b.gain - a.gain)
-    .map((m) => m.move);
+    .map((move) => {
+      const next = play(game, move);
+      return { move, next, value: promise(game, next) };
+    })
+    .sort((a, b) => b.value - a.value);
 }
 
 /**
- * When the opponent's hand is hidden: a move that's good now and leaves little
- * to attack. Captures count most; then how exposed my placed cards are (weak
- * numbers facing empty cells an opponent could fill).
+ * How good a move looks without searching: captures count most; then how
+ * exposed the mover's placed cards are (weak numbers facing empty cells an
+ * opponent could fill).
  */
+function promise(before: Game, after: Game): number {
+  const mover = before.turn;
+  const captured = after.board.filter((p) => p?.owner === mover).length - before.board.filter((p) => p?.owner === mover).length;
+  let exposure = 0;
+  for (let cell = 0; cell < 9; cell++) {
+    const p = after.board[cell];
+    if (!p || p.owner !== mover) continue;
+    for (const [n, side] of NEIGHBOURS[cell]) if (!after.board[n]) exposure += 10 - sideValue(p.card, side, after.elements?.[cell]);
+  }
+  return captured * 20 - exposure;
+}
+
+/** When the opponent's hand is hidden: the move that looks best now (see promise). */
 export function heuristicMove(game: Game): Move | null {
   let best: { move: Move; value: number } | null = null;
   for (const move of legalMoves(game)) {
-    const after = play(game, move);
-    const captured = after.board.filter((p) => p?.owner === game.turn).length - game.board.filter((p) => p?.owner === game.turn).length;
-    let exposure = 0;
-    for (let cell = 0; cell < 9; cell++) {
-      const p = after.board[cell];
-      if (!p || p.owner !== game.turn) continue;
-      for (const [n, side] of NEIGHBOURS[cell]) if (!after.board[n]) exposure += 10 - p.card[side];
-    }
-    const value = captured * 20 - exposure;
+    const value = promise(game, play(game, move));
     if (!best || value > best.value) best = { move, value };
   }
   return best?.move ?? null;
@@ -299,7 +415,7 @@ export function rankMoves(game: Game): RankedMove[] {
     return value;
   };
 
-  const ranked: RankedMove[] = orderedMoves(game).map((move) => ({ move, againstGreedy: againstGreedy(play(game, move)), worstCase: null }));
+  const ranked: RankedMove[] = orderedMoves(game).map(({ move, next }) => ({ move, againstGreedy: againstGreedy(next), worstCase: null }));
   ranked.sort((a, b) => b.againstGreedy - a.againstGreedy);
   const solver = new Solver();
   for (const r of ranked.filter((r) => r.againstGreedy === ranked[0].againstGreedy).slice(0, WORST_CASE_CANDIDATES)) {
