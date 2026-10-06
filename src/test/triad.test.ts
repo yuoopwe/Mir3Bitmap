@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BASIC_RULES, bestMove, heuristicMove, place, play, score, type Card, type Game, type Placed } from '../main/triad';
+import { BASIC_RULES, bestMove, heuristicMove, place, play, score, sideValue, type Card, type Game, type Placed } from '../main/triad';
 
 const card = (top: number, right: number, bottom: number, left: number): Card => ({ top, right, bottom, left });
 const empty = (): (Placed | null)[] => Array(9).fill(null);
@@ -72,6 +72,76 @@ test('takes a winning capture when one is there', () => {
   const advice = bestMove(game)!;
   assert.deepEqual(advice.move, { card: 0, cell: 1 });
   assert.deepEqual(heuristicMove(game), { card: 0, cell: 1 });
+});
+
+// ---- Elemental ----
+
+const FIRE = 1;
+const ICE = 2;
+const withElement = (c: Card, element: number): Card => ({ ...c, element });
+/** Only the middle square (4) has an element. */
+const middleIs = (element: number) => [0, 0, 0, 0, element, 0, 0, 0, 0];
+
+test('Elemental: a matching card gets +1 on every side, a non-matching one -1, kept to 1-10', () => {
+  const c = withElement(card(5, 10, 1, 7), FIRE);
+  assert.deepEqual((['top', 'right', 'bottom', 'left'] as const).map((s) => sideValue(c, s, FIRE)), [6, 10, 2, 8]);
+  assert.deepEqual((['top', 'right', 'bottom', 'left'] as const).map((s) => sideValue(c, s, ICE)), [4, 9, 1, 6]);
+  // A card with no element counts as not matching; a square with no element changes nothing.
+  assert.equal(sideValue(card(5, 5, 5, 5), 'top', FIRE), 4);
+  assert.equal(sideValue(c, 'top', 0), 5);
+  assert.equal(sideValue(c, 'top', undefined), 5);
+});
+
+test('Elemental: the modifier decides ordinary captures', () => {
+  const board = empty();
+  board[1] = { card: card(1, 1, 5, 1), owner: 'them' }; // shows 5 to the middle
+  // 5 against 5 doesn't capture, but a fire card on a fire square has 6.
+  assert.equal(place(board, 4, withElement(card(5, 1, 1, 1), FIRE), 'me', BASIC_RULES)[1]!.owner, 'them');
+  assert.equal(place(board, 4, withElement(card(5, 1, 1, 1), FIRE), 'me', BASIC_RULES, middleIs(FIRE))[1]!.owner, 'me');
+  // 6 against 5 captures, but not as an ice card on a fire square, nor as a card with no element.
+  assert.equal(place(board, 4, withElement(card(6, 1, 1, 1), ICE), 'me', BASIC_RULES)[1]!.owner, 'me');
+  assert.equal(place(board, 4, withElement(card(6, 1, 1, 1), ICE), 'me', BASIC_RULES, middleIs(FIRE))[1]!.owner, 'them');
+  assert.equal(place(board, 4, card(6, 1, 1, 1), 'me', BASIC_RULES, middleIs(FIRE))[1]!.owner, 'them');
+  // A card already on an elemental square defends with its changed numbers too.
+  const defended = empty();
+  defended[4] = { card: withElement(card(5, 1, 1, 1), FIRE), owner: 'them' };
+  assert.equal(place(defended, 1, card(1, 1, 6, 1), 'me', BASIC_RULES, middleIs(FIRE))[4]!.owner, 'them');
+  assert.equal(place(defended, 1, card(1, 1, 6, 1), 'me', BASIC_RULES, middleIs(ICE))[4]!.owner, 'me');
+});
+
+test('Elemental: an A stays 10 on a matching square, so it still cannot beat an A', () => {
+  const board = empty();
+  board[1] = { card: card(1, 1, 10, 1), owner: 'them' };
+  assert.equal(place(board, 4, withElement(card(10, 1, 1, 1), FIRE), 'me', BASIC_RULES, middleIs(FIRE))[1]!.owner, 'them');
+});
+
+test('Elemental: Same and Plus compare the changed numbers', () => {
+  const board = empty();
+  board[1] = { card: card(1, 1, 4, 1), owner: 'them' };
+  board[3] = { card: card(1, 4, 1, 1), owner: 'them' };
+  const same = { same: true, plus: false, combo: false };
+  // Printed 3s don't match the 4s; on a fire square a fire card's 3s are 4s.
+  const fire3 = withElement(card(3, 1, 1, 3), FIRE);
+  assert.equal(place(board, 4, fire3, 'me', same)[1]!.owner, 'them');
+  const after = place(board, 4, fire3, 'me', same, middleIs(FIRE));
+  assert.equal(after[1]!.owner, 'me');
+  assert.equal(after[3]!.owner, 'me');
+});
+
+test('Elemental: the search knows which square suits which card', () => {
+  const board = empty();
+  board[1] = { card: card(10, 10, 5, 10), owner: 'them' };
+  board[3] = { card: card(10, 5, 10, 10), owner: 'them' };
+  // Only the fire card can take either, from the fire square in the middle (their other sides are As).
+  const game: Game = {
+    board,
+    hands: { me: [card(5, 1, 1, 5), withElement(card(5, 1, 1, 5), FIRE)], them: [card(1, 1, 1, 1)] },
+    turn: 'me',
+    rules: BASIC_RULES,
+    elements: middleIs(FIRE),
+  };
+  assert.deepEqual(bestMove(game)!.move, { card: 1, cell: 4 });
+  assert.equal(play(game, { card: 1, cell: 4 }).elements, game.elements);
 });
 
 // ---- Reading the screen ----

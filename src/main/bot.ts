@@ -4,7 +4,7 @@ import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
 import type { Card } from './triad';
 import type { TriadMemory } from './triad-memory';
-import { RULE_ELEMENTAL, cardOf, decideFromMemory, decideTriad, myTurnInMemory, type ReadCard } from './triad-player';
+import { cardOf, decideFromMemory, decideTriad, myTurnInMemory, type ReadCard } from './triad-player';
 import { HAND_SLOTS, OK as TRIAD_OK, boardSampler, cellCentre, centre, readTriad, type TriadScreen } from './triad-vision';
 import { findLabels } from './labels';
 import {
@@ -1303,8 +1303,7 @@ export class Bot {
       return;
     }
     const outlook = decision.expected > 0 ? `should win by ${decision.expected}` : decision.expected < 0 ? `likely to lose by ${-decision.expected}` : 'heading for a draw';
-    const elemental = (live.rules ?? 0) & RULE_ELEMENTAL ? '; Elemental is on, which the bot ignores' : '';
-    this.status(`${decision.summary} (${outlook}, game memory${elemental})`);
+    this.status(`${decision.summary} (${outlook}, game memory)`);
     const square = live.squares?.[decision.cell];
     await this.click(boxCentre(live.hand![decision.handIndex]), this.delay('menu'));
     await this.sleep(TRIAD_CLICK_GAP_MS);
