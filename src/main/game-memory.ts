@@ -207,7 +207,7 @@ export interface MemoryState {
     /** An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists. */
     questList?: { npc: number | null; acceptAll: MemoryButton | null; handIn: MemoryButton | null; quests: string[] };
     /** The game's message boxes showing, with their buttons (by field name, e.g. YesButton). */
-    messages?: { text: string; buttons: (MemoryButton & { name: string })[] }[];
+    messages?: { text: string; buttons: (MemoryButton & { name: string })[]; cooldownMs?: number | null }[];
   } | null;
 }
 

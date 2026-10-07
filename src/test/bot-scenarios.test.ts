@@ -304,6 +304,17 @@ function chickensAbout(): FakeGameSetup['monsters'] {
   return Array.from({ length: 6 }, (_, i) => ({ name: 'Chicken', x: x - 4 + (i % 3) * 4, y: y + 3 + Math.floor(i / 3) * 3, respawn: true }));
 }
 
+test('Selling: a "protected items" box that shows late and ignores clicks at first gets its Yes, and every round sells', async () => {
+  // As the game's "Confirm sale: this sale contains protected item(s)... Do you want to continue?".
+  const sellConfirm = { showMs: 700, cooldownMs: 800, text: 'This sale contains protected item(s): - Chain Lightning Do you want to continue?' };
+  const game = grindOnBichon({ bag: { used: 88, slots: 90 }, sellConfirm });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0 && game.player.map !== ARCADIA, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold and gone');
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 30, 26]);
+  assert.deepEqual(buttons(game, 'NoButton'), []);
+  checkAlways(game);
+});
+
 test('Selling: the bag opened with W on its Main tab, Select All and Sell (with Yes) in rounds until nothing is picked, the bag put away', async () => {
   // 86 to sell, 30 a round; the bag window shut, on another tab; every sale asks "are you sure?".
   const game = grindOnBichon({ bag: { used: 88, slots: 90 }, bagWindow: { open: false, section: 2 }, sellConfirm: true });

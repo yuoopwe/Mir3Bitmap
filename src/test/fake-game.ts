@@ -158,8 +158,11 @@ export interface FakeGameSetup {
   bagWindow?: { open?: boolean; section?: number };
   /** Items the sell panel takes in one round (Select All picks at most this many); default 30. */
   sellPerRound?: number;
-  /** Selling asks "are you sure?" (a message box with Yes). */
-  sellConfirm?: boolean;
+  /**
+   * Selling asks "are you sure?" (a message box with Yes and No). As the game's, it can show a moment after Sell
+   * (`showMs`) and ignore clicks for a while once shown (`cooldownMs`): `true` is neither.
+   */
+  sellConfirm?: boolean | { showMs?: number; cooldownMs?: number; text?: string };
   /** Items on the ground. */
   items?: { name: string; x: number; y: number; map?: number }[];
   /** Other players standing about (they don't block the way: in towns you walk through people). */
@@ -264,8 +267,10 @@ export class FakeGame {
   /** Sellable items picked with Select All, and "are you sure?" up for them. */
   private selected = 0;
   private confirming = false;
+  /** When the "are you sure?" was asked for, and when it shows. */
+  private confirmAt = 0;
   private readonly sellPerRound: number;
-  private readonly sellConfirm: boolean;
+  private readonly sellConfirm: { showMs: number; cooldownMs: number; text: string } | null;
   /** When the player was last in combat (hitting a monster, or hit by one). */
   private lastCombatAt = -Infinity;
   /** Where Return to Arcadia was pressed from: pressed again in Arcadia, it takes you back there. */
@@ -340,7 +345,8 @@ export class FakeGame {
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
     this.sellPerRound = setup.sellPerRound ?? 30;
-    this.sellConfirm = setup.sellConfirm ?? false;
+    const confirm = setup.sellConfirm;
+    this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
     for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
     for (const n of setup.nodes ?? []) this.addNode(n);
@@ -873,7 +879,16 @@ export class FakeGame {
       out.push(['Accept All', reading.questList.acceptAll, () => this.acceptAll(this.listNpc!.npc)]);
       out.push(['Hand In', reading.questList.handIn, () => this.handIn(this.listNpc!.npc)]);
     }
-    for (const message of reading.messages ?? []) for (const b of message.buttons) out.push([b.name, b, () => this.sold()]);
+    // Yes sells (once past the box's cooldown: before, the click does nothing); No calls the sale off.
+    for (const message of reading.messages ?? []) {
+      for (const b of message.buttons) {
+        out.push([b.name, b, () => {
+          if (this.t - this.confirmAt - this.sellConfirm!.showMs < this.sellConfirm!.cooldownMs) return;
+          if (b.name === 'YesButton') this.sold();
+          else this.confirming = false;
+        }]);
+      }
+    }
     if (reading.sell) {
       // Select All picks from the bag window's open tab (nothing with the bag shut), as many as the panel holds.
       out.push(['Select All', reading.sell.selectAll, () => {
@@ -882,7 +897,11 @@ export class FakeGame {
         const sellable = this.bagWindow.open && this.bagWindow.section === 0 ? Math.max(0, this.bag.used - left) : 0;
         this.selected = Math.min(this.sellPerRound, sellable);
       }]);
-      out.push(['Sell', reading.sell.sell, () => (this.sellConfirm ? (this.confirming = true) : this.sold())]);
+      out.push(['Sell', reading.sell.sell, () => {
+        if (!this.sellConfirm) return this.sold();
+        this.confirming = true;
+        this.confirmAt = this.t;
+      }]);
       out.push(['Close shop', reading.sell.close ?? null, () => this.close('sell')]);
     }
     if (reading.inventory?.open) out.push(['Main tab', reading.inventory.mainTab, () => (this.bagWindow.section = 0)]);
@@ -894,6 +913,11 @@ export class FakeGame {
       }]);
     }
     return out;
+  }
+
+  /** The "are you sure?" is up (asked for, and its moment to show has passed). */
+  private confirmShowing(): boolean {
+    return this.confirming && this.t - this.confirmAt >= (this.sellConfirm?.showMs ?? 0);
   }
 
   /** The picked items go, for gold; the bag takes pickups again. */
@@ -961,7 +985,7 @@ export class FakeGame {
     if (this.open.has('questList')) boxes.push({ name: 'NPCQuestListDialog', ...QUEST_BOX });
     if (this.open.has('sell')) boxes.push({ name: 'NPCSellDialog', ...SELL_BOX });
     if (this.bagWindow.open) boxes.push({ name: 'InventoryDialog', ...BAG_BOX });
-    if (this.confirming) boxes.push({ name: 'MessageBox', ...MESSAGE_BOX });
+    if (this.confirmShowing()) boxes.push({ name: 'MessageBox', ...MESSAGE_BOX });
     if (this.open.has('dialog')) boxes.push({ name: 'NPCDialog', ...DIALOG_BOX });
     if (this.player.dead) boxes.push({ name: 'DeathDialog', ...DEATH_BOX });
     if (this.open.has('professions')) boxes.push({ name: 'ProfessionsBox', ...PROFESSIONS_BOX });
@@ -1101,7 +1125,13 @@ export class FakeGame {
             quests: [...atList.offered.map((q) => q.name), ...atList.ready.map((q) => q.quest.name)],
           }
         : undefined,
-      messages: this.confirming ? [{ text: 'Sell the selected items?', buttons: [{ ...button(MESSAGE_BOX.x + 40, MESSAGE_BOX.y + 90, 'Yes'), name: 'YesButton' }] }] : [],
+      messages: this.confirmShowing()
+        ? [{
+          text: this.sellConfirm!.text,
+          cooldownMs: this.sellConfirm!.cooldownMs,
+          buttons: [{ ...button(MESSAGE_BOX.x + 40, MESSAGE_BOX.y + 90, 'Yes'), name: 'YesButton' }, { ...button(MESSAGE_BOX.x + 160, MESSAGE_BOX.y + 90, 'No'), name: 'NoButton' }],
+        }]
+        : [],
     };
   }
 

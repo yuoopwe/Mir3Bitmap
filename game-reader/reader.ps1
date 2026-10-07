@@ -476,8 +476,9 @@ function Read-MessageBoxes($module, $domain) {
       $b = Read-Button ($box.ReadObjectField($f.Name))
       if ($b -and $b.enabled) { $b.name = $f.Name; $buttons += ,$b }
     }
-    $label = $box.ReadObjectField('Label')
-    $out += ,@{ text = $(if ($label.IsNull) { '' } else { $label.ReadStringField('_Text') }); buttons = $buttons }
+    # Its text (DXMessageBox.Label is a property: the field behind it), and how long it ignores clicks once shown.
+    $label = $box.ReadObjectField('<Label>k__BackingField')
+    $out += ,@{ text = $(if ($label.IsNull) { '' } else { $label.ReadStringField('_Text') }); buttons = $buttons; cooldownMs = $(try { $box.ReadField[int]('ButtonCooldownMs') } catch { $null }) }
   }
   return $out
 }

@@ -37,6 +37,13 @@ const SELL_NPC = { id: 145, name: 'Ludvik' };
 /** W opens and closes the bag window (the game's InventoryWindow key). */
 const INVENTORY_KEY = 0x57;
 
+/** Selling: a confirmation box shows within this long of pressing Sell, if one does... */
+const CONFIRM_SHOW_MS = 1500;
+/** ...ignores clicks a moment (at least this, or its own cooldown), and Yes is pressed again this often, this many times, until it's gone. */
+const CONFIRM_MIN_WAIT_MS = 300;
+const CONFIRM_RETRY_MS = 600;
+const CONFIRM_TRIES = 5;
+
 /** At most this many Select All / Sell rounds (the sell panel holds only so many items at a time). */
 const SELL_ROUNDS = 20;
 
@@ -325,11 +332,8 @@ export class Survival {
       const used = memory.latest()?.survival?.bag?.used ?? before;
       this.bot.status(`Selling (${sellPanel()?.value ?? '?'} gold, round ${round + 1})`);
       await this.bot.click(boxCentre(sellPanel()!.sell!), this.bot.delay('menu'));
-      // An "are you sure?": press its Yes / OK.
-      await this.bot.sleep(500);
-      const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
-      const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
-      if (yes) await this.bot.click(boxCentre(yes), this.bot.delay('menu'));
+      // An "are you sure?" (some items ask): Yes until it's gone.
+      await this.confirm();
       if (!(await waitFor(() => (memory.latest()?.survival?.bag?.used ?? used) < used, 3000))) break;
       await this.bot.sleep(300);
     }
@@ -340,6 +344,32 @@ export class Survival {
     // Put the bag away again if it was opened for this.
     if (!bagWasOpen && memory.latest()?.survival?.inventory?.open) this.bot.key(INVENTORY_KEY);
     return unprotected ? null : Math.max(0, before - after);
+  }
+
+  /**
+   * Presses Yes (or OK) on a message box asking to confirm, should one show within CONFIRM_SHOW_MS, until it's gone.
+   * The game ignores clicks for a moment after a box shows (its ButtonCooldownMs), so a press is tried again. Returns
+   * whether there was one.
+   */
+  private async confirm(): Promise<boolean> {
+    const memory = this.bot.options.memory;
+    const asking = () => memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok/i.test(b.name)));
+    let box = asking();
+    for (const since = this.bot.clock.now(); !box && this.bot.clock.now() - since < CONFIRM_SHOW_MS; ) {
+      await this.bot.sleep(100);
+      box = asking();
+    }
+    if (!box) return false;
+    // Past its cooldown before the first press.
+    await this.bot.sleep(Math.max(CONFIRM_MIN_WAIT_MS, box.cooldownMs ?? 0));
+    for (let tries = 0; tries < CONFIRM_TRIES && box; tries++) {
+      const yes = box.buttons.find((b) => /yes/i.test(b.name)) ?? box.buttons.find((b) => /ok/i.test(b.name))!;
+      this.bot.status(`Confirming: ${box.text || 'are you sure?'}`);
+      await this.bot.click(boxCentre(yes), this.bot.delay('menu'));
+      await this.bot.sleep(CONFIRM_RETRY_MS);
+      box = asking();
+    }
+    return true;
   }
 
   /** Closes the shop: its close button, else Escape. */
