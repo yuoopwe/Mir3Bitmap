@@ -41,6 +41,7 @@ const questOnly = element<HTMLInputElement>('quest-only');
 const loot = element<HTMLInputElement>('loot');
 const sellItems = element<HTMLInputElement>('sell-items');
 const pickUpKey = element<HTMLSelectElement>('pickup-key');
+const townPortalKey = element<HTMLSelectElement>('town-portal-key');
 const unstuckKey = element<HTMLSelectElement>('unstuck-key');
 const randomKey = element<HTMLSelectElement>('random-key');
 const hpKey = element<HTMLSelectElement>('hp-key');
@@ -246,6 +247,8 @@ function buildPotionSelects(): void {
     select.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
   }
   pickUpKey.replaceChildren(...PICK_UP_KEYS.map((key) => new Option(key || 'none', key)));
+  townPortalKey.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
+  townPortalKey.value = '3';
   unstuckKey.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
   unstuckKey.value = 'F2';
   randomKey.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
@@ -304,6 +307,7 @@ function readSettings(): Settings {
       questOnly: questOnly.checked,
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
+      townPortalKey: townPortalKey.value,
       unstuckKey: unstuckKey.value,
       randomTeleportKey: randomKey.value,
       hpPotionKey: hpKey.value,
@@ -356,6 +360,7 @@ function applySettings(settings: Partial<Settings>): void {
     questOnly.checked = hunt.questOnly ?? false;
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
+    townPortalKey.value = hunt.townPortalKey ?? '3';
     unstuckKey.value = hunt.unstuckKey ?? 'F2';
     randomKey.value = hunt.randomTeleportKey ?? '1';
     hpKey.value = hunt.hpPotionKey;

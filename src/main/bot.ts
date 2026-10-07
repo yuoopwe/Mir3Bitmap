@@ -129,7 +129,9 @@ const ARCADIA_WAIT_MS = 20_000;
 const OUT_OF_COMBAT_S = 10.5;
 /** Before returning, monsters this close are fought off; and how long to keep trying to get out of combat. */
 const CLEAR_RANGE_TILES = 10;
-const OUT_OF_COMBAT_GIVE_UP_MS = 120_000;
+const OUT_OF_COMBAT_GIVE_UP_MS = 60_000;
+/** After the Town Portal scroll, how long to wait for the move to town (it takes a moment to read). */
+const TOWN_PORTAL_WAIT_MS = 15_000;
 const REVIVE_WAIT_MS = 30_000;
 /** Selling in Arcadia: the shopkeeper who buys (his "Select All" picks what can be sold from the open bag tab). */
 const SELL_NPC = { id: 145, name: 'Ludvik' };
@@ -2370,7 +2372,23 @@ export class Bot {
    */
   private async getOutOfCombat(why: string): Promise<void> {
     const memory = this.options.memory;
-    for (const since = this.clock.now(); this.clock.now() - since < OUT_OF_COMBAT_GIVE_UP_MS; ) {
+    let portalled = false;
+    for (let since = this.clock.now(); ; ) {
+      if (this.clock.now() - since >= OUT_OF_COMBAT_GIVE_UP_MS) {
+        // Still in combat after a minute: the Town Portal scroll, then wait out the 10 s in town.
+        const vk = keyCode(this.settings.hunt.townPortalKey ?? '3');
+        if (portalled || vk === null) return;
+        portalled = true;
+        this.stopRunning();
+        this.releaseHold();
+        const from = memory.latest()?.map?.index;
+        this.status(`${why}: can't get out of combat; reading a Town Portal scroll`);
+        await this.waitUntilStill();
+        this.key(vk);
+        for (const start = this.clock.now(); this.clock.now() - start < TOWN_PORTAL_WAIT_MS && memory.latest()?.map?.index === from; ) await this.sleep(300);
+        since = this.clock.now();
+        continue;
+      }
       await this.yieldToEvents();
       const reading = memory.latest();
       const ago = reading?.user?.combatAgo;

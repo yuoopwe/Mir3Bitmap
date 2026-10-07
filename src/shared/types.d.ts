@@ -46,6 +46,8 @@ export interface HuntSettings {
   loot: boolean;
   /** Extra key pressed after walking onto an item, if the client uses one. */
   pickUpKey: BindableKey;
+  /** Grind and Quests: the Town Portal scroll's key, used when Return to Arcadia can't be (still in combat after a minute). */
+  townPortalKey?: BindableKey;
   hpPotionKey: BindableKey;
   /** Drink when HP falls below this percentage. */
   hpPotionPercent: number;
