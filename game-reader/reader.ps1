@@ -565,6 +565,20 @@ function Read-Gear($scene) {
     $slots = $equipment.AsArray()
     for ($i = 0; $i -lt $slots.Length; $i++) { $item = $slots.GetObjectValue($i); if (-not $item.IsNull) { $read = Read-Item $item $i; if ($read) { $worn += $read } } }
   }
+  # With the bag open: each bag slot's cell on screen (cells showing only: the open tab, scrolled into view).
+  $cells = @{}
+  $box = $scene.ReadObjectField('InventoryBox')
+  if (-not $box.IsNull -and $box.ReadField[bool]('_IsVisible')) {
+    $grid = $box.ReadObjectField('Grid').ReadObjectField('Grid')
+    if (-not $grid.IsNull) {
+      $all = $grid.AsArray()
+      for ($i = 0; $i -lt $all.Length; $i++) {
+        $cell = $all.GetObjectValue($i)
+        if ($cell.IsNull -or -not $cell.ReadField[bool]('_IsVisible')) { continue }
+        $cells["$($cell.ReadField[int]('_Slot'))"] = Read-Box $cell
+      }
+    }
+  }
   $bag = @()
   $inventory = $scene.ReadObjectField('Inventory')
   if (-not $inventory.IsNull) {
@@ -574,7 +588,8 @@ function Read-Gear($scene) {
       if ($item.IsNull) { continue }
       $info = $item.ReadObjectField('Info')
       if ($info.IsNull -or $WearableTypes -notcontains (Read-EnumField $info '_ItemType')) { continue }
-      $read = Read-Item $item $i; if ($read) { $bag += $read }
+      $read = Read-Item $item $i
+      if ($read) { if ($cells.ContainsKey("$i")) { $read.cell = $cells["$i"] }; $bag += $read }
     }
   }
   return @{ worn = $worn; bag = $bag }

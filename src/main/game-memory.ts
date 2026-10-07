@@ -58,6 +58,8 @@ export interface MemoryItem {
   maxDurability: number;
   base: Record<string, number>;
   added: Record<string, number>;
+  /** Bag items, with the bag open and the item's cell showing: where that cell is on the game's screen. */
+  cell?: MemoryBox;
 }
 
 /** A Triple Triad card as the game holds it. */
