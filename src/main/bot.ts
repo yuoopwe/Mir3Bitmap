@@ -57,7 +57,7 @@ const TRIAD_SETTLE_MS = 1200;
  * top row that covers the "Your turn" text.
  */
 const TRIAD_PARK: Point = { x: 640, y: 625 };
-/** How long Triple Triad waits for the memory reader's first reading before falling back to the screen. */
+/** How long Triple Triad waits for a reading from the memory reader (its first, or after a gap) before falling back to the screen. */
 const MEMORY_START_MS = 8000;
 /** Gathering: give up walking to a node after this long, and on a node that hasn't been picked this long after clicking it. */
 const GATHER_WALK_GIVE_UP_MS = 15_000;
@@ -1313,12 +1313,15 @@ export class Bot {
     // The game's memory has every card's numbers and whose turn it is; the screen is the fallback.
     this.options.memory.start();
     const started = performance.now();
+    // When the reader last gave a reading: a moment's gap mid-match is waited out, not played from the screen.
+    let heardAt = started;
     let okPressed = false;
     // The match's last reading with the board: the result box can come up with the board already gone.
     // Cleared once the result is counted, so each match counts once.
     let lastBoard: MemoryTriad | null = null;
     while (true) {
       await this.yieldToEvents();
+      if (this.options.memory.latest()) heardAt = performance.now();
       const live = this.options.memory.latest()?.triad;
       if (live?.ok) {
         if (!okPressed) matches++;
@@ -1344,8 +1347,8 @@ export class Bot {
         await this.sleep(TRIAD_POLL_MS);
         continue;
       }
-      if (this.options.memory.installed && performance.now() - started < MEMORY_START_MS) {
-        this.statusEvery('Starting the memory reader');
+      if (this.options.memory.installed && performance.now() - heardAt < MEMORY_START_MS) {
+        this.statusEvery(heardAt === started ? 'Starting the memory reader' : "Waiting for the game's memory");
         await this.sleep(TRIAD_POLL_MS);
         continue;
       }
