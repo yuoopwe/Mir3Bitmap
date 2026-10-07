@@ -241,6 +241,12 @@ function huntedOn(data: TravelData, mapIndex: number): Hunted[] | null {
   return hunted;
 }
 
+/** The character's damage per second, as the estimates have it: the typical health at their level, killed in sameLevelKillSeconds. */
+export function damagePerSecond(data: TravelData, level: number, cls: number | undefined): number {
+  const health = typicalHealth(data);
+  return (health[Math.min(Math.max(level, 0), health.length - 1)] / GRIND.sameLevelKillSeconds) * (GRIND.classDamage[cls ?? 0] ?? 1);
+}
+
 /**
  * The estimated exp/h from the game data for a character of this level and
  * class: the monsters' total experience over the total time to find and kill them.
@@ -248,8 +254,7 @@ function huntedOn(data: TravelData, mapIndex: number): Hunted[] | null {
 function estimateRate(data: TravelData, mapIndex: number, hunted: Hunted[], level: number, cls: number | undefined, maxLevelsAbove: number): number {
   const monsters = hunted.reduce((sum, m) => sum + m.n, 0);
   if (!monsters) return 0;
-  const health = typicalHealth(data);
-  const damage = (health[Math.min(level, health.length - 1)] / GRIND.sameLevelKillSeconds) * (GRIND.classDamage[cls ?? 0] ?? 1);
+  const damage = damagePerSecond(data, level, cls);
   // Between kills: the walk to the next monster, from how thinly they're spread over the spawn area.
   const area = (data.spawns?.[mapIndex]?.length ?? 0) * GRIND.spawnCellTiles ** 2;
   const seekSeconds = (GRIND.seekShare * Math.sqrt(area / monsters)) / GRIND.tilesPerSecond;
