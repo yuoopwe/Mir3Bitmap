@@ -72,8 +72,11 @@ const GATHER_RUN_TILES = 3;
 const GATHER_WANDER_MS = 4000;
 /** Exploring from memory: not a tile moved in this long while running means blocked; keep off that spot this long. */
 const EXPLORE_BLOCKED_MS = 1500;
-/** Running covers a tile or two in well under this: not a tile moved in this long while running means blocked. */
-const BLOCKED_RUNNING_MS = 600;
+/**
+ * Not a tile moved in this long while running means blocked. The game moves the player a stride at a time (3 tiles
+ * on a mount) about every 0.65 s, so this has to be well over one stride.
+ */
+const BLOCKED_RUNNING_MS = 1100;
 const EXPLORE_AVOID_MS = 10_000;
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
 const NPC_REACH_TILES = 2;
