@@ -490,11 +490,15 @@ table {
   list-style: none;
 }
 
-/* Monsters to hunt: names in columns, each with its tick. */
+/* Monsters to hunt: names in columns (A to Z down each), each with its tick. */
 #monsters {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 0 12px;
+  columns: 170px;
+  column-gap: 12px;
+}
+
+#monsters li,
+#names li {
+  break-inside: avoid;
 }
 
 #monsters:empty::after,
@@ -534,9 +538,8 @@ table {
 
 /* Names seen on screen: each the small picture the bot knows it by. */
 #names {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 0 20px;
+  columns: 320px;
+  column-gap: 20px;
 }
 
 #names li {
