@@ -14,6 +14,11 @@ npm start
 
 `npm test` runs the detection tests against real screenshots in `src/test/`.
 
+`npm run ui-harness` writes `dist/ui-harness/index.html` and prints its address: the control window with a
+stand-in bot (`scripts/ui-stub.js`), to open in a browser and try without Electron or the game. The stand-in
+answers like the bot, with made-up statuses, monsters and names; `uiStub` in the browser console sends more and
+lists the calls the window made. It isn't part of the app.
+
 ## Setup in game
 
 - The game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`.
