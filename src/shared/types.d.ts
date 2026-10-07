@@ -63,6 +63,8 @@ export interface GrindSettings {
   replanMinutes: number;
   /** Monsters more than this many levels above the character count as too strong. */
   maxLevelsAbove: number;
+  /** While unfinished quests need monsters killed, grind only where they spawn (when one can be reached). */
+  questsFirst?: boolean;
 }
 
 export interface Settings {

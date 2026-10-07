@@ -28,6 +28,7 @@ import { MapExplorer, waypoint } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { classFlagOf, findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink, type TravelQuest } from './travel';
 import { chooseGrindMap, describeChoice } from './grind';
+import { ExperienceMeter, type GrindLog } from './grind-log';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
@@ -326,6 +327,8 @@ export interface BotOptions {
   memory: GameMemory;
   /** Monster names seen so far, for the window's kill/skip list. */
   monsters?: (names: string[]) => void;
+  /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
+  grindLog: GrindLog;
 }
 
 /** Something to attack: where to click, and a key to recognise it by from one look to the next. */
@@ -1946,9 +1949,15 @@ export class Bot {
       const level = user.level;
       const here = { x: user.x, y: user.y };
       const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
-      const { replanMinutes, maxLevelsAbove } = this.settings.grind;
+      const { replanMinutes, maxLevelsAbove, questsFirst } = this.settings.grind;
       const start = { map: map.index, steps: this.exitSteps(data, map, walkDistances(map, here)), at: here };
-      const choice = chooseGrindMap(data, start, { level, cls: user.class, waypoints: unlocked }, { maxLevelsAbove, current: grinding });
+      const choice = chooseGrindMap(data, start, { level, cls: user.class, waypoints: unlocked }, {
+        maxLevelsAbove,
+        current: grinding,
+        measured: this.options.grindLog.sessions(user.name),
+        quests: reading.questTargets ?? undefined,
+        questsFirst,
+      });
       if (!choice) throw new BotError(`No map to grind on at level ${level} can be reached from ${mapName(data, map.index)}.`);
       grinding = choice.map;
       const plan = describeChoice(choice, level);
@@ -1958,13 +1967,16 @@ export class Bot {
         this.status(plan);
       }
 
-      // Hunt until it's time to plan again (time paused doesn't count).
+      // Hunt until it's time to plan again (time paused doesn't count), measuring the experience it brings.
       const huntStart = performance.now();
       const pausedBefore = this.pausedMs;
+      const meter = new ExperienceMeter();
+      meter.sample(memory.latest()?.user);
       const why = await this.huntLoop({
         seek: true,
         stopWhen: () => {
           const now = memory.latest();
+          meter.sample(now?.user);
           if (now?.user?.dead) return 'dead';
           if (this.bagFull(now)) return 'bag';
           const newLevel = now?.user?.level;
@@ -1974,6 +1986,9 @@ export class Bot {
           return minutes >= replanMinutes ? `${replanMinutes} minutes on ${choice.name}: planning again` : null;
         },
       });
+      meter.sample(memory.latest()?.user);
+      const ms = performance.now() - huntStart - (this.pausedMs - pausedBefore);
+      this.options.grindLog.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now() });
       if (why === 'dead') {
         await this.reviveInArcadia();
         continue;

@@ -170,6 +170,11 @@
               <label title="Monsters more than this many levels above you count as too strong: maps mostly of them are left out, and the rest count for less">Monsters up to <input id="grind-above" type="number" min="0" max="50"> levels above mine</label>
               <p class="hint">A new level, or leaving the map (a death, say), plans again straight away.</p>
             </fieldset>
+            <fieldset class="card">
+              <legend>Quests</legend>
+              <label title="While your quest log has monsters to kill, grind only on maps where they spawn (when one suits your level and can be reached); then back to the best maps"><input id="grind-quests-first" type="checkbox"> Quests first</label>
+              <p class="hint">Off, maps with quest monsters still get a bonus: they win when nearly as good as the best.</p>
+            </fieldset>
             <section class="card route-card">
               <h2>Last plan</h2>
               <p id="grind-plan" class="hint">Not planned yet.</p>

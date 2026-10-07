@@ -7,6 +7,7 @@ import { Bot } from './bot';
 import type { Rect } from './layout';
 import { NameBook } from './names';
 import { TriadMemory } from './triad-memory';
+import { GrindLog } from './grind-log';
 import { GameMemory } from './game-memory';
 import type { Frame } from './vision';
 
@@ -31,7 +32,7 @@ const defaultSettings: Settings = {
   fightInTheWay: false,
   trainKey: 'F1',
   trainIntervalMs: 1000,
-  grind: { replanMinutes: 15, maxLevelsAbove: 5 },
+  grind: { replanMinutes: 15, maxLevelsAbove: 5, questsFirst: false },
   questMaxActive: 5,
   hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
@@ -81,6 +82,25 @@ try {
   // Nothing learned yet.
 }
 
+// ---- Grind's measurements (experience per hour on each map, per character), saved between runs ----
+
+const grindFile = path.join(app.getPath('userData'), 'grind.json');
+let grindTimer: NodeJS.Timeout | null = null;
+
+const grindLog = new GrindLog(() => {
+  if (grindTimer) return;
+  grindTimer = setTimeout(() => {
+    grindTimer = null;
+    writeFileSync(grindFile, JSON.stringify(grindLog.toJSON()));
+  }, 1000);
+});
+
+try {
+  grindLog.load(JSON.parse(readFileSync(grindFile, 'utf8')));
+} catch {
+  // Nothing measured yet.
+}
+
 /** Crops `box` out of a frame and returns it as a PNG data URL. */
 function imageOf(frame: Frame, box: Rect): string {
   const left = Math.max(box.left, 0);
@@ -99,6 +119,7 @@ function imageOf(frame: Frame, box: Rect): string {
 const bot = new Bot(defaultSettings, {
   names,
   triad,
+  grindLog,
   memory: new GameMemory(path.join(app.getAppPath(), 'game-reader')),
   monsters: (list: string[]) => window?.webContents.send('monsters', list),
   imageOf,
@@ -149,5 +170,6 @@ app.on('window-all-closed', () => {
   bot.stop();
   if (namesTimer) writeFileSync(namesFile, JSON.stringify(names.toJSON()));
   if (triadTimer) writeFileSync(triadFile, JSON.stringify(triad.toJSON()));
+  if (grindTimer) writeFileSync(grindFile, JSON.stringify(grindLog.toJSON()));
   app.quit();
 });
