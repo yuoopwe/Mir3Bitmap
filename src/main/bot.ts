@@ -641,8 +641,11 @@ export class Bot {
    * the next nearest. Every couple of seconds, click the ground at the
    * character's feet to pick up loot. A target that takes too long (out of
    * reach, or not really a monster) is skipped for a while.
+   *
+   * Grind's options: `seek` overrides "Seek when idle"; once `stopWhen` gives a
+   * reason, the fight going on is finished and the reason returned.
    */
-  private async huntLoop(): Promise<string> {
+  private async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null } = {}): Promise<string> {
     let lastSellCheck = performance.now();
     let current: { key: string; since: number } | null = null;
     let misses = 0;
@@ -654,6 +657,7 @@ export class Bot {
     let nextItemClickAt = 0;
     /** The current target's distance and the player's tile, and since when they've stayed the same. */
     let approach: { state: string; since: number } | null = null;
+    let stopping: string | null = null;
     this.huntDist = null;
     this.seek = null;
     this.visitedSpots.clear();
@@ -707,6 +711,13 @@ export class Bot {
           await this.clickFloor(KILL_FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
           nextFloorAt = performance.now() + FLOOR_CLICK_EVERY_MS;
         }
+      }
+      // Time to stop: once no fight is going on.
+      stopping ??= options.stopWhen?.() ?? null;
+      if (stopping && !current) {
+        this.stopRunning();
+        this.releaseHold();
+        return stopping;
       }
 
       if (memory && this.settings.hunt.loot) {
@@ -812,7 +823,7 @@ export class Bot {
         this.releaseHold();
         await this.pressKeys(false);
         // With the game's memory: head for monsters it knows of, then where they spawn; else the minimap, or wander.
-        if (this.settings.hunt.roam && !(memory && (await this.seekFromMemory(memory, skipped)))) await this.seekOrRoam();
+        if ((options.seek ?? this.settings.hunt.roam) && !(memory && (await this.seekFromMemory(memory, skipped)))) await this.seekOrRoam();
         else {
           await this.sleep(150);
           this.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.options.memory.problem}`})`);
