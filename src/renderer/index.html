@@ -28,7 +28,7 @@
       <button id="gather-button" title="Walk to plants and ore on screen and gather them, wandering when there are none (needs the memory reader and the tool in your Toolbelt)">Gather</button>
       <button id="deck-button" title="Put the best five cards you own into your Triple Triad deck: open the card collection window first (needs the memory reader)">Best deck</button>
       <button id="train-button" title="Cast a spell on yourself over and over to train it">Train</button>
-      <button id="travel-button">Travel</button>
+      <button id="travel-button" title="Run to the map or NPC picked under Travel (needs the memory reader)">Travel</button>
       <button id="stop-button" disabled>Stop</button>
     </div>
 
@@ -96,8 +96,8 @@
         <fieldset>
           <legend>Travel</legend>
           <div class="travel">
-            <select id="area"></select>
-            <select id="destination" size="4"></select>
+            <input id="travel-search" type="search" placeholder="Search maps and NPCs (e.g. kang, bichon cave)" autocomplete="off">
+            <select id="travel-results" size="6" title="Pick one, then press Travel"></select>
           </div>
         </fieldset>
       </div>

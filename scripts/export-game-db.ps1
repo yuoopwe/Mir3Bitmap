@@ -59,6 +59,14 @@ function Convert-Row($o) {
       $row[$p.Name] = $v.ToString()
     } elseif ($dbObjectType.IsAssignableFrom($t)) {
       $row[$p.Name] = [ordered]@{ Index = $v.Index; Name = (Get-Name $v) }
+    } elseif ($t -eq [System.Drawing.Point[]]) {
+      # Map regions' tiles, as [x, y] pairs.
+      $row[$p.Name] = @($v | ForEach-Object { , @($_.X, $_.Y) })
+    } elseif ($t -eq [System.Collections.BitArray]) {
+      # Map regions' tiles as bits (y * map width + x): the indices that are set.
+      $set = [System.Collections.Generic.List[int]]::new()
+      for ($i = 0; $i -lt $v.Length; $i++) { if ($v[$i]) { $set.Add($i) } }
+      $row[$p.Name] = $set.ToArray()
     }
   }
   $row

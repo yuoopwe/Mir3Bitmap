@@ -41,8 +41,8 @@ const hpKey = element<HTMLSelectElement>('hp-key');
 const hpPercent = element<HTMLInputElement>('hp-percent');
 const mpKey = element<HTMLSelectElement>('mp-key');
 const mpPercent = element<HTMLInputElement>('mp-percent');
-const areaSelect = element<HTMLSelectElement>('area');
-const destinationSelect = element<HTMLSelectElement>('destination');
+const travelSearch = element<HTMLInputElement>('travel-search');
+const travelResults = element<HTMLSelectElement>('travel-results');
 const attackButton = element<HTMLButtonElement>('attack-button');
 const exploreButton = element<HTMLButtonElement>('explore-button');
 const triadButton = element<HTMLButtonElement>('triad-button');
@@ -75,7 +75,6 @@ let lastLogged = '';
 const keyInputs = new Map<KeyId, { enabled: HTMLInputElement; seconds: HTMLInputElement }>();
 const delayInputs = new Map<DelayId, HTMLInputElement>();
 let fuzzInput: HTMLInputElement;
-let currentArea: Area | null = null;
 
 const count = (n: number) => n.toLocaleString();
 /** The stats panel's rows, in two groups side by side: a label, and how to show its count. */
@@ -274,9 +273,19 @@ function saveSettings(): void {
   void window.bot.updateSettings(settings);
 }
 
-async function showArea(name: string): Promise<void> {
-  currentArea = await window.bot.loadArea(name);
-  destinationSelect.replaceChildren(...currentArea.destinations.map((destination) => new Option(destination.name)));
+const TRAVEL_KEY = 'travel-v1';
+
+/** Lists the maps and NPCs matching the search box, keeping the one picked if it's still there. */
+async function showPlaces(): Promise<void> {
+  const picked = travelResults.value || JSON.parse(localStorage.getItem(TRAVEL_KEY) ?? '{}').picked;
+  const found = await window.bot.searchPlaces(travelSearch.value);
+  travelResults.replaceChildren(...found.map((p) => new Option(p.label, p.id)));
+  if (found.some((p) => p.id === picked)) travelResults.value = picked;
+  else if (found.length > 0) travelResults.selectedIndex = 0;
+}
+
+function saveTravel(): void {
+  localStorage.setItem(TRAVEL_KEY, JSON.stringify({ search: travelSearch.value, picked: travelResults.value }));
 }
 
 /** The monsters seen while hunting (and any being skipped), each with a tick to hunt it. */
@@ -454,16 +463,22 @@ async function init(): Promise<void> {
   gatherButton.addEventListener('click', () => void window.bot.startGather());
   stopButton.addEventListener('click', () => void window.bot.stop());
   travelButton.addEventListener('click', () => {
-    const destination = currentArea?.destinations[destinationSelect.selectedIndex];
-    if (destination) void window.bot.startTravel(destination);
-    else statusText.textContent = 'Pick a destination first';
+    if (travelResults.value) {
+      saveTravel();
+      void window.bot.startTravel(travelResults.value);
+    } else statusText.textContent = 'Search for a map or NPC under Travel and pick one first';
   });
 
   await refreshNames();
-  const areas = await window.bot.listAreas();
-  areaSelect.replaceChildren(...areas.map((name) => new Option(name)));
-  areaSelect.addEventListener('change', () => void showArea(areaSelect.value));
-  if (areas.length > 0) await showArea(areas[0]);
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  travelSearch.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => void showPlaces().then(saveTravel), 150);
+  });
+  travelResults.addEventListener('change', saveTravel);
+  travelResults.addEventListener('dblclick', () => travelButton.click());
+  travelSearch.value = JSON.parse(localStorage.getItem(TRAVEL_KEY) ?? '{}').search ?? '';
+  await showPlaces();
 }
 
 void init();

@@ -111,8 +111,8 @@ export interface MemoryState {
   triad?: MemoryTriad | null;
   collection?: MemoryCollection | null;
   reason?: string;
-  /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat). */
-  user?: { name: string; x: number; y: number; pickUpRadius?: number };
+  /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat); class is Library.MirClass. */
+  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number };
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;

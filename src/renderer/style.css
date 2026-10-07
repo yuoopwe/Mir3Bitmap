@@ -175,13 +175,14 @@ fieldset {
 }
 
 .travel {
-  align-items: flex-start;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
+.travel input,
 .travel select {
-  flex: 1;
+  width: 100%;
 }
 
 footer {

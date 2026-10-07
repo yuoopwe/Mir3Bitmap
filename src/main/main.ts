@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { Area, Destination, KeyId, NameRule, Settings, Status } from '../shared/types';
+import type { KeyId, NameRule, Settings, Status } from '../shared/types';
+import { loadTravelData, places, searchPlaces } from './travel';
 import { Bot } from './bot';
 import type { Rect } from './layout';
 import { NameBook } from './names';
@@ -33,7 +33,6 @@ const defaultSettings: Settings = {
   hunt: { roam: false, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
-const areasDir = path.join(app.getAppPath(), 'areas');
 let window: BrowserWindow | null = null;
 
 // ---- Learned names, saved between runs ----
@@ -103,29 +102,9 @@ const bot = new Bot(defaultSettings, {
   report: (status: Status) => window?.webContents.send('bot:status', status),
 });
 
-// ---- Areas ----
+// ---- Travel ----
 
-async function listAreas(): Promise<string[]> {
-  const files = await readdir(areasDir);
-  return files.filter((file) => file.toLowerCase().endsWith('.json')).map((file) => file.slice(0, -'.json'.length));
-}
-
-interface AreaFile {
-  Name: string;
-  Areas: { Name: string; Location: { X: number; Y: number } }[];
-}
-
-async function loadArea(name: string): Promise<Area> {
-  // Only open files that are actually in the areas folder.
-  if (!(await listAreas()).includes(name)) throw new Error(`Unknown area "${name}"`);
-  const text = await readFile(path.join(areasDir, `${name}.json`), 'utf8');
-  // Files saved from Visual Studio start with a byte order mark.
-  const file: AreaFile = JSON.parse(text.replace(/^﻿/, ''));
-  return {
-    name: file.Name,
-    destinations: file.Areas.map((area) => ({ name: area.Name, location: { x: area.Location.X, y: area.Location.Y } })),
-  };
-}
+const travelPlaces = () => places(loadTravelData(path.join(app.getAppPath(), 'game-data', 'travel.json')));
 
 ipcMain.handle('bot:attack', () => bot.startAttack());
 ipcMain.handle('bot:explore', () => bot.startExplore());
@@ -133,11 +112,10 @@ ipcMain.handle('bot:triad', () => bot.startTriad());
 ipcMain.handle('bot:train', () => bot.startTrain());
 ipcMain.handle('bot:deck', () => bot.startDeck());
 ipcMain.handle('bot:gather', () => bot.startGather());
-ipcMain.handle('bot:travel', (_event, destination: Destination) => bot.startTravel(destination));
+ipcMain.handle('bot:travel', (_event, placeId: string) => bot.startTravel(placeId));
+ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => bot.updateSettings({ ...defaultSettings, ...settings }));
-ipcMain.handle('areas:list', () => listAreas());
-ipcMain.handle('areas:load', (_event, name: string) => loadArea(name));
 ipcMain.handle('names:list', () => names.list());
 ipcMain.handle('names:rule', (_event, fingerprint: string, rule: NameRule) => names.setRule(fingerprint, rule));
 ipcMain.handle('names:forget', (_event, fingerprint: string) => names.forget(fingerprint));

@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import type { Delays, Destination, KeyId, Point, Settings, Stats, Status } from '../shared/types';
+import type { Delays, KeyId, Point, Settings, Stats, Status } from '../shared/types';
 import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
 import type { Card } from './triad';
@@ -24,7 +24,9 @@ import { locatePlayer, nearestMonster, readMinimap } from './minimap';
 import type { NameBook } from './names';
 import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTile } from './pathing';
 import { SessionStats } from './session-stats';
-import { MapExplorer } from './map-explorer';
+import { MapExplorer, waypoint } from './map-explorer';
+import { nearestApproach, pathBack, walkDistances } from './map-path';
+import { findPlace, loadTravelData, mapName, planRoute, type TravelLink } from './travel';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
@@ -71,6 +73,9 @@ const GATHER_WANDER_MS = 4000;
 /** Exploring from memory: not a tile moved in this long while running means blocked; keep off that spot this long. */
 const EXPLORE_BLOCKED_MS = 1500;
 const EXPLORE_AVOID_MS = 10_000;
+/** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
+const NPC_REACH_TILES = 2;
+const TRAVEL_BLOCKED_LIMIT = 8;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -426,8 +431,8 @@ export class Bot {
     void this.run('train', () => this.trainLoop());
   }
 
-  startTravel(destination: Destination): void {
-    void this.run('travel', () => this.travel(destination));
+  startTravel(placeId: string): void {
+    void this.run('travel', () => this.travelLoop(placeId));
   }
 
   private async run(mode: Status['mode'], task: () => Promise<string>): Promise<void> {
@@ -1166,25 +1171,172 @@ export class Bot {
         return `Nothing left on ${map.name} that can be walked to (${percent}% uncovered)`;
       }
 
-      // Aim at the waypoint, or the farthest tile before it that isn't under the HUD.
-      const along = plan.path.indexOf(plan.path.find((t) => t.x === plan.waypoint.x && t.y === plan.waypoint.y) ?? plan.path[0]);
-      let aim = plan.waypoint;
-      for (let i = along; i > 0 && !clickable(tileToScreen(user, aim.x, aim.y)); i--) aim = plan.path[i - 1];
-      const point = tileToScreen(user, aim.x, aim.y);
-      const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
-      if (steps <= 1) {
-        // The path turns here: a run would carry past the turn, so step.
+      await this.driveAlong(user, plan.path, now);
+      this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
+      await this.sleep(RUN_TICK_MS);
+      drivenAt = performance.now();
+    }
+  }
+
+  /**
+   * One tick along `path` (tiles from the player on): runs (right button held)
+   * toward the farthest tile straight ahead that isn't under the HUD, steps by
+   * clicking where the path turns, and presses the teleport key (if on) on long
+   * straight stretches.
+   */
+  private async driveAlong(user: Point, path: Point[], now: number): Promise<void> {
+    const ahead = waypoint(path);
+    const along = Math.max(0, path.findIndex((t) => t.x === ahead.x && t.y === ahead.y));
+    let aim = path[along];
+    for (let i = along; i > 0 && !clickable(tileToScreen(user, aim.x, aim.y)); i--) aim = path[i - 1];
+    const point = tileToScreen(user, aim.x, aim.y);
+    const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
+    if (steps <= 1) {
+      // The path turns here: a run would carry past the turn, so step.
+      this.stopRunning();
+      if (steps === 1) await this.click(point, this.delay('attackClick'));
+      return;
+    }
+    this.holdRun(point);
+    const vk = this.teleportKey();
+    if (vk !== null && steps >= 6 && now >= this.teleportReadyAt) {
+      this.key(vk);
+      this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
+    }
+  }
+
+  // ---- Travel ----
+
+  /**
+   * Goes to a map or an NPC (a place from travel.ts). On each map it plans the
+   * quickest chain of links from where the player stands (the links and the
+   * steps between them come from game-data/travel.json; the current map's walls
+   * from memory), then walks to the next exit. Any map change (expected or not:
+   * a wrong turn, a death) plans again from wherever the player is.
+   */
+  private async travelLoop(placeId: string): Promise<string> {
+    const data = loadTravelData();
+    const place = findPlace(data, placeId);
+    if (!place) throw new BotError('Pick somewhere to travel to first.');
+    const memory = this.options.memory;
+    if (!memory.installed) throw new BotError('Travel needs the memory reader (run scripts/setup-game-reader.ps1).');
+    memory.start();
+    const started = performance.now();
+    const tile = ([x, y]: [number, number]): Point => ({ x, y });
+    const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    let route: { map: number; links: TravelLink[]; blocked: number } | null = null;
+    let path: Point[] | null = null;
+    /** Tiles to keep off for now (y * width + x), until when: where something the map doesn't show was in the way. */
+    const avoid = new Map<number, number>();
+    let moved = { at: 0, x: NaN, y: NaN };
+    let drivenAt = 0;
+
+    while (true) {
+      await this.yieldToEvents();
+      this.capture();
+      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
+      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.drinkPotions();
+      const reading = memory.latest();
+      const map = memory.map();
+      if (!reading || !map) {
         this.stopRunning();
-        if (steps === 1) await this.click(point, this.delay('attackClick'));
+        this.statusEvery(
+          !reading
+            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            : 'Waiting for the map from the game',
+        );
+        await this.sleep(300);
+        continue;
+      }
+      const user = reading.user!;
+      const here = { x: user.x, y: user.y };
+      const now = performance.now();
+
+      // A new map (or the first): plan from here.
+      if (!route || route.map !== map.index) {
+        path = null;
+        avoid.clear();
+        if (map.index === place.map && !place.npc) {
+          this.stopRunning();
+          return `Arrived at ${mapName(data, map.index)}`;
+        }
+        const dist = walkDistances(map, here);
+        const steps = new Map<number, number>();
+        for (const l of data.links) {
+          if (l.from !== map.index) continue;
+          const near = nearestApproach(map, dist, l.exit.map(tile));
+          if (near) steps.set(l.id, near.steps);
+        }
+        const npcSteps = new Map<number, number>();
+        if (place.npc?.at && place.map === map.index) {
+          const near = nearestApproach(map, dist, [tile(place.npc.at)]);
+          if (near) npcSteps.set(place.npc.id, near.steps);
+        }
+        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here }, place, { level: user.level, cls: user.class });
+        if (!planned) throw new BotError(`No way found from ${mapName(data, map.index)} to ${place.label} (your level or class may not allow it).`);
+        route = { map: map.index, links: planned.links, blocked: 0 };
+        this.status(
+          planned.links.length
+            ? `Route: ${[map.index, ...planned.links.map((l) => l.to)].map((i) => mapName(data, i)).join(' > ')}`
+            : `Heading for ${place.npc?.name}`,
+        );
+      }
+
+      // Where to head on this map: the next exit, or the NPC (where the game shows it, else where it's placed).
+      let targets: Point[];
+      if (route.links.length) {
+        targets = route.links[0].exit.map(tile);
       } else {
-        this.holdRun(point);
-        const vk = this.teleportKey();
-        if (vk !== null && steps >= 6 && now >= this.teleportReadyAt) {
-          this.key(vk);
-          this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
+        const npc = place.npc!;
+        const seen = reading.objects?.find((o) => o.kind === 'npc' && o.name === npc.name);
+        const at = seen ? { x: seen.x, y: seen.y } : npc.at ? tile(npc.at) : null;
+        if (!at) {
+          this.stopRunning();
+          return `Arrived at ${mapName(data, map.index)}; ${npc.name} wanders about this map`;
+        }
+        if (chebyshev(here, at) <= NPC_REACH_TILES) {
+          this.stopRunning();
+          return `Arrived at ${npc.name}`;
+        }
+        targets = [at];
+      }
+
+      // Not moving while trying to: something the map doesn't show is in the way. Time paused doesn't count.
+      if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
+      if (here.x !== moved.x || here.y !== moved.y) moved = { at: now, x: here.x, y: here.y };
+      else if (now - moved.at > EXPLORE_BLOCKED_MS) {
+        if (++route.blocked > TRAVEL_BLOCKED_LIMIT) throw new BotError(`Stuck on ${mapName(data, map.index)}: blocked ${TRAVEL_BLOCKED_LIMIT} times.`);
+        for (const t of (path ?? []).slice(1, 3)) avoid.set(t.y * map.width + t.x, now + EXPLORE_AVOID_MS);
+        path = null;
+        moved.at = now;
+        this.statusEvery('Blocked; going round');
+      }
+      for (const [key, until] of avoid) if (until <= now) avoid.delete(key);
+
+      // Keep to the path while on it; otherwise work out a new one.
+      const onPath: number = path ? path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
+      path = path && onPath >= 0 ? path.slice(onPath) : null;
+      if (!path || path.length < 2) {
+        let dist = walkDistances(map, here, new Set(avoid.keys()));
+        let near = nearestApproach(map, dist, targets);
+        if (!near && avoid.size) {
+          avoid.clear();
+          dist = walkDistances(map, here);
+          near = nearestApproach(map, dist, targets);
+        }
+        if (!near) throw new BotError(`Can't find a way to walk to ${route.links.length ? `the way to ${mapName(data, route.links[0].to)}` : place.npc!.name} from here.`);
+        path = pathBack(map, dist, near.tile);
+        // Next to the exit already: step onto it.
+        if (path.length < 2) {
+          const onto = targets.find((t) => chebyshev(t, here) === 1);
+          if (onto) path = [here, onto];
         }
       }
-      this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
+      if (path.length >= 2) await this.driveAlong(here, path, now);
+      else this.stopRunning();
+      const left = route.links.length;
+      this.statusEvery(`Travelling to ${place.label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`);
       await this.sleep(RUN_TICK_MS);
       drivenAt = performance.now();
     }
@@ -1834,15 +1986,7 @@ export class Bot {
     await this.sleep(this.menuPause(200 + pauseAfter));
   }
 
-  // ---- Travel ----
-
-  private async travel(destination: Destination): Promise<string> {
-    const start = this.locate();
-    if (!start) throw new BotError('Could not find your character on the map.');
-    this.key(win.VK.D);
-    await this.walkUntilMapChanges(destination.location, start);
-    return `Reached ${destination.name}`;
-  }
+  // ---- Walking by the big map (selling) ----
 
   private async walkUntilMapChanges(target: Point, start = this.locate()): Promise<void> {
     if (!start) return;

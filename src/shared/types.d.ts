@@ -83,14 +83,10 @@ export interface Settings {
   trainIntervalMs: number;
 }
 
-export interface Destination {
-  name: string;
-  location: Point;
-}
-
-export interface Area {
-  name: string;
-  destinations: Destination[];
+/** Somewhere Travel can go: a map or an NPC (id "map:<index>" or "npc:<index>"). */
+export interface TravelPlace {
+  id: string;
+  label: string;
 }
 
 /**
@@ -162,11 +158,12 @@ export interface BotApi {
   startDeck(): Promise<void>;
   /** Walks to gathering nodes on screen and gathers them, wandering when there are none. */
   startGather(): Promise<void>;
-  startTravel(destination: Destination): Promise<void>;
+  /** Goes to a map or an NPC, by its id from searchPlaces. */
+  startTravel(placeId: string): Promise<void>;
+  /** Maps and NPCs whose names match what's typed. */
+  searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;
   updateSettings(settings: Settings): Promise<void>;
-  listAreas(): Promise<string[]>;
-  loadArea(name: string): Promise<Area>;
   listNames(): Promise<NameEntry[]>;
   setNameRule(fingerprint: string, rule: NameRule): Promise<void>;
   forgetName(fingerprint: string): Promise<void>;

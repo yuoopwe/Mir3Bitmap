@@ -329,7 +329,7 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class') }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{

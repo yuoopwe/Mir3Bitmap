@@ -311,7 +311,7 @@ export class MapExplorer {
  * The farthest tile, up to WAYPOINT_STEPS along the path, reached by carrying
  * on the way the first step goes: running toward it follows the path exactly.
  */
-function waypoint(path: Point[]): Point {
+export function waypoint(path: Point[]): Point {
   if (path.length < 2) return path[0];
   const dx = path[1].x - path[0].x, dy = path[1].y - path[0].y;
   let i = 1;
