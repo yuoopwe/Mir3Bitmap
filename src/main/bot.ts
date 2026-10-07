@@ -125,6 +125,11 @@ const WAYPOINT_FAILURES = 3;
 const ARCADIA_MAP = 563;
 /** How long to wait for Return to Arcadia (it may take a moment's channelling) and for coming back to life. */
 const ARCADIA_WAIT_MS = 20_000;
+/** Return to Arcadia only works out of combat: this long after the last combat (the game's own 10 s, and a little). */
+const OUT_OF_COMBAT_S = 10.5;
+/** Before returning, monsters this close are fought off; and how long to keep trying to get out of combat. */
+const CLEAR_RANGE_TILES = 10;
+const OUT_OF_COMBAT_GIVE_UP_MS = 120_000;
 const REVIVE_WAIT_MS = 30_000;
 /** Selling in Arcadia: the shopkeeper who buys (his "Select All" picks what can be sold from the open bag tab). */
 const SELL_NPC = { id: 145, name: 'Ludvik' };
@@ -1629,7 +1634,7 @@ export class Bot {
    * nearest within FIGHT_RANGE_TILES until none is left there. Returns whether
    * there was anything to fight.
    */
-  private async clearTheWay(): Promise<boolean> {
+  private async clearTheWay(range = FIGHT_RANGE_TILES, weakToo = false): Promise<boolean> {
     const memory = this.options.memory;
     const started = this.clock.now();
     const given = new Set<number>();
@@ -1641,7 +1646,7 @@ export class Bot {
       const user = reading?.user;
       if (!reading || !user) break;
       // Monsters far below the player aren't worth stopping for: they're walked round instead.
-      const monster = this.threatsNear(reading, user, FIGHT_RANGE_TILES).find((o) => !given.has(o.id));
+      const monster = (weakToo ? this.monstersNear(reading, user, range) : this.threatsNear(reading, user, range)).find((o) => !given.has(o.id));
       if (!monster) break;
       const now = this.clock.now();
       if (current?.id !== monster.id) current = { id: monster.id, since: now };
@@ -2121,6 +2126,7 @@ export class Bot {
     this.releaseHold();
     for (let attempt = 0; attempt < 3; attempt++) {
       if (memory.latest()?.map?.index === ARCADIA_MAP) return;
+      await this.getOutOfCombat(why);
       const button = memory.latest()?.survival?.arcadia;
       if (button?.enabled) {
         this.status(`${why}: returning to Arcadia`);
@@ -2356,6 +2362,29 @@ export class Bot {
     await this.sleep(1500);
     this.key(VK.ESCAPE);
     await this.sleep(300);
+  }
+
+  /**
+   * Return to Arcadia needs the player out of combat (10 s since the last): fights
+   * off monsters close by, then waits out the rest of the 10 s.
+   */
+  private async getOutOfCombat(why: string): Promise<void> {
+    const memory = this.options.memory;
+    for (const since = this.clock.now(); this.clock.now() - since < OUT_OF_COMBAT_GIVE_UP_MS; ) {
+      await this.yieldToEvents();
+      const reading = memory.latest();
+      const ago = reading?.user?.combatAgo;
+      if (ago === undefined || ago === null || ago >= OUT_OF_COMBAT_S) return;
+      // Anything hostile close by keeps you in combat, however weak.
+      if (reading && reading.user && this.monstersNear(reading, reading.user, CLEAR_RANGE_TILES).length > 0) {
+        this.status(`${why}: fighting off what's close before returning`);
+        await this.clearTheWay(CLEAR_RANGE_TILES, true);
+        continue;
+      }
+      this.stopRunning();
+      this.statusEvery(`${why}: waiting to be out of combat (${Math.max(0, Math.ceil(OUT_OF_COMBAT_S - ago))} s)`);
+      await this.sleep(300);
+    }
   }
 
   /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */

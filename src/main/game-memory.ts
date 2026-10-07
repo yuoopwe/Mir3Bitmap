@@ -126,7 +126,7 @@ export interface MemoryState {
   collection?: MemoryCollection | null;
   reason?: string;
   /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat); class is Library.MirClass; mounted: riding (its horse isn't None). */
-  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; experience?: number | null; maxExperience?: number | null };
+  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; combatAgo?: number | null; experience?: number | null; maxExperience?: number | null };
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;

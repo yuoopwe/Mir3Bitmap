@@ -506,6 +506,15 @@ function Read-Survival($scene) {
   return $out
 }
 
+# Seconds since the player was last in combat (the game counts you out of combat 10 s after).
+function Read-CombatAgo($userObject, $module, $domain) {
+  $mask = [uint64]0x3FFFFFFFFFFFFFFF
+  $combat = $userObject.ReadValueTypeField('CombatTime').ReadField[uint64]('_dateData') -band $mask
+  $now = $module.GetTypeByName('Client.Envir.CEnvir').GetStaticFieldByName('Now').ReadStruct($domain).ReadField[uint64]('_dateData') -band $mask
+  if ($combat -eq 0) { return 9999 }
+  return [math]::Round(([double]$now - [double]$combat) / 1e7, 1)
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -543,7 +552,7 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{
