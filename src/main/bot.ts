@@ -359,6 +359,8 @@ export class Bot {
   private hp: number | null = null;
   private mp: number | null = null;
   private kills = 0;
+  /** All the time spent paused (mouse over the game), so loops can leave it out of their give-up timers. */
+  private pausedMs = 0;
   /** What's been done this session and in all, for the window's stats panel. */
   private readonly stats = new SessionStats();
   private lastStatusAt = 0;
@@ -515,9 +517,14 @@ export class Bot {
     this.stopRunning();
     this.releaseHold();
     this.status('Paused: your mouse is over the game');
-    while (this.settings.pauseOnMouse && win.cursorOverWindow(this.hwnd)) {
-      await new Promise((resolve) => setTimeout(resolve, PAUSE_POLL_MS));
-      this.checkpoint();
+    const since = performance.now();
+    try {
+      while (this.settings.pauseOnMouse && win.cursorOverWindow(this.hwnd)) {
+        await new Promise((resolve) => setTimeout(resolve, PAUSE_POLL_MS));
+        this.checkpoint();
+      }
+    } finally {
+      this.pausedMs += performance.now() - since;
     }
     this.status('Resumed');
   }
@@ -569,10 +576,19 @@ export class Bot {
     /** Items within reach, and when each was first seen there. */
     const inReachSince = new Map<string, number>();
     let nextItemClickAt = 0;
+    let paused = this.pausedMs;
     this.options.memory.start();
 
     while (true) {
       await this.yieldToEvents();
+      // Time paused doesn't count towards giving up on a target, an item in reach or a walk to one.
+      const pause = this.pausedMs - paused;
+      paused = this.pausedMs;
+      if (pause > 0) {
+        if (current) current.since += pause;
+        if (walkingTo) walkingTo.since += pause;
+        for (const [key, since] of inReachSince) inReachSince.set(key, since + pause);
+      }
       this.capture();
 
       const start = performance.now();
@@ -1505,9 +1521,21 @@ export class Bot {
     const started = performance.now();
     // Running about while looking for nodes: which way, until when, and where the character last moved.
     let wander = { direction: 0, until: 0, tile: { x: NaN, y: NaN }, movedAt: 0 };
+    let paused = this.pausedMs;
 
     while (true) {
       await this.yieldToEvents();
+      // Time paused doesn't count towards giving up on a node, or towards being blocked while wandering.
+      const pause = this.pausedMs - paused;
+      paused = this.pausedMs;
+      if (pause > 0) {
+        const node = current as { since: number; clickedAt: number | null } | null;
+        if (node) {
+          node.since += pause;
+          if (node.clickedAt !== null) node.clickedAt += pause;
+        }
+        wander = { ...wander, until: wander.until + pause, movedAt: wander.movedAt + pause };
+      }
       this.capture();
       this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
       this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
