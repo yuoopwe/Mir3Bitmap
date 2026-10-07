@@ -332,6 +332,29 @@ function Read-Waypoints($scene) {
   return $out
 }
 
+# The game's windows showing right now (minimap, quest tracker, any dialog...), as boxes: holding the run
+# button over one doesn't run. The scene's window fields are listed once per attach.
+function Read-Windows($scene) {
+  if (-not $script:windowFields) {
+    $script:windowFields = @(foreach ($f in $scene.Type.Fields) {
+      if (-not $f.IsObjectReference) { continue }
+      try { $o = $scene.ReadObjectField($f.Name) } catch { continue }
+      if (-not $o.IsNull -and $o.Type.GetFieldByName('_IsVisible') -and $o.Type.GetFieldByName('_Location')) { $f.Name }
+    })
+  }
+  $boxes = @()
+  foreach ($name in $script:windowFields) {
+    $o = $scene.ReadObjectField($name)
+    if ($o.IsNull -or -not $o.ReadField[bool]('_IsVisible')) { continue }
+    $box = Read-Box $o
+    # Not the game world itself (MapControl covers the whole screen), nor empty controls.
+    if ($box.width -le 0 -or $box.height -le 0 -or $box.width * $box.height -ge 1000000) { continue }
+    $box.name = $name
+    $boxes += ,$box
+  }
+  return $boxes
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -349,6 +372,7 @@ while ($true) {
     $module = $runtime.EnumerateModules() | Where-Object { $_.Name -like '*Xtreme.dll' } | Select-Object -First 1
     $script:cardsByImage = $null
     $script:wallsSent = $null
+    $script:windowFields = $null
     $sceneField = $module.GetTypeByName('Client.Scenes.GameScene').GetStaticFieldByName('Game')
     # Reads go straight to the game's live memory; attach afresh now and then all the same.
     $attachedAt = [Diagnostics.Stopwatch]::StartNew()
@@ -392,7 +416,9 @@ while ($true) {
         try { $map = Read-Map $scene } catch { $script:wallsSent = $null }
         $waypoints = $null
         try { $waypoints = Read-Waypoints $scene } catch { $waypoints = @{ error = $_.Exception.Message } }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints }
+        $windows = $null
+        try { $windows = Read-Windows $scene } catch { $script:windowFields = $null }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

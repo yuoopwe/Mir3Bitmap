@@ -129,6 +129,8 @@ export interface MemoryState {
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;
   waypoints?: MemoryWaypoints | null;
+  /** The game's windows showing (by the scene's field name): the run button held over one doesn't run. */
+  windows?: (MemoryBox & { name: string })[] | null;
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */

@@ -378,6 +378,8 @@ export class Bot {
   private teleportReadyAt = 0;
   /** M did nothing (no mount, or not allowed here): don't try again before this. */
   private mountRetryAt = 0;
+  /** Where driveAlong last aimed: the tile and the spot on screen, for telling what a blockage was. */
+  private lastAim: { tile: Point; point: Point; running: boolean } | null = null;
   /** Random teleports in a row, and when they may be used again after a pause. */
   private rerollsInRow = 0;
   private rerollPausedUntil = 0;
@@ -1337,9 +1339,13 @@ export class Bot {
     const ahead = waypoint(path);
     const along = Math.max(0, path.findIndex((t) => t.x === ahead.x && t.y === ahead.y));
     let aim = path[along];
-    for (let i = along; i > 0 && !clickable(tileToScreen(user, aim.x, aim.y)); i--) aim = path[i - 1];
+    // Not under the HUD, nor over one of the game's windows (holding the button there doesn't run).
+    const windows = this.options.memory.latest()?.windows ?? [];
+    const free = (p: Point) => clickable(p) && !windows.some((w) => p.x >= w.x && p.x < w.x + w.width && p.y >= w.y && p.y < w.y + w.height);
+    for (let i = along; i > 0 && !free(tileToScreen(user, aim.x, aim.y)); i--) aim = path[i - 1];
     const point = tileToScreen(user, aim.x, aim.y);
     const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
+    this.lastAim = { tile: aim, point, running: steps > 1 };
     if (steps <= 1) {
       // The path turns here: a run would carry past the turn, so step.
       this.stopRunning();
@@ -1373,7 +1379,7 @@ export class Bot {
     const started = performance.now();
     const tile = ([x, y]: [number, number]): Point => ({ x, y });
     const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-    let route: { map: number; links: TravelLink[]; blocked: number } | null = null;
+    let route: { map: number; links: TravelLink[]; blocked: number; blockedAt?: Point } | null = null;
     let path: Point[] | null = null;
     /** Tiles to keep off for now (y * width + x), until when: where something the map doesn't show was in the way. */
     const avoid = new Map<number, number>();
@@ -1489,11 +1495,15 @@ export class Bot {
       // Not moving while trying to: something the map doesn't show is in the way. Time paused doesn't count.
       if (here.x !== moved.x || here.y !== moved.y) moved = { at: now, x: here.x, y: here.y };
       else if (now - moved.at > this.blockedAfterMs()) {
-        if (++route.blocked > TRAVEL_BLOCKED_LIMIT) throw new BotError(`Stuck on ${mapName(data, map.index)}: blocked ${TRAVEL_BLOCKED_LIMIT} times.`);
+        // Hold-ups with real progress in between are separate: only a run of them without getting anywhere gives up.
+        if (route.blockedAt && chebyshev(here, route.blockedAt) > 5) route.blocked = 0;
+        route.blockedAt = here;
+        if (++route.blocked > TRAVEL_BLOCKED_LIMIT) throw new BotError(`Stuck on ${mapName(data, map.index)} at ${here.x},${here.y}: blocked ${TRAVEL_BLOCKED_LIMIT} times without getting anywhere.`);
         for (const t of (path ?? []).slice(1, 3)) avoid.set(t.y * map.width + t.x, now + EXPLORE_AVOID_MS);
         path = null;
         moved.at = now;
-        this.statusEvery('Blocked; going round');
+        const aim = this.lastAim;
+        this.status(`Blocked at ${here.x},${here.y}${aim ? ` (${aim.running ? 'running' : 'stepping'} to ${aim.tile.x},${aim.tile.y}, screen ${aim.point.x},${aim.point.y})` : ''}; going round`);
       }
       for (const [key, until] of avoid) if (until <= now) avoid.delete(key);
 
