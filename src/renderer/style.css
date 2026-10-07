@@ -1,283 +1,832 @@
 :root {
   color-scheme: light dark;
   font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
-  --line: color-mix(in srgb, currentColor 20%, transparent);
+  --bg: light-dark(#f3f4f6, #1c1d20);
+  --nav: light-dark(#e7e9ed, #151618);
+  --card: light-dark(#ffffff, #24262a);
+  --field: light-dark(#ffffff, #1a1b1e);
+  --line: light-dark(#d3d6db, #383b42);
+  --text: light-dark(#1c1e22, #e3e5e8);
+  --muted: light-dark(#5b616b, #9ba1aa);
+  --accent: light-dark(#2463eb, #3f7ef5);
+  --accent-hover: light-dark(#1b50c8, #5a91f7);
+  --selected: light-dark(#d8e2f8, #283043);
+  --hover: light-dark(rgb(0 0 0 / 0.05), rgb(255 255 255 / 0.06));
+  --stop: light-dark(#d4342a, #d9443f);
+  --stop-hover: light-dark(#b52a21, #e85c57);
+  --running: light-dark(#18a134, #3fb950);
+  --hp: #e0484a;
+  --mp: #3d85f5;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  height: 100vh;
+  /* The tabs and their panel, then the status bar, which is always in view. */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--bg);
+  color: var(--text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+input[type="text"],
+input[type="search"],
+input[type="number"],
+select {
+  background-color: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+input[type="number"] {
+  width: 64px;
   box-sizing: border-box;
 }
 
-header {
+select {
+  max-width: 100%;
+}
+
+input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+input:disabled {
+  opacity: 0.5;
+}
+
+/* Plain buttons (Reset session, forgetting a name). */
+button:not(.start, .stop, .link, [role="tab"]) {
+  padding: 3px 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:not(.start, .stop, .link, [role="tab"]):hover {
+  background: var(--hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- Tabs down the side ---- */
+
+.app {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.tabs {
+  width: 150px;
+  padding: 14px 8px;
+  overflow-y: auto;
+  background: var(--nav);
+  border-right: 1px solid var(--line);
+}
+
+.tabs-group {
+  margin: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+[role="tablist"] {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[role="tablist"] + .tabs-group {
+  margin-top: 18px;
+}
+
+[role="tab"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+[role="tab"]:hover {
+  background: var(--hover);
+}
+
+[role="tab"][aria-selected="true"] {
+  background: var(--selected);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* The mode that's running. */
+[role="tab"].running::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--running);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---- The open tab ---- */
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  overflow: auto;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: none;
+}
+
+/* Travel and Stats & log stretch their lists to the bottom of the window. */
+.panel.fill {
+  flex: 1 0 auto;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.panel-head > div {
+  flex: 1 1 280px;
+}
+
+h1 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.panel-head p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--muted);
+}
+
+.start,
+.stop {
+  flex: none;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.start {
+  background: var(--accent);
+  color: #fff;
+}
+
+.start:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.start:disabled,
+.stop:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Settings in cards: as many columns as fit. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  align-items: start;
   gap: 12px;
 }
 
-.grow {
-  flex: 1;
+/* Keys & potions: cards of different heights, flowing down the columns. */
+.cards.columns {
+  display: block;
+  columns: 300px;
+  column-gap: 12px;
 }
 
-.field {
+.cards.columns > .card {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+/* Where a setting shared by two modes goes when its tab is open (see showTab). */
+.slot {
+  display: contents;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* Card headings sit inside the card, not on its border. */
+.card > legend {
+  float: left;
+  padding: 0;
+  font-weight: 600;
+}
+
+/* A card as wide as the panel. */
+.card.wide {
+  grid-column: 1 / -1;
+}
+
+.card > h2 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+
+/* A setting that reads as a sentence ("Explore until [95] % of the map is uncovered") wraps like one. */
+.card label {
+  display: block;
+}
+
+.card label > select,
+.card label > input {
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+/* A tick and what it does: the words wrap beside the tick. */
+.card label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card label > input[type="checkbox"] {
+  flex: none;
+  margin: 2px 0 0;
+}
+
+.card .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.actions {
-  display: flex;
-  gap: 8px;
+.card .field > input,
+.card .field > select {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
 }
 
-.actions button {
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* "Hunt and Explore both use these." */
+.shared-note {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--selected);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.count {
+  margin-left: 6px;
+  font-weight: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.see-also {
+  margin: 0;
+  color: var(--muted);
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* ---- Triple Triad: two actions ---- */
+
+.card.action {
+  align-self: stretch;
+}
+
+.card.action p {
   flex: 1;
-  padding: 6px 0;
+  margin: 0;
+  color: var(--muted);
 }
 
-main {
-  display: flex;
-  gap: 14px;
-  flex: 1;
-  min-height: 0;
+.card.action .start {
+  align-self: flex-start;
 }
 
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  /* Too much to fit: scroll the column rather than squash its boxes into each other or spill over the footer. */
-  overflow-y: auto;
-}
-
-.column:last-child {
-  flex: 1;
-  padding-right: 4px;
-}
-
-.column > * {
-  flex-shrink: 0;
-}
-
-h2 {
-  font-size: inherit;
-  margin: 0 0 4px;
-}
+/* ---- Keys & potions ---- */
 
 table {
   border-collapse: collapse;
 }
 
-th {
-  text-align: left;
-  font-weight: 600;
-  padding-bottom: 4px;
-}
-
-td {
-  padding: 1px 8px 1px 0;
-}
-
-input[type="number"] {
-  width: 56px;
-}
-
-fieldset {
+/* The keys in two columns: F1-F7, then F8-F12 and the item key. */
+.keys {
   margin: 0;
-  padding: 6px 10px 10px;
-  border: 1px solid var(--line);
+  padding: 0;
+  list-style: none;
+  columns: 2 160px;
+  column-gap: 28px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 16px;
-}
-
-#delays label {
+.keys li {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  break-inside: avoid;
+}
+
+.keys .every {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.keys .every input {
+  color: var(--text);
+}
+
+.delays {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 18px;
+}
+
+.delays label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
-.potions {
+/* ---- Travel ---- */
+
+/* The list of places takes whatever height there is, and at least a dozen rows. */
+.travel {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 8px;
+  flex: 1 1 0;
+  min-height: 320px;
 }
 
-.names-box {
+#travel-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
+#travel-results {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+#travel-results option {
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+
+.route {
   display: flex;
-  flex-direction: column;
-}
-
-.hint {
-  margin: 0 0 6px;
-  opacity: 0.7;
-}
-
-#names {
-  list-style: none;
+  flex-wrap: wrap;
+  gap: 2px 0;
   margin: 0;
   padding: 0;
-  max-height: 220px;
-  overflow-y: auto;
+  list-style: none;
+}
+
+.route li + li::before {
+  content: "›";
+  margin: 0 8px;
+  color: var(--muted);
+}
+
+.route:empty::before {
+  content: "None yet: Travel shows here the maps it plans to go through.";
+  color: var(--muted);
+}
+
+/* ---- Monsters ---- */
+
+#monsters,
+#names {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Monsters to hunt: names in columns (A to Z down each), each with its tick. */
+#monsters {
+  columns: 170px;
+  column-gap: 12px;
+}
+
+#monsters li,
+#names li {
+  break-inside: avoid;
+}
+
+#monsters:empty::after,
+#names:empty::after {
+  color: var(--muted);
+}
+
+#monsters:empty::after {
+  content: "Start Hunt to fill this list.";
+}
+
+#names:empty::after {
+  content: "None learned.";
+}
+
+#monsters label {
+  flex-wrap: nowrap;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#monsters label:hover {
+  background: var(--hover);
+}
+
+#monsters label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#monsters li.skipped label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* Names seen on screen: each the small picture the bot knows it by. */
+#names {
+  columns: 320px;
+  column-gap: 20px;
 }
 
 #names li {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   padding: 3px 0;
   border-bottom: 1px solid var(--line);
+}
+
+#names img {
+  flex: none;
+  max-width: 150px;
+  max-height: 18px;
+  background: #000;
+  image-rendering: pixelated;
 }
 
 #names li.skipped img {
   opacity: 0.4;
 }
 
-#names img {
-  image-rendering: pixelated;
-  height: 24px;
-  background: #000;
-}
-
 #names .stats {
   flex: 1;
-  opacity: 0.7;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+#names select {
+  padding: 1px 4px;
+  font-size: 12px;
 }
 
 #names button {
   padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
 }
 
-#log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  height: 7.2em;
-  overflow-y: auto;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+#names button:hover {
+  color: var(--text);
 }
 
-#log time {
-  opacity: 0.6;
-  margin-right: 6px;
-}
+/* ---- Stats & log ---- */
 
-.travel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.travel input,
-.travel select {
-  width: 100%;
-}
-
-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.status-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-#vitals,
-#timing {
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Session stats, under the status line: two small tables side by side. */
-#stats {
+.stats-tables {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 4px 28px;
-  font-size: 12px;
+  gap: 10px 36px;
   font-variant-numeric: tabular-nums;
 }
 
-#stats th,
-#stats td {
-  padding: 0 0 0 16px;
+.stats-tables th,
+.stats-tables td {
+  padding: 1px 0 1px 18px;
 }
 
-#stats th {
-  font-weight: normal;
-  opacity: 0.7;
-}
-
-#stats tbody th {
+.stats-tables tbody th {
   padding-left: 0;
+  text-align: left;
+  font-weight: normal;
+  color: var(--muted);
 }
 
-#stats thead th {
+.stats-tables thead th {
+  padding-bottom: 4px;
+  font-size: 12px;
   font-weight: 600;
   text-align: right;
   border-bottom: 1px solid var(--line);
 }
 
-#stats td {
+.stats-tables td {
   text-align: right;
 }
 
-#stats button {
-  margin-left: auto;
-  padding: 0 6px;
+.stats-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Monsters to hunt: compact columns of tick boxes. */
-#monsters {
-  list-style: none;
+.log-card {
+  flex: 1 1 0;
+  min-height: 200px;
+}
+
+#log {
+  flex: 1 1 0;
+  min-height: 0;
   margin: 0;
   padding: 0;
-  max-height: 140px;
   overflow-y: auto;
+  list-style: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#log li {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0 12px;
-  align-content: start;
+  grid-template-columns: auto 6.5em minmax(0, 1fr);
+  gap: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
-#monsters:empty::after {
-  content: 'Start Hunt to fill this list.';
-  opacity: 0.6;
+#log li:nth-child(odd) {
+  background: var(--hover);
 }
 
-#monsters label {
+#log time,
+.log-mode {
+  color: var(--muted);
+}
+
+/* How each run ended (or why it couldn't start). */
+#log li.idle .log-text {
+  font-weight: 600;
+}
+
+#log:empty::after {
+  content: "Nothing yet: what the bot does shows here.";
+  color: var(--muted);
+}
+
+/* ---- Status bar ---- */
+
+.statusbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
+  gap: 6px 16px;
+  padding: 8px 12px 8px 16px;
+  background: var(--nav);
+  border-top: 1px solid var(--line);
 }
 
-#monsters input {
+.status-line {
+  flex: 1 1 240px;
+  min-width: 0;
   margin: 0;
 }
 
-#monsters li.skipped label {
-  opacity: 0.5;
-  text-decoration: line-through;
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--hover);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mode::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+body.running .mode {
+  color: var(--running);
+}
+
+body.running .mode::before {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.vitals {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* HP over MP, each with its bar. */
+.meters {
+  display: grid;
+  grid-template-columns: auto 56px 3.2em;
+  align-items: center;
+  gap: 0 6px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--muted);
+}
+
+.meters > span:nth-child(3n) {
+  text-align: right;
+  color: var(--text);
+}
+
+.bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.bar.hp > span {
+  background: var(--hp);
+}
+
+.bar.mp > span {
+  background: var(--mp);
+}
+
+#explored {
+  color: var(--text);
+}
+
+.stop {
+  min-width: 88px;
+  background: var(--stop);
+  color: #fff;
+}
+
+.stop:hover:not(:disabled) {
+  background: var(--stop-hover);
+}
+
+.stop:disabled {
+  background: var(--hover);
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* ---- Narrow windows: the tabs go across the top ---- */
+
+@media (max-width: 560px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: auto;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tabs-group {
+    display: none;
+  }
+
+  [role="tablist"],
+  [role="tablist"] + .tabs-group {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 0;
+  }
+
+  [role="tab"] {
+    width: auto;
+  }
+
+  [role="tab"][aria-selected="true"] {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  main {
+    padding: 12px;
+  }
 }

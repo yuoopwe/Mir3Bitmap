@@ -22,6 +22,10 @@ const RULE_LABELS: Record<NameRule, string> = { auto: 'Auto', attack: 'Always at
 const SETTINGS_KEY = 'settings-v2';
 /** All-time stats get a key of their own: saveSettings rewrites the settings from the form on every change. */
 const STATS_KEY = 'stats-v1';
+/** What the status bar and the activity log call each mode. */
+const MODE_LABELS: Record<Status['mode'], string> = {
+  idle: 'Idle', attack: 'Hunting', explore: 'Exploring', travel: 'Travelling', gather: 'Gathering', triad: 'Triple Triad', deck: 'Best deck', train: 'Training',
+};
 
 function element<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -43,6 +47,8 @@ const mpKey = element<HTMLSelectElement>('mp-key');
 const mpPercent = element<HTMLInputElement>('mp-percent');
 const travelSearch = element<HTMLInputElement>('travel-search');
 const travelResults = element<HTMLSelectElement>('travel-results');
+const travelCount = element<HTMLParagraphElement>('travel-count');
+const routeList = element<HTMLOListElement>('route');
 const attackButton = element<HTMLButtonElement>('attack-button');
 const exploreButton = element<HTMLButtonElement>('explore-button');
 const triadButton = element<HTMLButtonElement>('triad-button');
@@ -60,18 +66,30 @@ const pauseOnMouse = element<HTMLInputElement>('pause-on-mouse');
 const exploreTeleport = element<HTMLInputElement>('explore-teleport');
 const travelButton = element<HTMLButtonElement>('travel-button');
 const stopButton = element<HTMLButtonElement>('stop-button');
+const modeText = element<HTMLSpanElement>('mode');
 const statusText = element<HTMLSpanElement>('status');
-const vitalsText = element<HTMLSpanElement>('vitals');
+const hpText = element<HTMLSpanElement>('hp');
+const hpFill = element<HTMLSpanElement>('hp-fill');
+const mpText = element<HTMLSpanElement>('mp');
+const mpFill = element<HTMLSpanElement>('mp-fill');
+const exploredText = element<HTMLSpanElement>('explored');
 const timingText = element<HTMLSpanElement>('timing');
+const statsTables = element<HTMLDivElement>('stats-tables');
 const statsResetButton = element<HTMLButtonElement>('stats-reset');
 const namesList = element<HTMLUListElement>('names');
+const namesCount = element<HTMLSpanElement>('names-count');
 const monstersList = element<HTMLUListElement>('monsters');
+const monstersCount = element<HTMLSpanElement>('monsters-count');
 /** Monster names Hunt leaves alone, and those seen so far. */
 let skipMonsters: string[] = [];
 let monstersSeen: string[] = [];
 const activityLog = element<HTMLOListElement>('log');
-const LOG_LENGTH = 30;
+/** The log fills the Stats & log tab, so it keeps plenty. */
+const LOG_LENGTH = 500;
 let lastLogged = '';
+
+/** The sidebar's tabs: one per mode, then the shared ones. */
+const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
 
 const keyInputs = new Map<KeyId, { enabled: HTMLInputElement; seconds: HTMLInputElement }>();
 const delayInputs = new Map<DelayId, HTMLInputElement>();
@@ -98,8 +116,50 @@ let stats: Stats | null = null;
 let statsAt = 0;
 let botRunning = false;
 
+/**
+ * Shows a tab's panel. A setting that belongs to two modes (Pick up items, Fight monsters in the way) is one
+ * set of controls, moved into whichever of its tabs is open: each setting still has a single input.
+ */
+function showTab(tab: HTMLButtonElement, focus = false): void {
+  for (const other of tabs) {
+    const selected = other === tab;
+    other.setAttribute('aria-selected', String(selected));
+    other.tabIndex = selected ? 0 : -1;
+    element(other.getAttribute('aria-controls')!).hidden = !selected;
+  }
+  const panel = element(tab.getAttribute('aria-controls')!);
+  for (const slot of Array.from(panel.querySelectorAll<HTMLElement>('[data-slot]'))) slot.append(element(slot.dataset.slot!));
+  if (focus) tab.focus();
+}
+
+function setUpTabs(): void {
+  for (const tab of tabs) tab.addEventListener('click', () => showTab(tab));
+  // Arrow keys, Home and End move between the tabs, as in any tab list.
+  const moves: Record<string, (at: number) => number> = {
+    ArrowDown: (at) => at + 1,
+    ArrowRight: (at) => at + 1,
+    ArrowUp: (at) => at - 1,
+    ArrowLeft: (at) => at - 1,
+    Home: () => 0,
+    End: () => tabs.length - 1,
+  };
+  for (const tab of tabs) {
+    tab.addEventListener('keydown', (event) => {
+      const move = moves[event.key];
+      if (!move) return;
+      event.preventDefault();
+      showTab(tabs[(move(tabs.indexOf(tab)) + tabs.length) % tabs.length], true);
+    });
+  }
+  // Links to the shared tabs ("Spell keys, potions and timing: Keys & potions").
+  for (const link of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-goto]'))) {
+    link.addEventListener('click', () => showTab(element(link.dataset.goto!), true));
+  }
+  showTab(tabs[0]);
+}
+
 function buildKeyRows(): void {
-  const body = element<HTMLTableSectionElement>('keys');
+  const list = element<HTMLUListElement>('keys');
   for (const id of KEY_IDS) {
     const seconds = document.createElement('input');
     seconds.type = 'number';
@@ -107,15 +167,23 @@ function buildKeyRows(): void {
     seconds.value = '0';
     // F1 is pressed on every loop while fighting, so it has no timer.
     seconds.disabled = id === 'F1';
+    seconds.setAttribute('aria-label', `${KEY_LABELS[id]}: seconds between presses`);
+    const every = document.createElement('span');
+    every.className = 'every';
+    if (id === 'F1') {
+      // Its (unused) number is still kept in the settings.
+      seconds.hidden = true;
+      every.append(seconds, 'every round');
+    } else every.append(seconds, ' s');
 
     const enabled = document.createElement('input');
     enabled.type = 'checkbox';
     const label = document.createElement('label');
     label.append(enabled, ` ${KEY_LABELS[id]}`);
 
-    const row = body.insertRow();
-    row.insertCell().append(seconds);
-    row.insertCell().append(label);
+    const item = document.createElement('li');
+    item.append(label, every);
+    list.append(item);
     keyInputs.set(id, { enabled, seconds });
   }
 }
@@ -138,7 +206,7 @@ function buildStatsTables(): void {
       line.append(label);
       statCells.push({ show: row.show, session: line.insertCell(), allTime: line.insertCell() });
     }
-    statsResetButton.before(table);
+    statsTables.append(table);
   }
 }
 
@@ -285,10 +353,35 @@ async function showPlaces(): Promise<void> {
   travelResults.replaceChildren(...found.map((p) => new Option(p.label, p.id)));
   if (found.some((p) => p.id === picked)) travelResults.value = picked;
   else if (found.length > 0) travelResults.selectedIndex = 0;
+  // The bot lists the best 30.
+  travelCount.textContent = !travelSearch.value.trim()
+    ? 'Type part of the name of a map or an NPC.'
+    : found.length === 0
+      ? 'Nothing found.'
+      : `${found.length >= 30 ? `The best ${found.length} found: type more to narrow it down.` : `${found.length} found.`} Double-click one to go there.`;
 }
 
 function saveTravel(): void {
   localStorage.setItem(TRAVEL_KEY, JSON.stringify({ search: travelSearch.value, picked: travelResults.value }));
+}
+
+/** Travel's last plan, from its status: "Route: A > B > C", or "Heading for <NPC>" when they're on this map. */
+function showRoute(message: string): void {
+  const stops = message.startsWith('Route: ') ? message.slice('Route: '.length).split(' > ') : [message];
+  routeList.replaceChildren(
+    ...stops.map((stop) => {
+      const item = document.createElement('li');
+      item.textContent = stop;
+      return item;
+    }),
+  );
+}
+
+/** "8 seen · 2 left alone" beside the monster list's heading. */
+function countMonsters(): void {
+  const seen = monstersList.children.length;
+  const skipped = monstersList.querySelectorAll('.skipped').length;
+  monstersCount.textContent = seen ? `${seen} seen · ${skipped} left alone` : '';
 }
 
 /** The monsters seen while hunting (and any being skipped), each with a tick to hunt it. */
@@ -305,13 +398,19 @@ function showMonsters(): void {
       tick.addEventListener('change', () => {
         skipMonsters = tick.checked ? skipMonsters.filter((n) => n !== name) : [...skipMonsters, name];
         item.classList.toggle('skipped', !tick.checked);
+        countMonsters();
       });
       item.classList.toggle('skipped', !tick.checked);
-      label.append(tick, ` ${name}`);
+      // The name in full, for when it doesn't fit its column.
+      label.title = name;
+      const text = document.createElement('span');
+      text.textContent = name;
+      label.append(tick, text);
       item.append(label);
       return item;
     }),
   );
+  countMonsters();
 }
 
 function showNames(names: NameEntry[]): void {
@@ -333,6 +432,7 @@ function showNames(names: NameEntry[]): void {
       const rule = document.createElement('select');
       rule.replaceChildren(...(Object.keys(RULE_LABELS) as NameRule[]).map((value) => new Option(RULE_LABELS[value], value)));
       rule.value = entry.rule;
+      rule.setAttribute('aria-label', 'Attack it?');
       // Name rules aren't settings: keep their changes out of saveSettings.
       rule.addEventListener('change', (event) => {
         event.stopPropagation();
@@ -340,6 +440,7 @@ function showNames(names: NameEntry[]): void {
       });
 
       const forget = document.createElement('button');
+      forget.type = 'button';
       forget.textContent = '✕';
       forget.title = 'Forget this name';
       forget.addEventListener('click', () => void window.bot.forgetName(entry.fingerprint).then(refreshNames));
@@ -348,6 +449,7 @@ function showNames(names: NameEntry[]): void {
       return item;
     }),
   );
+  namesCount.textContent = names.length ? String(names.length) : '';
 }
 
 async function refreshNames(): Promise<void> {
@@ -358,14 +460,22 @@ function percent(value: number | null | undefined): string {
   return value === null || value === undefined ? '–' : `${Math.round(value * 100)}%`;
 }
 
-/** Adds a status message to the activity log when it changes, newest first. */
-function logActivity(message: string): void {
+/** Adds a status message to the activity log when it changes, newest first, with the time and the mode running. */
+function logActivity(message: string, mode: Status['mode']): void {
   if (message === lastLogged) return;
   lastLogged = message;
   const entry = document.createElement('li');
+  // Idle: how a run ended, or why it couldn't start.
+  entry.classList.toggle('idle', mode === 'idle');
   const time = document.createElement('time');
   time.textContent = new Date().toLocaleTimeString();
-  entry.append(time, message);
+  const label = document.createElement('span');
+  label.className = 'log-mode';
+  label.textContent = mode === 'idle' ? '' : MODE_LABELS[mode];
+  const text = document.createElement('span');
+  text.className = 'log-text';
+  text.textContent = message;
+  entry.append(time, label, text);
   activityLog.prepend(entry);
   while (activityLog.children.length > LOG_LENGTH) activityLog.lastElementChild?.remove();
 }
@@ -410,12 +520,18 @@ function savedStats(): unknown {
   }
 }
 
+/** HP or MP in the status bar: the share as text and as a bar. */
+function showVital(text: HTMLElement, fill: HTMLElement, value: number | null | undefined): void {
+  text.textContent = percent(value);
+  fill.style.width = value === null || value === undefined ? '0%' : `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
+}
+
 function showStatus(status: Status): void {
   const running = status.mode !== 'idle';
   botRunning = running;
   if (status.stats) showStats(status.stats);
   statusText.textContent = status.message;
-  logActivity(status.message);
+  logActivity(status.message, status.mode);
   attackButton.disabled = running;
   exploreButton.disabled = running;
   triadButton.disabled = running;
@@ -424,14 +540,22 @@ function showStatus(status: Status): void {
   gatherButton.disabled = running;
   travelButton.disabled = running;
   stopButton.disabled = !running;
-  const explored = status.explored === null || status.explored === undefined ? '' : ` · map ${percent(status.explored)}`;
-  vitalsText.textContent = `HP ${percent(status.hp)} · MP ${percent(status.mp)} · ${status.kills ?? 0} kills${explored}`;
+  modeText.textContent = MODE_LABELS[status.mode];
+  document.body.classList.toggle('running', running);
+  for (const tab of tabs) tab.classList.toggle('running', (tab.dataset.modes ?? '').split(' ').includes(status.mode));
+  showVital(hpText, hpFill, status.hp);
+  showVital(mpText, mpFill, status.mp);
+  exploredText.hidden = status.explored === null || status.explored === undefined;
+  exploredText.textContent = `Map ${percent(status.explored)}`;
   if (status.captureMs !== undefined && status.scanMs !== undefined) {
-    timingText.textContent = `capture ${status.captureMs.toFixed(1)} ms · scan ${status.scanMs.toFixed(1)} ms`;
+    timingText.textContent = `Last frame: capture ${status.captureMs.toFixed(1)} ms · scan ${status.scanMs.toFixed(1)} ms`;
   }
+  // Hunt's seeking says "Heading for ..." too: only Travel's count.
+  if (status.mode === 'travel' && /^(Route: |Heading for )/.test(status.message)) showRoute(status.message);
 }
 
 async function init(): Promise<void> {
+  setUpTabs();
   buildKeyRows();
   buildDelayFields();
   buildPotionSelects();
@@ -469,7 +593,7 @@ async function init(): Promise<void> {
     if (travelResults.value) {
       saveTravel();
       void window.bot.startTravel(travelResults.value);
-    } else statusText.textContent = 'Search for a map or NPC under Travel and pick one first';
+    } else statusText.textContent = 'Search for a map or NPC and pick one first';
   });
 
   await refreshNames();

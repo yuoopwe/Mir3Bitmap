@@ -7,112 +7,291 @@
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
-    <header>
-      <label class="field grow">
-        Game window title starts with
-        <input id="window-title" type="text">
-      </label>
-      <label class="field">
-        Capture
-        <select id="capture">
-          <option value="print">Background (works when covered)</option>
-          <option value="blt">Screen (faster, game must be visible)</option>
-        </select>
-      </label>
-    </header>
+    <div class="app">
+      <nav class="tabs" aria-label="Modes and settings">
+        <p class="tabs-group" id="modes-label">Modes</p>
+        <div role="tablist" aria-labelledby="modes-label" aria-orientation="vertical">
+          <button type="button" role="tab" id="tab-hunt" aria-controls="panel-hunt" data-modes="attack">Hunt</button>
+          <button type="button" role="tab" id="tab-explore" aria-controls="panel-explore" data-modes="explore">Explore</button>
+          <button type="button" role="tab" id="tab-travel" aria-controls="panel-travel" data-modes="travel">Travel</button>
+          <button type="button" role="tab" id="tab-gather" aria-controls="panel-gather" data-modes="gather">Gather</button>
+          <button type="button" role="tab" id="tab-triad" aria-controls="panel-triad" data-modes="triad deck">Triple Triad</button>
+          <button type="button" role="tab" id="tab-train" aria-controls="panel-train" data-modes="train">Train</button>
+        </div>
+        <p class="tabs-group" id="shared-label">Shared</p>
+        <div role="tablist" aria-labelledby="shared-label" aria-orientation="vertical">
+          <button type="button" role="tab" id="tab-keys" aria-controls="panel-keys">Keys &amp; potions</button>
+          <button type="button" role="tab" id="tab-monsters" aria-controls="panel-monsters">Monsters</button>
+          <button type="button" role="tab" id="tab-stats" aria-controls="panel-stats">Stats &amp; log</button>
+          <button type="button" role="tab" id="tab-general" aria-controls="panel-general">General</button>
+        </div>
+      </nav>
 
-    <div class="actions">
-      <button id="attack-button">Hunt</button>
-      <button id="explore-button" title="Run around until the map is uncovered, steering by the big map (B). Pets do the fighting.">Explore</button>
-      <button id="triad-button" title="Play Triple Triad matches as you start them, picking the best move each turn">Triple Triad</button>
-      <button id="gather-button" title="Walk to plants and ore on screen and gather them, wandering when there are none (needs the memory reader and the tool in your Toolbelt)">Gather</button>
-      <button id="deck-button" title="Put the best five cards you own into your Triple Triad deck: open the card collection window first (needs the memory reader)">Best deck</button>
-      <button id="train-button" title="Cast a spell on yourself over and over to train it">Train</button>
-      <button id="travel-button" title="Run to the map or NPC picked under Travel (needs the memory reader)">Travel</button>
-      <button id="stop-button" disabled>Stop</button>
-    </div>
+      <main>
+        <!-- ---- Modes ---- -->
 
-    <main>
-      <div class="column">
-        <section>
-          <h2>Keys</h2>
-          <table>
-            <thead>
-              <tr><th>Every (s)</th><th>Key</th></tr>
-            </thead>
-            <tbody id="keys"></tbody>
-          </table>
+        <section class="panel" id="panel-hunt" role="tabpanel" aria-labelledby="tab-hunt">
+          <header class="panel-head">
+            <div>
+              <h1>Hunt</h1>
+              <p>Clicks the nearest monster until it's gone, then the next nearest, pressing your spell keys as it goes.
+                With the memory reader it knows every monster around; without it, it reads their names off the screen.</p>
+            </div>
+            <button type="button" id="attack-button" class="start" title="Click the nearest monster until it's gone, then the next nearest">Start Hunt</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Attack</legend>
+              <label><input id="attack" type="checkbox"> Melee (keep clicking)</label>
+              <label title="Archers attack by holding the mouse down on the target: the bot holds it on the target until it dies"><input id="archer" type="checkbox"> Archer (hold on target)</label>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Nothing to fight</legend>
+              <label title="Head for monsters on the minimap; wander if there are none. With the memory reader: the nearest monster the game knows of, then where many spawn, then unexplored ground."><input id="roam" type="checkbox"> Seek when idle</label>
+            </fieldset>
+            <div class="slot" data-slot="pick-up">
+              <fieldset class="card shared" id="pick-up">
+                <legend>Items on the ground</legend>
+                <label title="Clicks the ground at your feet between every attack, cast and step (the character picks up everything in reach)"><input id="loot" type="checkbox"> Pick up items</label>
+                <label>Pick-up key <select id="pickup-key"></select></label>
+                <p class="hint">The pick-up key is pressed after each click, if the game needs one.</p>
+                <p class="hint shared-note">Hunt and Explore both use these.</p>
+              </fieldset>
+            </div>
+            <fieldset class="card">
+              <legend>Selling</legend>
+              <label title="Every 10 seconds, look in the bag (W); when it's full, teleport to town (2), walk to the shop and sell"><input id="sell-items" type="checkbox"> Sell items</label>
+            </fieldset>
+          </div>
+          <p class="see-also">Spell keys, potions and timing: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.
+            Which monsters to leave alone: <button type="button" class="link" data-goto="tab-monsters">Monsters</button>.</p>
         </section>
 
-        <fieldset>
-          <legend>Timing (ms)</legend>
-          <div id="delays" class="grid"></div>
-        </fieldset>
-      </div>
-
-      <div class="column">
-        <fieldset>
-          <legend>Hunting</legend>
-          <div class="grid">
-            <label><input id="attack" type="checkbox"> Melee (keep clicking)</label>
-            <label title="Archers attack by holding the mouse down on the target: the bot holds it on the target until it dies"><input id="archer" type="checkbox"> Archer (hold on target)</label>
-            <label title="Head for monsters on the minimap; wander if there are none"><input id="roam" type="checkbox"> Seek when idle</label>
-            <label title="Clicks the ground at your feet between every attack, cast and step (the character picks up everything in reach)"><input id="loot" type="checkbox"> Pick up items</label>
-            <label><input id="sell-items" type="checkbox"> Sell items</label>
-            <label title="Whatever the bot is doing stops while your mouse is over the game window, and carries on when it leaves"><input id="pause-on-mouse" type="checkbox"> Pause while my mouse is over the game</label>
-            <label title="If Explore stops with an error, start it again after a few seconds"><input id="explore-restart" type="checkbox"> Auto-restart Explore</label>
-            <label title="Gather mode picks plants (needs a Scavenging Dagger in the Toolbelt)"><input id="gather-plants" type="checkbox"> Gather plants</label>
-            <label title="Gather mode mines ore (needs a Pick Axe in the Toolbelt)"><input id="gather-ore" type="checkbox"> Gather ore</label>
-            <label title="Travel and Explore fight monsters that block the way or crowd round you (off: they only walk round them)"><input id="fight-in-the-way" type="checkbox"> Fight monsters in the way</label>
-            <label title="Press the teleport key while exploring, to go faster and get past pets. Untick for characters without a teleport."><input id="explore-teleport" type="checkbox"> Teleport while exploring</label>
+        <section class="panel" id="panel-explore" role="tabpanel" aria-labelledby="tab-explore" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Explore</h1>
+              <p>Runs around until the map is uncovered, steering by the big map (B). Pets do the fighting.</p>
+            </div>
+            <button type="button" id="explore-button" class="start" title="Run around until the map is uncovered, steering by the big map (B). Pets do the fighting.">Start Explore</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Exploring</legend>
+              <label>Explore until <input id="explore-percent" type="number" min="1" max="100"> % of the map is uncovered</label>
+              <label title="If Explore stops with an error, start it again after a few seconds"><input id="explore-restart" type="checkbox"> Auto-restart Explore</label>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Teleport</legend>
+              <label title="Press the teleport key while exploring, to go faster and get past pets. Untick for characters without a teleport."><input id="explore-teleport" type="checkbox"> Teleport while exploring</label>
+              <label>Teleport key <select id="unstuck-key"></select></label>
+              <p class="hint">Exploring: pressed constantly to go faster and get past pets. Travel, and Hunt seeking monsters with the memory reader, press it too on long straight runs.</p>
+              <label>Random teleport key <select id="random-key"></select></label>
+              <p class="hint">Exploring, from 60%: when far from unexplored ground.</p>
+            </fieldset>
+            <div class="slot" data-slot="in-the-way"></div>
+            <div class="slot" data-slot="pick-up"></div>
           </div>
-          <div class="potions">
-            <label>Explore until <input id="explore-percent" type="number" min="1" max="100"> % of the map is uncovered</label>
-            <label>Teleport key <select id="unstuck-key"></select> (exploring: pressed constantly to go faster and get past pets)</label>
-            <label>Random teleport key <select id="random-key"></select> (exploring, from 60%: when far from unexplored ground)</label>
-            <label>Pick-up key <select id="pickup-key"></select> (if the game needs one)</label>
-            <label>Train: cast <select id="train-key"></select> on yourself every <input id="train-interval" type="number" min="100" step="100"> ms</label>
-            <label>HP potion <select id="hp-key"></select> below <input id="hp-percent" type="number" min="0" max="100"> %</label>
-            <label>MP potion <select id="mp-key"></select> below <input id="mp-percent" type="number" min="0" max="100"> %</label>
-          </div>
-        </fieldset>
+          <p class="see-also">Potions, and spell keys for fighting: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
 
-        <fieldset>
-          <legend>Monsters to hunt</legend>
-          <p class="hint">Read from the game's memory while hunting (needs the memory reader set up). Untick a monster to leave it alone.</p>
-          <ul id="monsters"></ul>
-        </fieldset>
-
-        <fieldset class="names-box">
-          <legend>Names seen</legend>
-          <p class="hint">Learned from the target frame as the bot fights: things that never take damage (herbs, pets) are skipped after a few tries. Override any of them here.</p>
-          <ul id="names"></ul>
-        </fieldset>
-
-        <fieldset>
-          <legend>Activity</legend>
-          <ol id="log"></ol>
-        </fieldset>
-
-        <fieldset>
-          <legend>Travel</legend>
+        <section class="panel fill" id="panel-travel" role="tabpanel" aria-labelledby="tab-travel" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Travel</h1>
+              <p>Runs to any map or NPC, through waypoint stones where that's quicker (needs the memory reader).</p>
+            </div>
+            <button type="button" id="travel-button" class="start" title="Run to the map or NPC picked in the list (needs the memory reader)">Start Travel</button>
+          </header>
           <div class="travel">
-            <input id="travel-search" type="search" placeholder="Search maps and NPCs (e.g. kang, bichon cave)" autocomplete="off">
-            <select id="travel-results" size="6" title="Pick one, then press Travel"></select>
+            <input id="travel-search" type="search" placeholder="Search maps and NPCs (e.g. kang, bichon cave)" autocomplete="off" aria-label="Search maps and NPCs">
+            <select id="travel-results" size="12" title="Pick one, then press Start Travel (or double-click it)" aria-label="Places found"></select>
+            <p id="travel-count" class="hint"></p>
           </div>
-        </fieldset>
-      </div>
-    </main>
+          <div class="cards">
+            <section class="card route-card">
+              <h2>Last route</h2>
+              <ol id="route" class="route"></ol>
+            </section>
+            <div class="slot" data-slot="in-the-way">
+              <fieldset class="card shared" id="in-the-way">
+                <legend>Monsters in the way</legend>
+                <label title="Travel and Explore fight monsters that block the way or crowd round you (off: they only walk round them)"><input id="fight-in-the-way" type="checkbox"> Fight monsters in the way</label>
+                <p class="hint">Fights as Hunt does: with your spell keys, and holding on the target if Archer is ticked.</p>
+                <p class="hint shared-note">Travel and Explore both use this.</p>
+              </fieldset>
+            </div>
+          </div>
+          <p class="see-also">Potions, and spell keys for fighting: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
 
-    <footer>
-      <div class="status-line">
-        <span id="status">Idle</span>
-        <span id="vitals"></span>
-        <span id="timing"></span>
+        <section class="panel" id="panel-gather" role="tabpanel" aria-labelledby="tab-gather" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Gather</h1>
+              <p>Walks to plants and ore on screen and gathers them, wandering when there are none (needs the memory reader and the tool in your Toolbelt).</p>
+            </div>
+            <button type="button" id="gather-button" class="start" title="Walk to plants and ore on screen and gather them, wandering when there are none (needs the memory reader and the tool in your Toolbelt)">Start Gather</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>What to gather</legend>
+              <label title="Gather mode picks plants (needs a Scavenging Dagger in the Toolbelt)"><input id="gather-plants" type="checkbox"> Gather plants</label>
+              <label title="Gather mode mines ore (needs a Pick Axe in the Toolbelt)"><input id="gather-ore" type="checkbox"> Gather ore</label>
+              <p class="hint">Plants need a Scavenging Dagger and ore a Pick Axe in your Toolbelt.</p>
+            </fieldset>
+          </div>
+          <p class="see-also">Potions: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
+
+        <section class="panel" id="panel-triad" role="tabpanel" aria-labelledby="tab-triad" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Triple Triad</h1>
+              <p>Card matches at the card NPCs.</p>
+            </div>
+          </header>
+          <div class="cards">
+            <section class="card action">
+              <h2>Play</h2>
+              <p>Plays matches as you start them, picking the best move each turn. With the memory reader it reads every card's numbers and the rules in play from the game.</p>
+              <button type="button" id="triad-button" class="start" title="Play Triple Triad matches as you start them, picking the best move each turn">Play Triple Triad</button>
+            </section>
+            <section class="card action">
+              <h2>Best deck</h2>
+              <p>Puts the best five cards you own into your deck. Open the card collection window first (needs the memory reader).</p>
+              <button type="button" id="deck-button" class="start" title="Put the best five cards you own into your Triple Triad deck: open the card collection window first (needs the memory reader)">Build best deck</button>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-train" role="tabpanel" aria-labelledby="tab-train" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Train</h1>
+              <p>Casts a spell on yourself over and over to train it, with the mouse resting on your character.</p>
+            </div>
+            <button type="button" id="train-button" class="start" title="Cast a spell on yourself over and over to train it">Start Train</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Spell</legend>
+              <label>Cast <select id="train-key"></select> on yourself every <input id="train-interval" type="number" min="100" step="100"> ms</label>
+              <p class="hint">The time between casts varies by the fuzz under Timing.</p>
+            </fieldset>
+          </div>
+          <p class="see-also">Potions and timing: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
+
+        <!-- ---- Shared ---- -->
+
+        <section class="panel" id="panel-keys" role="tabpanel" aria-labelledby="tab-keys" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Keys &amp; potions</h1>
+              <p>Hunt presses the ticked keys as it goes (F1 only while fighting), and so do Travel and Explore when they
+                fight monsters in the way. Every mode but Triple Triad drinks the potions.</p>
+            </div>
+          </header>
+          <div class="cards columns">
+            <fieldset class="card">
+              <legend>Spell and item keys</legend>
+              <p class="hint">F1 is cast every round while fighting. Tick the others to press them too, at most once every so many seconds.</p>
+              <ul id="keys" class="keys"></ul>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Potions</legend>
+              <label>HP potion <select id="hp-key"></select> below <input id="hp-percent" type="number" min="0" max="100"> %</label>
+              <label>MP potion <select id="mp-key"></select> below <input id="mp-percent" type="number" min="0" max="100"> %</label>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Timing (ms)</legend>
+              <div id="delays" class="delays"></div>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-monsters" role="tabpanel" aria-labelledby="tab-monsters" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Monsters</h1>
+              <p>Which monsters Hunt goes for.</p>
+            </div>
+          </header>
+          <fieldset class="card">
+            <legend>Monsters to hunt <span id="monsters-count" class="count"></span></legend>
+            <p class="hint">Read from the game's memory while hunting (needs the memory reader set up). Untick a monster to leave it alone.</p>
+            <ul id="monsters"></ul>
+          </fieldset>
+          <fieldset class="card names-box">
+            <legend>Names seen on screen <span id="names-count" class="count"></span></legend>
+            <p class="hint">Only used when hunting without the memory reader. Learned from the target frame as the bot fights: things that never take damage (herbs, pets) are skipped after a few tries. Override any of them here, and forget junk such as damage numbers with ✕.</p>
+            <ul id="names"></ul>
+          </fieldset>
+        </section>
+
+        <section class="panel fill" id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Stats &amp; log</h1>
+            </div>
+          </header>
+          <section class="card" id="stats">
+            <div id="stats-tables" class="stats-tables"></div>
+            <div class="stats-foot">
+              <span id="timing" class="hint" title="How long the last frame took to grab from the game window, and to scan"></span>
+              <button type="button" id="stats-reset" title="Clear this session's counts (the all-time totals keep them)">Reset session</button>
+            </div>
+          </section>
+          <section class="card log-card">
+            <h2>Activity</h2>
+            <ol id="log"></ol>
+          </section>
+        </section>
+
+        <section class="panel" id="panel-general" role="tabpanel" aria-labelledby="tab-general" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>General</h1>
+              <p>For every mode.</p>
+            </div>
+          </header>
+          <div class="cards">
+            <fieldset class="card wide">
+              <legend>Game window</legend>
+              <label class="field">
+                Game window title starts with
+                <input id="window-title" type="text">
+              </label>
+              <label class="field">
+                Capture
+                <select id="capture">
+                  <option value="print">Background (works when covered)</option>
+                  <option value="blt">Screen (faster, game must be visible)</option>
+                </select>
+              </label>
+              <p class="hint">Neither can see a minimized game.</p>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Your mouse</legend>
+              <label title="Whatever the bot is doing stops while your mouse is over the game window, and carries on when it leaves"><input id="pause-on-mouse" type="checkbox"> Pause while my mouse is over the game</label>
+              <p class="hint">The bot's own clicks don't move your pointer.</p>
+            </fieldset>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="statusbar">
+      <p class="status-line"><span id="mode" class="mode">Idle</span> <span id="status">Pick a mode and press Start</span></p>
+      <div class="vitals">
+        <div class="meters" title="HP and MP, from the bars at the bottom of the game">
+          <span>HP</span><span class="bar hp"><span id="hp-fill"></span></span><span id="hp">–</span>
+          <span>MP</span><span class="bar mp"><span id="mp-fill"></span></span><span id="mp">–</span>
+        </div>
+        <span id="explored" title="How much of the current map is uncovered, from the last look at it" hidden></span>
       </div>
-      <div id="stats">
-        <button id="stats-reset" title="Clear this session's counts (the all-time totals keep them)">Reset session</button>
-      </div>
+      <button type="button" id="stop-button" class="stop" disabled>Stop</button>
     </footer>
 
     <script src="../../dist/renderer/renderer.js"></script>
