@@ -57,7 +57,7 @@ const TRIAD_SETTLE_MS = 1200;
  * top row that covers the "Your turn" text.
  */
 const TRIAD_PARK: Point = { x: 640, y: 625 };
-/** How long Triple Triad waits for the memory reader's first reading before falling back to the screen. */
+/** How long Triple Triad waits for a reading from the memory reader (its first, or after a gap) before falling back to the screen. */
 const MEMORY_START_MS = 8000;
 /** Gathering: give up walking to a node after this long, and on a node that hasn't been picked this long after clicking it. */
 const GATHER_WALK_GIVE_UP_MS = 15_000;
@@ -543,8 +543,12 @@ export class Bot {
   private async click(point: Point, holdMs: number): Promise<void> {
     win.mouseMove(this.hwnd, point.x, point.y);
     win.leftDown(this.hwnd, point.x, point.y);
-    await this.sleep(holdMs);
-    win.leftUp(this.hwnd, point.x, point.y);
+    try {
+      await this.sleep(holdMs);
+    } finally {
+      // Let go even when Stop comes mid-click (the sleep throws): the game would keep the button held.
+      win.leftUp(this.hwnd, point.x, point.y);
+    }
   }
 
   // ---- Hunting ----
@@ -966,6 +970,8 @@ export class Bot {
    */
   private async exploreLoop(): Promise<string> {
     let progress = { at: performance.now(), self: null as Point | null };
+    // When the bot last steered: time paused, or busy reopening the map, isn't time spent stuck.
+    let steeredAt = 0;
     let noRoute = 0;
     let noEdgesSince: number | null = null;
 
@@ -1058,7 +1064,7 @@ export class Bot {
       noRoute = 0;
 
       // Not getting anywhere for a while: teleport or sidestep, and skip that edge for a bit after a few tries.
-      if (!progress.self || Math.hypot(self.x - progress.self.x, self.y - progress.self.y) >= PROGRESS_PIXELS) {
+      if (!progress.self || now - steeredAt > STUCK_MS || Math.hypot(self.x - progress.self.x, self.y - progress.self.y) >= PROGRESS_PIXELS) {
         progress = { at: now, self };
       } else if (now - progress.at > STUCK_MS) {
         await this.unstick(plan.target, self, plan.waypoint, panel);
@@ -1070,6 +1076,7 @@ export class Bot {
       // Teleport only along a straight stretch: it would overshoot a corner and have to come back.
       if (plan.teleport && performance.now() >= this.teleportReadyAt) this.teleport(self, plan.waypoint, panel);
       await this.sleep(RUN_TICK_MS);
+      steeredAt = performance.now();
       this.statusEvery(`Exploring: about ${percent}% uncovered`);
     }
   }
@@ -1088,6 +1095,8 @@ export class Bot {
     let mapIndex: number | null = null;
     let share = { map: null as MapGrid | null, value: 0 };
     let moved = { at: 0, x: NaN, y: NaN };
+    // When the character was last driven: time paused, or waiting for the memory, isn't time spent blocked.
+    let drivenAt = 0;
 
     while (true) {
       await this.yieldToEvents();
@@ -1122,6 +1131,7 @@ export class Bot {
 
       const user = reading.user!;
       const now = performance.now();
+      if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
       if (user.x !== moved.x || user.y !== moved.y) moved = { at: now, x: user.x, y: user.y };
       else if (now - moved.at > EXPLORE_BLOCKED_MS) {
         // Not moving: something the map doesn't show (monsters, pets) is in the way, or the game never marks this block explored.
@@ -1160,6 +1170,7 @@ export class Bot {
       }
       this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
       await this.sleep(RUN_TICK_MS);
+      drivenAt = performance.now();
     }
   }
 
@@ -1309,12 +1320,15 @@ export class Bot {
     // The game's memory has every card's numbers and whose turn it is; the screen is the fallback.
     this.options.memory.start();
     const started = performance.now();
+    // When the reader last gave a reading: a moment's gap mid-match is waited out, not played from the screen.
+    let heardAt = started;
     let okPressed = false;
     // The match's last reading with the board: the result box can come up with the board already gone.
     // Cleared once the result is counted, so each match counts once.
     let lastBoard: MemoryTriad | null = null;
     while (true) {
       await this.yieldToEvents();
+      if (this.options.memory.latest()) heardAt = performance.now();
       const live = this.options.memory.latest()?.triad;
       if (live?.ok) {
         if (!okPressed) matches++;
@@ -1340,8 +1354,8 @@ export class Bot {
         await this.sleep(TRIAD_POLL_MS);
         continue;
       }
-      if (this.options.memory.installed && performance.now() - started < MEMORY_START_MS) {
-        this.statusEvery('Starting the memory reader');
+      if (this.options.memory.installed && performance.now() - heardAt < MEMORY_START_MS) {
+        this.statusEvery(heardAt === started ? 'Starting the memory reader' : "Waiting for the game's memory");
         await this.sleep(TRIAD_POLL_MS);
         continue;
       }
@@ -1784,8 +1798,11 @@ export class Bot {
     win.mouseMove(this.hwnd, point.x, point.y);
     await this.sleep(this.menuPause(200));
     win.leftDown(this.hwnd, point.x, point.y);
-    await this.sleep(this.menuPause(200));
-    win.leftUp(this.hwnd, point.x, point.y);
+    try {
+      await this.sleep(this.menuPause(200));
+    } finally {
+      win.leftUp(this.hwnd, point.x, point.y);
+    }
     await this.sleep(this.menuPause(200 + pauseAfter));
   }
 
