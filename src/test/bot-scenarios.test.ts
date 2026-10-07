@@ -247,3 +247,21 @@ test('Hunt, mounted: gets off before fighting at the first try, never mid-stride
   assert.deepEqual(of(game, 'mount').map((m) => [m.moving, m.mounted]), [[false, false]]);
   checkAlways(game);
 });
+
+test('Hunt, seeking: heads for a monster out of sight, and says so', async () => {
+  // A wolf the game knows of, well off screen; nothing nearby.
+  const { x, y } = bichon.player;
+  const game = onBichon({ monsters: [{ name: 'Wolf', x: x + 2, y: y - 28, level: 20 }] });
+  const { met, statuses } = await play(game, (bot) => bot.startAttack(), {
+    settings: { hunt: { ...testSettings().hunt, roam: true } },
+    until: () => of(game, 'attack').some((a) => a.killed),
+    limitMs: 2 * 60_000,
+  });
+  assert.ok(met, 'found and killed');
+  // While heading there, the status line says where to (not that it's waiting).
+  const lines = statuses.map((s) => s.message);
+  const first = lines.findIndex((m) => m.startsWith('Attacking'));
+  assert.ok(lines.slice(0, first).includes('Heading for Wolf'), lines.slice(0, first).join(' | '));
+  assert.ok(!lines.slice(0, first).some((m) => m.startsWith('Waiting for monsters')), lines.slice(0, first).join(' | '));
+  checkAlways(game);
+});

@@ -876,7 +876,11 @@ export class Bot {
         this.releaseHold();
         await this.pressKeys(false);
         // With the game's memory: head for monsters it knows of, then where they spawn; else the minimap, or wander.
-        if ((options.seek ?? this.settings.hunt.roam) && !(memory && (await this.seekFromMemory(memory, skipped)))) await this.seekOrRoam();
+        // (Seeking from memory moves and reports for itself.)
+        const seek = options.seek ?? this.settings.hunt.roam;
+        if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
+          // Heading somewhere.
+        } else if (seek) await this.seekOrRoam();
         else {
           await this.sleep(150);
           this.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.options.memory.problem}`})`);
