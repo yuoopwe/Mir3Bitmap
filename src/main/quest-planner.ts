@@ -72,7 +72,8 @@ export interface QuestOptions {
 }
 
 export type QuestAction = { reason: string } & (
-  | { kind: 'handIn'; npc: number; map: number; quests: string[] }
+  /** `keys`: the quests' internal names, as the quest log has them. */
+  | { kind: 'handIn'; npc: number; map: number; quests: string[]; keys: string[] }
   | { kind: 'pickUp'; npc: number; map: number; quests: string[] }
   | { kind: 'go'; region: number; map: number; at: [number, number]; quest: string }
   | { kind: 'talk'; npc: number; map: number; quest: string }
@@ -341,11 +342,11 @@ export function nextQuestAction(data: TravelData, state: QuestState, options: Qu
   };
 
   // Hand-ins: the finished quests the data knows, by taker.
-  const handIns = new Map<number, string[]>();
+  const handIns = new Map<number, TravelQuest[]>();
   for (const entry of state.log) {
     const quest = byKey.get(entry.name);
     if (!entry.ready || entry.completed || !quest || state.failed.has(`hand:${entry.name}`) || !npcs.has(quest.finish)) continue;
-    (handIns.get(quest.finish) ?? handIns.set(quest.finish, []).get(quest.finish)!).push(quest.name);
+    (handIns.get(quest.finish) ?? handIns.set(quest.finish, []).get(quest.finish)!).push(quest);
   }
   // Pick-ups, with room for more: each giver's quests, best value first.
   const active = state.log.filter((q) => !q.completed && !q.ready).length;
@@ -373,8 +374,8 @@ export function nextQuestAction(data: TravelData, state: QuestState, options: Qu
   const talks = (state.pending?.talks ?? []).filter((t) => !state.failed.has(`talk:${t.npc}`) && npcs.has(t.npc) && enterable(npcs.get(t.npc)!.map));
 
   const handIn = (npc: number, why: string): QuestAction => {
-    const names = handIns.get(npc)!;
-    return { kind: 'handIn', npc, map: npcs.get(npc)!.map, quests: names, reason: `Handing in ${plural(names)} to ${npcName(npc)} (${why})` };
+    const names = handIns.get(npc)!.map((q) => q.name);
+    return { kind: 'handIn', npc, map: npcs.get(npc)!.map, quests: names, keys: handIns.get(npc)!.map(questKey), reason: `Handing in ${plural(names)} to ${npcName(npc)} (${why})` };
   };
   const pickUp = (npc: number, why: string): QuestAction => {
     const { quests: names } = pickUps.get(npc)!;
@@ -432,8 +433,9 @@ export function nextQuestAction(data: TravelData, state: QuestState, options: Qu
   }
   if (bestGiver) return pickUp(bestGiver.npc, `~${Math.round(bestGiver.rate).toLocaleString('en')} exp/min`);
 
-  // 4. The other finished quests.
-  const farTaker = cheapest(takers, (n) => npcs.get(n)!.map);
+  // 4. The other finished quests; even with no route known (Travel may still find one; if not, it's marked failed),
+  // or Quests' hunting would keep stopping for them.
+  const farTaker = cheapest(takers, (n) => npcs.get(n)!.map) ?? takers[0];
   if (farTaker !== undefined) return handIn(farTaker, 'finished');
 
   // 5. People to talk to and spots to reach: the map with most to do for the trip.

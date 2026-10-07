@@ -26,9 +26,10 @@ import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTil
 import { SessionStats } from './session-stats';
 import { MapExplorer, waypoint } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
-import { classFlagOf, findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink, type TravelQuest } from './travel';
+import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
 import { chooseGrindMap, describeChoice } from './grind';
 import { ExperienceMeter, type GrindLog } from './grind-log';
+import { RouteCosts, nextQuestAction, questKey } from './quest-planner';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
@@ -2073,11 +2074,9 @@ export class Bot {
     if (!memory.installed) throw new BotError('Quests needs the memory reader (run scripts/setup-game-reader.ps1).');
     memory.start();
     const started = performance.now();
-    const keyOf = (q: TravelQuest) => q.key ?? q.name;
-    const quests = data.quests ?? [];
-    const byKey = new Map(quests.map((q) => [keyOf(q), q]));
-    const byId = new Map(quests.map((q) => [q.id, q]));
-    const doable = new Set(['KillMonster', 'GainItem', 'Region', 'TalkToNPC']);
+    const byKey = new Map((data.quests ?? []).map((q) => [questKey(q), q]));
+    /** Route costs between maps, worked out once each this run (for the quest planner). */
+    const routes = new RouteCosts(data);
     /** Things that didn't work this run (an NPC whose quests wouldn't open, a quest that wouldn't hand in, a spot out of reach). */
     const failed = new Set<string>();
     let handedIn = 0;
@@ -2101,76 +2100,67 @@ export class Bot {
         await this.emptyBag();
         continue;
       }
-      const inLog = new Set(log.map((q) => q.name));
-      const done = new Set(log.filter((q) => q.completed).map((q) => q.name));
+      // The next thing to do, from the quest planner.
+      const action = nextQuestAction(
+        data,
+        {
+          map: memory.map()!.index,
+          at: { x: user.x, y: user.y },
+          level: user.level,
+          cls: user.class,
+          log,
+          targets: reading.questTargets ?? [],
+          pending: reading.questPending,
+          waypoints: reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined,
+          failed,
+        },
+        { maxActive: this.settings.questMaxActive ?? 5 },
+        routes,
+      );
 
       // 1. Hand in what's finished.
-      const ready = log.filter((q) => q.ready && byKey.has(q.name) && !failed.has(`hand:${q.name}`)).map((q) => byKey.get(q.name)!);
-      if (ready.length) {
-        const npc = ready[0].finish;
-        const names = ready.filter((q) => q.finish === npc).map((q) => q.name);
-        const n = await this.atQuestNpc(npc, 'handIn', `Handing in ${names.join(', ')}`);
+      if (action.kind === 'handIn') {
+        const n = await this.atQuestNpc(action.npc, 'handIn', action.reason);
         if (n > 0) handedIn += n;
-        else for (const q of ready.filter((r) => r.finish === npc)) failed.add(`hand:${keyOf(q)}`);
+        else for (const key of action.keys) failed.add(`hand:${key}`);
         continue;
       }
 
-      // 2. Pick up more, while few are on the go.
-      const active = log.filter((q) => !q.completed && !q.ready).length;
-      const available = quests.filter(
-        (q) =>
-          !inLog.has(keyOf(q)) && !failed.has(`accept:${q.start}`) && q.type !== 'Account' && (q.level ?? 0) <= user.level! &&
-          (q.cls === undefined || (user.class !== undefined && (q.cls & classFlagOf(user.class)) !== 0)) &&
-          (q.after ?? []).every((id) => { const before = byId.get(id); return !before || done.has(keyOf(before)); }) &&
-          q.tasks.length > 0 && q.tasks.every((t) => doable.has(t.type)),
-      );
-      if (active < (this.settings.questMaxActive ?? 5) && available.length) {
-        // The giver with the most to offer; one on this map first.
-        const count = new Map<number, number>();
-        for (const q of available) count.set(q.start, (count.get(q.start) ?? 0) + 1);
-        const here = memory.map()!.index;
-        const npc = [...count.keys()].sort((a, b) => Number(data.npcs.find((n) => n.id === b)?.map === here) - Number(data.npcs.find((n) => n.id === a)?.map === here) || count.get(b)! - count.get(a)!)[0];
-        const names = available.filter((q) => q.start === npc).map((q) => q.name);
-        const n = await this.atQuestNpc(npc, 'accept', `Picking up ${names.slice(0, 3).join(', ')}${names.length > 3 ? '...' : ''}`);
+      // 2. Pick up more.
+      if (action.kind === 'pickUp') {
+        const n = await this.atQuestNpc(action.npc, 'accept', action.reason);
         if (n > 0) accepted += n;
-        else failed.add(`accept:${npc}`);
+        else failed.add(`accept:${action.npc}`);
         continue;
       }
 
       // 3. Places to go, and people to talk to.
-      const pending = reading.questPending;
-      const go = pending?.regions.find((r) => !failed.has(`region:${r.region}`) && data.questRegions?.[r.region]);
-      if (go) {
-        const [map, x, y] = data.questRegions![go.region];
-        this.status(`${go.quest}: going to ${mapName(data, map)}`);
+      if (action.kind === 'go') {
+        const [x, y] = action.at;
+        this.status(action.reason);
         try {
-          this.status(await this.travelTo(`spot:${map}:${x}:${y}`));
+          this.status(await this.travelTo(`spot:${action.map}:${x}:${y}`));
           await this.sleep(1500);
         } catch (error) {
           if (error instanceof Stopped) throw error;
-          failed.add(`region:${go.region}`);
+          failed.add(`region:${action.region}`);
         }
         // Still pending after getting there: don't keep coming back to it.
-        if (memory.latest()?.questPending?.regions.some((r) => r.region === go.region)) failed.add(`region:${go.region}`);
+        if (memory.latest()?.questPending?.regions.some((r) => r.region === action.region)) failed.add(`region:${action.region}`);
         continue;
       }
-      const talk = pending?.talks.find((t) => !failed.has(`talk:${t.npc}`) && data.npcs.some((n) => n.id === t.npc));
-      if (talk) {
-        await this.talkTo(talk.npc, `${talk.quest}: talking to ${data.npcs.find((n) => n.id === talk.npc)!.name}`);
-        if (memory.latest()?.questPending?.talks.some((t) => t.npc === talk.npc)) failed.add(`talk:${talk.npc}`);
+      if (action.kind === 'talk') {
+        await this.talkTo(action.npc, action.reason);
+        if (memory.latest()?.questPending?.talks.some((t) => t.npc === action.npc)) failed.add(`talk:${action.npc}`);
         continue;
       }
 
-      // 4. Monsters to kill: on the map the quest names, else the nearest map they spawn on.
-      const target = (reading.questTargets ?? []).find((t) => !failed.has(`hunt:${t.name}:${t.map}`));
-      if (target) {
-        const map = target.map ?? this.spawnMapFor(data, target.name, memory.map()!.index, user.level);
-        if (map === null) {
-          failed.add(`hunt:${target.name}:${target.map}`);
-          continue;
-        }
+      // 4. Monsters to kill.
+      if (action.kind === 'hunt') {
+        const target = { name: action.monster, map: action.target };
+        const map = action.map;
         if (memory.map()!.index !== map) this.status(await this.travelTo(`map:${map}`));
-        this.status(`${target.quest}: hunting ${target.name} on ${mapName(data, map)}`);
+        this.status(action.reason);
         const huntStart = performance.now();
         const why = await this.huntLoop({
           seek: true,
@@ -2195,24 +2185,6 @@ export class Bot {
       this.stopRunning();
       return `Quests: handed in ${handedIn}, picked up ${accepted}; nothing more to do for now`;
     }
-  }
-
-  /** The map nearest by route where `monster` spawns (and the level allows), or null. */
-  private spawnMapFor(data: TravelData, monster: string, here: number, level: number): number | null {
-    const index = data.monsters?.indexOf(monster) ?? -1;
-    if (index < 0 || !data.spawns) return null;
-    const maps = Object.entries(data.spawns)
-      .filter(([, spots]) => spots.some((s) => data.spawnSets?.[s[3]]?.includes(index)))
-      .map(([m]) => Number(m))
-      .filter((m) => (data.maps.find((x) => x.i === m)?.level ?? 0) <= level);
-    if (maps.includes(here)) return here;
-    let best: { map: number; steps: number } | null = null;
-    for (const m of maps) {
-      const place = findPlace(data, `map:${m}`);
-      const route = place && planRoute(data, { map: here, steps: new Map(), at: undefined }, place, { level });
-      if (route && (!best || route.steps < best.steps)) best = { map: m, steps: route.steps };
-    }
-    return best?.map ?? null;
   }
 
   /**
