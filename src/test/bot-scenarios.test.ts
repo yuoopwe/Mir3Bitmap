@@ -226,6 +226,13 @@ test('Explore: uncovers a small map', async () => {
   checkAlways(game);
 });
 
+test("Explore: steady progress on Bichon Province's own walls", async () => {
+  const game = new FakeGame({ maps: [{ ...bichon.map, explored: null }], player: { map: BICHON, ...bichon.player, level: 24 } });
+  const { message } = await play(game, (bot) => bot.startExplore(), { settings: { explorePercent: 25 }, limitMs: 5 * 60_000 });
+  assert.equal(message, 'Bichon Province explored (25%)');
+  checkAlways(game);
+});
+
 test('Scenarios are deterministic: the same run twice gives the same events', async () => {
   const run = async () => {
     const game = onBichon({ npcs: [{ id: STONE.id, menu: ['waypoints', 'quests'] }] }, { x: STONE.at![0] + 8, y: STONE.at![1] - 6 });
