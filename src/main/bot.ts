@@ -2429,7 +2429,15 @@ export class Bot {
       const point = (await this.aimAt({ key: `stone${stone.x},${stone.y}`, point: tileAt, name: stoneName, tile: tileAt })) ?? tileAt;
       this.status(`Opening the waypoints at the ${stoneName}`);
       await this.click(point, this.delay('menu'));
-      for (const since = performance.now(); performance.now() - since < WAYPOINT_OPEN_MS && !memory.latest()?.waypoints?.open; ) await this.sleep(100);
+      for (const since = performance.now(); performance.now() - since < WAYPOINT_OPEN_MS && !memory.latest()?.waypoints?.open; ) {
+        // Some stones ask first (Waypoints / Quests): take Waypoints.
+        const menu = memory.latest()?.survival?.npcMenu;
+        if (menu?.waypoints?.enabled) {
+          await this.click(boxCentre(menu.waypoints), this.delay('menu'));
+          await this.sleep(400);
+        }
+        await this.sleep(100);
+      }
     }
     let window = memory.latest()?.waypoints;
     if (!window?.open) return 'failed';

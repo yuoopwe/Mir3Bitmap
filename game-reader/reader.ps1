@@ -480,7 +480,7 @@ function Read-Survival($scene) {
   try {
     # Talking to an NPC: the Talk / Quests menu some show first, and the quest list (Accept All, Hand In).
     $radial = $scene.ReadObjectField('NPCRadialMenuBox')
-    if (-not $radial.IsNull -and $radial.ReadField[bool]('_IsVisible')) { $out.npcMenu = @{ quests = (Find-Button $radial 'Quests'); talk = (Find-Button $radial 'Talk') } }
+    if (-not $radial.IsNull -and $radial.ReadField[bool]('_IsVisible')) { $out.npcMenu = @{ quests = (Find-Button $radial 'Quests'); talk = (Find-Button $radial 'Talk'); waypoints = (Find-Button $radial 'Waypoints') } }
     $list = $scene.ReadObjectField('NPCQuestListBox')
     if (-not $list.IsNull -and $list.ReadField[bool]('_IsVisible')) {
       $info = $list.ReadObjectField('_NPCInfo')

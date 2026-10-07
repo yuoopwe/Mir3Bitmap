@@ -151,7 +151,7 @@ export interface MemoryState {
     /** An NPC's dialog is open. */
     npcDialog?: boolean;
     /** The Talk / Quests menu some NPCs show when clicked. */
-    npcMenu?: { quests: MemoryButton | null; talk: MemoryButton | null };
+    npcMenu?: { quests: MemoryButton | null; talk: MemoryButton | null; waypoints?: MemoryButton | null };
     /** An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists. */
     questList?: { npc: number | null; acceptAll: MemoryButton | null; handIn: MemoryButton | null; quests: string[] };
     /** The game's message boxes showing, with their buttons (by field name, e.g. YesButton). */
