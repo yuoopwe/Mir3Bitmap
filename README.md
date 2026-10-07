@@ -156,6 +156,22 @@ strongest ten cards in simulated games against random decks of the same card lev
 NPCs do), then for each slot to change clicks the slot, the card (on its level's tab) and "Replace Slot N", and
 finally "Save Deck". If the game won't take two copies of a card, it chooses again without copies.
 
+## Travel
+
+**Travel** (needs the memory reader) runs you to any map or NPC. Type part of a name in the search box under
+Travel (a map, or an NPC such as "kang" or "alpha"), pick one and press Travel (or double-click it).
+
+It plans the quickest chain of maps from where you stand, leaving out maps your level can't enter and links your
+class can't use, and goes through waypoint stones where that's quicker: it walks up to the stone, clicks it, picks
+the waypoint in the window (scrolling the list if need be) and presses Activate. Only waypoints you've unlocked are
+used (the game lists them once you've opened a stone's window; before that it tries, and drops any it can't find).
+On each map it walks the walls from memory, steps at turns and goes round anything in the way. Any map change,
+expected or not, plans again from wherever you are. For an NPC it stops within 2 tiles of them.
+
+The links, NPCs and waypoints come from `game-data/travel.json`, built by `node scripts/travel-data.js` from the
+database export (below) and the game's map files (for every map's walls and the walking distances between exits).
+Re-run it after a game patch.
+
 ## Game data (for questions about the game)
 
 `pwsh -File scripts/export-game-db.ps1` reads the game's own database (`Data/System.db`, decrypted by the game's
@@ -178,5 +194,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/vision.ts` – bars, map and other pixel checks
 - `src/main/hunter.ts` – the older target-frame-judged targeting (no longer used by Hunt; kept with its tests)
 - `src/main/names.ts` – what's been learned about each name
+- `src/main/map-grid.ts`, `map-explorer.ts`, `map-path.ts` – the map from memory, exploring it, walking paths
+- `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
 - `src/main/bot.ts` – the hunt, sell and travel loops
 - `src/renderer/` – the control window

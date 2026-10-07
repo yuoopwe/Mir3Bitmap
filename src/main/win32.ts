@@ -33,6 +33,7 @@ const IsIconic = user32.func('__stdcall', 'IsIconic', 'int', [HANDLE]);
 const POINT = koffi.struct('POINT', { x: 'int32', y: 'int32' });
 const GetCursorPos = user32.func('__stdcall', 'GetCursorPos', 'int', [koffi.out(koffi.pointer(POINT))]);
 const GetWindowRect = user32.func('__stdcall', 'GetWindowRect', 'int', [HANDLE, koffi.out(koffi.pointer(RECT))]);
+const ClientToScreen = user32.func('__stdcall', 'ClientToScreen', 'int', [HANDLE, koffi.inout(koffi.pointer(POINT))]);
 const GetWindowThreadProcessId = user32.func('__stdcall', 'GetWindowThreadProcessId', 'uint32', [HANDLE, 'void *']);
 const AttachThreadInput = user32.func('__stdcall', 'AttachThreadInput', 'int', ['uint32', 'uint32', 'int']);
 const GetKeyboardState = user32.func('__stdcall', 'GetKeyboardState', 'int', ['void *']);
@@ -59,6 +60,7 @@ const WM_LBUTTONUP = 0x0202;
 const WM_KEYUP = 0x0101;
 const WM_RBUTTONDOWN = 0x0204;
 const WM_RBUTTONUP = 0x0205;
+const WM_MOUSEWHEEL = 0x020a;
 /** Mouse message flag: the left button is held. */
 export const MK_LBUTTON = 0x0001;
 /** Mouse message flag: the right button is held. */
@@ -235,4 +237,14 @@ export function leftDown(hwnd: Handle, x: number, y: number, flags = 0): void {
 
 export function leftUp(hwnd: Handle, x: number, y: number, flags = 0): void {
   SendMessageW(hwnd, WM_LBUTTONUP, flags, pointParam(x, y));
+}
+
+/** Turns the mouse wheel over (x, y) in the window:  down (positive) or up (negative). */
+export function mouseWheel(hwnd: Handle, x: number, y: number, notches: number): void {
+  mouseMove(hwnd, x, y);
+  // The wheel message takes screen coordinates.
+  const point = { x, y };
+  ClientToScreen(hwnd, point);
+  const delta = (-notches * 120) & 0xffff;
+  SendMessageW(hwnd, WM_MOUSEWHEEL, (delta << 16) >>> 0, pointParam(point.x, point.y));
 }

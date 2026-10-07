@@ -1,7 +1,8 @@
 /**
- * Travel between maps: the links between maps and the NPCs, from
- * game-data/travel.json (scripts/travel-data.js), and the shortest chain of
- * links from where the player is to a map or an NPC.
+ * Travel between maps: the links between maps, the NPCs and the waypoints,
+ * from game-data/travel.json (scripts/travel-data.js), and the shortest chain
+ * of links from where the player is to a map or an NPC. A waypoint teleport is
+ * a link too: from a waypoint stone, to wherever that waypoint puts you.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -32,6 +33,8 @@ export interface TravelLink {
   /** From the landing: steps to each exit of `to` (by link id), and to each NPC there (by NPC id). */
   steps?: Record<string, number>;
   npcSteps?: Record<string, number>;
+  /** A waypoint teleport: click the stone (NPC `stone`), then pick the waypoint called `name` in the window. */
+  waypoint?: { name: string; stone: number; always?: boolean };
 }
 
 export interface TravelNpc {
@@ -42,12 +45,28 @@ export interface TravelNpc {
   where: string;
   /** Where it stands; missing for NPCs that wander a big area (head for their map). */
   at?: [number, number];
+  /** A waypoint stone: clicking it opens the waypoint window. */
+  stone?: boolean;
+}
+
+/** Where a waypoint takes you, with the steps from there as for a link's landing. */
+export interface TravelWaypoint {
+  id: number;
+  name: string;
+  map: number;
+  land: [number, number];
+  /** Usable without having been unlocked. */
+  always?: boolean;
+  cost?: number;
+  steps?: Record<string, number>;
+  npcSteps?: Record<string, number>;
 }
 
 export interface TravelData {
   maps: TravelMap[];
   links: TravelLink[];
   npcs: TravelNpc[];
+  waypoints?: TravelWaypoint[];
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */
@@ -60,6 +79,8 @@ export interface Place {
 
 /** Each map change costs about this many steps (the loading, and lining up on the exit). */
 const HOP_STEPS = 10;
+/** A waypoint teleport costs about this many steps (clicking the stone, picking it, the teleport). */
+const WAYPOINT_STEPS = 40;
 /** On maps whose walls weren't read, steps are guessed from the straight distance, times this. */
 const DETOUR = 1.4;
 
@@ -67,8 +88,33 @@ let cached: TravelData | null = null;
 
 /** game-data/travel.json (built by scripts/travel-data.js). */
 export function loadTravelData(file = path.join(__dirname, '..', '..', 'game-data', 'travel.json')): TravelData {
-  cached ??= JSON.parse(readFileSync(file, 'utf8')) as TravelData;
+  if (!cached) {
+    cached = JSON.parse(readFileSync(file, 'utf8')) as TravelData;
+    cached.links.push(...waypointLinks(cached));
+  }
   return cached;
+}
+
+/** A link from every waypoint stone to every waypoint elsewhere (ids from 1,000,000 up, so they never clash with the game's). */
+export function waypointLinks(data: TravelData): TravelLink[] {
+  const out: TravelLink[] = [];
+  for (const stone of data.npcs) {
+    if (!stone.stone || !stone.at) continue;
+    for (const w of data.waypoints ?? []) {
+      if (w.map === stone.map) continue;
+      out.push({
+        id: 1_000_000 + stone.id * 1000 + w.id,
+        from: stone.map,
+        to: w.map,
+        exit: [stone.at],
+        land: w.land,
+        steps: w.steps,
+        npcSteps: w.npcSteps,
+        waypoint: { name: w.name, stone: stone.id, always: w.always },
+      });
+    }
+  }
+  return out;
 }
 
 export function mapName(data: TravelData, index: number): string {
@@ -112,6 +158,10 @@ export interface Traveller {
   level?: number;
   /** Library.MirClass (0 Warrior ... 7 BladeDancer, 8 Mimic, 9 Anima); unknown leaves out class-only links. */
   cls?: number;
+  /** The waypoints unlocked, by name; unknown (the window not opened yet) counts every waypoint as usable. */
+  waypoints?: ReadonlySet<string>;
+  /** Waypoints found not to work this trip (not in the window): left out. */
+  badWaypoints?: ReadonlySet<string>;
 }
 
 /** Where the player is: their map, and the steps from them to each of its exits and NPCs (from the live walls). */
@@ -146,6 +196,10 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
   const exits = new Map<number, TravelLink[]>();
   const usable = (l: TravelLink) => {
     if (l.needs) return false;
+    if (l.waypoint) {
+      if (who.badWaypoints?.has(l.waypoint.name)) return false;
+      if (!l.waypoint.always && who.waypoints && !who.waypoints.has(l.waypoint.name)) return false;
+    }
     if (l.cls !== undefined && (who.cls === undefined || !(l.cls & classFlag(who.cls)))) return false;
     const to = mapsByIndex.get(l.to);
     if (who.level !== undefined && to && ((to.level ?? 0) > who.level || (to.maxLevel && to.maxLevel < who.level))) return false;
@@ -169,7 +223,7 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
   for (const e of exits.get(start.map) ?? []) {
     const steps = start.steps.get(e.id) ?? (start.steps.size ? undefined : guess(start.at, e.exit));
     if (steps === undefined) continue;
-    const cost = steps + HOP_STEPS;
+    const cost = steps + (e.waypoint ? WAYPOINT_STEPS : HOP_STEPS);
     if (cost < (best.get(e.id) ?? Infinity)) {
       best.set(e.id, cost);
       cameFrom.set(e.id, null);
@@ -191,9 +245,11 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
     }
     for (const e of exits.get(link.to) ?? []) {
       // Worked out from the map file where it could be; else guessed.
-      const steps = link.steps ? link.steps[e.id] : guess(land, e.exit);
+      // The stone is an NPC: its steps are with the NPCs'.
+      const known = e.waypoint ? link.npcSteps?.[e.waypoint.stone] : link.steps?.[e.id];
+      const steps = link.steps ? known : guess(land, e.exit);
       if (steps === undefined) continue;
-      const next = cost + steps + HOP_STEPS;
+      const next = cost + steps + (e.waypoint ? WAYPOINT_STEPS : HOP_STEPS);
       if (next < (best.get(e.id) ?? Infinity)) {
         best.set(e.id, next);
         cameFrom.set(e.id, at);

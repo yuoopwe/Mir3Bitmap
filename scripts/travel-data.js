@@ -2,7 +2,7 @@
 // (scripts/export-game-db.ps1) and the game's map files: every map, every link
 // between maps (the tiles to step on and where you land), every placed NPC, and
 // how many steps it is from each landing to each exit and NPC on that map (from
-// the map files' walls). Run: node scripts/travel-data.js [game folder]
+// the map files' walls), plus the waypoint stones and where each waypoint takes you. Run: node scripts/travel-data.js [game folder]
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -88,6 +88,8 @@ for (const mv of read('MovementInfo')) {
 }
 
 // ---- NPCs ----
+// Waypoint stones: NPCs whose first page opens the waypoint window.
+const summonPages = new Set(read('NPCAction').filter((a) => /SummonWaypointMenu/.test(a.ActionType)).map((a) => a.Page?.Index));
 const npcs = [];
 for (const n of read('NPCInfo')) {
   const region = regions.get(n.Region?.Index);
@@ -97,11 +99,25 @@ for (const n of read('NPCInfo')) {
   if (region.Size <= NPC_REGION_MAX && !tiles.length) continue;
   const npc = { id: n.Index, name: n.NPCName.replace(/\s+/g, ' ').trim(), map: map.Index, where: region.Description ?? '' };
   if (tiles.length) npc.at = middle(tiles, mapFile(map));
+  if (summonPages.has(n.EntryPage?.Index)) npc.stone = true;
   npcs.push(npc);
 }
 
+// ---- Waypoints (where each takes you; picked in the window a stone opens) ----
+const waypoints = [];
+for (const w of read('WaypointInfo')) {
+  const map = maps.get(w.Map?.Index);
+  if (!map || w.DestinationKind !== 'WorldMap') continue;
+  const tiles = w.X || w.Y ? [[w.X, w.Y]] : regionTiles(regions.get(w.Region?.Index));
+  if (!tiles.length) continue;
+  const waypoint = { id: w.Index, name: w.Name.trim(), map: map.Index, land: middle(tiles, mapFile(map)) };
+  if (w.IsAlwaysAvailable) waypoint.always = true;
+  if (w.Cost) waypoint.cost = w.Cost;
+  waypoints.push(waypoint);
+}
+
 // ---- Maps ----
-const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map)]);
+const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map), ...waypoints.map((w) => w.map)]);
 const mapList = [...used].map((i) => maps.get(i)).map((m) => {
   const grid = mapFile(m);
   const out = { i: m.Index, name: (m.Description || m.FileName).trim(), type: m.Type };
@@ -153,7 +169,8 @@ for (const l of links) (exitsOf.get(l.from) ?? exitsOf.set(l.from, []).get(l.fro
 const npcsOf = new Map();
 for (const n of npcs) if (n.at) (npcsOf.get(n.map) ?? npcsOf.set(n.map, []).get(n.map)).push(n);
 let searched = 0;
-for (const l of links) {
+// Waypoints have landings too: the same steps from where they put you.
+for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map }))]) {
   const grid = mapFile(maps.get(l.to));
   if (!grid) continue;
   const dist = distances(grid, l.land);
@@ -170,5 +187,6 @@ for (const l of links) {
   }
 }
 
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs }));
-console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);
+for (const w of waypoints) delete w.to;
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints }));
+console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

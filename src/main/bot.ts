@@ -76,6 +76,11 @@ const EXPLORE_AVOID_MS = 10_000;
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
 const NPC_REACH_TILES = 2;
 const TRAVEL_BLOCKED_LIMIT = 8;
+/** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
+const WAYPOINT_OPEN_MS = 3000;
+const WAYPOINT_TELEPORT_MS = 10_000;
+/** Giving up on waypoints after this many tries that went wrong. */
+const WAYPOINT_FAILURES = 3;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -1230,6 +1235,9 @@ export class Bot {
     const avoid = new Map<number, number>();
     let moved = { at: 0, x: NaN, y: NaN };
     let drivenAt = 0;
+    /** Waypoints that turned out not to be in the window (not unlocked), and how many waypoint tries went wrong. */
+    const badWaypoints = new Set<string>();
+    let waypointFailures = 0;
 
     while (true) {
       await this.yieldToEvents();
@@ -1273,7 +1281,9 @@ export class Bot {
           const near = nearestApproach(map, dist, [tile(place.npc.at)]);
           if (near) npcSteps.set(place.npc.id, near.steps);
         }
-        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here }, place, { level: user.level, cls: user.class });
+        // The game lists the waypoints unlocked once its window has been opened; until then every one is tried.
+        const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
+        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here }, place, { level: user.level, cls: user.class, waypoints: unlocked, badWaypoints });
         if (!planned) throw new BotError(`No way found from ${mapName(data, map.index)} to ${place.label} (your level or class may not allow it).`);
         route = { map: map.index, links: planned.links, blocked: 0 };
         this.status(
@@ -1285,8 +1295,29 @@ export class Bot {
 
       // Where to head on this map: the next exit, or the NPC (where the game shows it, else where it's placed).
       let targets: Point[];
-      if (route.links.length) {
-        targets = route.links[0].exit.map(tile);
+      const next = route.links[0];
+      if (next?.waypoint) {
+        // A waypoint: walk up to the stone, click it and pick the waypoint.
+        const stone = data.npcs.find((n) => n.id === next.waypoint!.stone)!;
+        const placed = tile(stone.at!);
+        const seen = reading.objects?.find((o) => o.kind === 'npc' && o.name === stone.name && chebyshev(o, placed) <= 3);
+        const at = seen ? { x: seen.x, y: seen.y } : placed;
+        if (chebyshev(here, at) <= NPC_REACH_TILES) {
+          this.stopRunning();
+          const result = await this.useWaypoint(stone.name, at, next.waypoint.name, map.index);
+          if (result === 'missing') {
+            badWaypoints.add(next.waypoint.name);
+            this.status(`The ${next.waypoint.name} waypoint isn't unlocked; finding another way`);
+          } else if (result === 'failed' && ++waypointFailures >= WAYPOINT_FAILURES) {
+            throw new BotError(`Couldn't use the waypoint stone ${WAYPOINT_FAILURES} times.`);
+          }
+          // Plan again: from the new map after a teleport, or without that waypoint.
+          route = null;
+          continue;
+        }
+        targets = [at];
+      } else if (next) {
+        targets = next.exit.map(tile);
       } else {
         const npc = place.npc!;
         const seen = reading.objects?.find((o) => o.kind === 'npc' && o.name === npc.name);
@@ -1340,6 +1371,60 @@ export class Bot {
       await this.sleep(RUN_TICK_MS);
       drivenAt = performance.now();
     }
+  }
+
+  /**
+   * At a waypoint stone: clicks it to open the waypoint window, finds the
+   * waypoint (scrolling the list if need be) and presses its Activate button,
+   * then waits for the teleport. 'missing' when the window doesn't list it.
+   */
+  private async useWaypoint(stoneName: string, stone: Point, name: string, fromMap: number): Promise<'teleported' | 'missing' | 'failed'> {
+    const memory = this.options.memory;
+    const user = () => memory.latest()?.user;
+    // Open the window, unless it already is.
+    for (let attempt = 0; attempt < 2 && !memory.latest()?.waypoints?.open; attempt++) {
+      const me = user();
+      if (!me) return 'failed';
+      const tileAt = tileToScreen(me, stone.x, stone.y);
+      const point = (await this.aimAt({ key: `stone${stone.x},${stone.y}`, point: tileAt, name: stoneName, tile: tileAt })) ?? tileAt;
+      this.status(`Opening the waypoints at the ${stoneName}`);
+      await this.click(point, this.delay('menu'));
+      for (const since = performance.now(); performance.now() - since < WAYPOINT_OPEN_MS && !memory.latest()?.waypoints?.open; ) await this.sleep(100);
+    }
+    let window = memory.latest()?.waypoints;
+    if (!window?.open) return 'failed';
+
+    // Find its row: from the top of the list, a page at a time.
+    let scrolledToTop = false;
+    for (let tries = 0; tries < 20; tries++) {
+      window = (await memory.fresh())?.waypoints;
+      if (!window?.open || !window.rows?.length) return 'failed';
+      const row = window.rows.find((r) => r.name === name);
+      if (row) {
+        if (!row.activate.enabled) return 'missing';
+        this.status(`Waypoint to ${name}`);
+        await this.click(boxCentre(row.activate), this.delay('menu'));
+        for (const since = performance.now(); performance.now() - since < WAYPOINT_TELEPORT_MS; ) {
+          await this.sleep(200);
+          const map = memory.latest()?.map;
+          if (map && map.index !== fromMap) return 'teleported';
+        }
+        return 'failed';
+      }
+      if (window.unlocked.length && !window.unlocked.some((w) => w.name === name)) return 'missing';
+      const first = window.rows[0].activate;
+      const before = window.scroll?.value ?? 0;
+      if (!scrolledToTop) {
+        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, -50);
+        scrolledToTop = true;
+      } else {
+        if (window.scroll && window.scroll.value >= window.scroll.max - window.rows.length) return 'missing';
+        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, 2);
+      }
+      await this.sleep(150);
+      if (scrolledToTop && tries > 0 && (await memory.fresh())?.waypoints?.scroll?.value === before) return 'missing';
+    }
+    return 'missing';
   }
 
   /**

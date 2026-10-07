@@ -293,6 +293,35 @@ function Read-Map($scene) {
   return $map
 }
 
+# Waypoints: the ones unlocked (the game fills this in once the waypoint window has been opened), and
+# while the window is open, its rows (name and Activate button) and scrollbar.
+function Read-Waypoints($scene) {
+  $unlocked = @()
+  $list = $scene.ReadObjectField('_User').ReadObjectField('UserWaypoints')
+  foreach ($w in (Read-List $list)) {
+    if ($w.ReadField[bool]('<IsUnlocked>k__BackingField')) { $unlocked += ,@{ name = $w.ReadStringField('<WaypointName>k__BackingField'); map = $w.ReadField[int]('<MapIndex>k__BackingField') } }
+  }
+  $out = @{ unlocked = $unlocked; open = $false }
+  $box = $scene.ReadObjectField('WaypointsBox')
+  if ($box.IsNull -or -not $box.ReadField[bool]('_IsVisible')) { return $out }
+  $out.open = $true
+  $rows = @()
+  $array = $box.ReadObjectField('WaypointRows').AsArray()
+  for ($i = 0; $i -lt $array.Length; $i++) {
+    $row = $array.GetObjectValue($i)
+    if ($row.IsNull -or -not $row.ReadField[bool]('_IsVisible')) { continue }
+    $info = $row.ReadObjectField('<WaypointInfo>k__BackingField')
+    if ($info.IsNull) { continue }
+    $catalogue = $info.ReadObjectField('<Catalogue>k__BackingField')
+    $rows += ,@{ name = $(if ($catalogue.IsNull) { $null } else { $catalogue.ReadStringField('_Name') }); activate = Read-Button ($row.ReadObjectField('ActivateButton')) }
+  }
+  $out.rows = $rows
+  $out.total = $box.ReadObjectField('WaypointSearchResults').ReadField[int]('_size')
+  $bar = $box.ReadObjectField('WaypointScrollBar')
+  $out.scroll = @{ value = $bar.ReadField[int]('_Value'); max = $bar.ReadField[int]('_MaxValue'); up = Read-Button ($bar.ReadObjectField('UpButton')); down = Read-Button ($bar.ReadObjectField('DownButton')) }
+  return $out
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -351,7 +380,9 @@ while ($true) {
         try { $collection = Read-Collection $scene $module $domain } catch { $collection = @{ error = $_.Exception.Message } }
         $map = $null
         try { $map = Read-Map $scene } catch { $script:wallsSent = $null }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map }
+        $waypoints = $null
+        try { $waypoints = Read-Waypoints $scene } catch { $waypoints = @{ error = $_.Exception.Message } }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

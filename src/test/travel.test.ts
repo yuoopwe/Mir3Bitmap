@@ -57,6 +57,18 @@ test('an NPC on another map: the route ends on its map', () => {
   if (route) assert.equal(route.links.at(-1)?.to ?? BICHON, npc.map);
 });
 
+test('waypoints: only unlocked ones (or always-open ones) are used, and ones found missing are left out', () => {
+  const place = findPlace(data, `map:${mapIndex('Death Valley Lv 3')}`)!;
+  const usesWaypoint = (route: ReturnType<typeof planRoute>) => route?.links.some((l) => l.waypoint?.name === 'Death Valley Lv 3');
+  assert.ok(usesWaypoint(planRoute(data, startInBichon(), place, { level: 50, waypoints: new Set(['Death Valley Lv 3']) })));
+  assert.ok(!usesWaypoint(planRoute(data, startInBichon(), place, { level: 50, waypoints: new Set(['Bichon Province']) })));
+  assert.ok(!usesWaypoint(planRoute(data, startInBichon(), place, { level: 50, badWaypoints: new Set(['Death Valley Lv 3']) })));
+  // A waypoint link starts at a stone on its map.
+  const link = data.links.find((l) => l.waypoint)!;
+  const stone = data.npcs.find((n) => n.id === link.waypoint!.stone)!;
+  assert.ok(stone.stone && stone.map === link.from);
+});
+
 test('walking paths on a saved map: from the player to an exit, never through a wall or a squeezed corner', () => {
   const { map, player } = loadMapFixture('bichon-province');
   const dist = walkDistances(map, player);

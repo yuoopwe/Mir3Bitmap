@@ -106,6 +106,18 @@ export interface MemoryCollection {
   cards: MemoryCard[];
 }
 
+/** Waypoints unlocked (known once the waypoint window has been opened), and the window while it's open. */
+export interface MemoryWaypoints {
+  error?: string;
+  unlocked: { name: string; map: number }[];
+  open: boolean;
+  /** The rows showing (a page of the list), each with its Activate button. */
+  rows?: { name: string | null; activate: MemoryButton }[];
+  /** How many waypoints the list has in all. */
+  total?: number;
+  scroll?: { value: number; max: number; up: MemoryButton | null; down: MemoryButton | null };
+}
+
 export interface MemoryState {
   inGame: boolean;
   triad?: MemoryTriad | null;
@@ -116,6 +128,7 @@ export interface MemoryState {
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;
+  waypoints?: MemoryWaypoints | null;
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */
