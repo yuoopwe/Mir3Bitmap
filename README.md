@@ -51,7 +51,7 @@ second. Hunt then clicks the nearest live monster's tile (not anyone's pet), and
 under "Monsters to hunt": untick one to leave it alone. Without the reader it falls back to the screen.
 
 Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen and
-the player's tile is centred on (792, 400), measured from the game's own "Co Ords" readout in its title bar.
+the player's tile is centred on (804, 416), measured with the tile under the mouse from the game's memory (MapControl.MapLocation, also in the reader's output as user.mouseTile) while standing still.
 
 The reader also sends the current map: which tiles are walls (`MapControl.Cells`, read in one go by
 `game-reader/MapReading.cs`) and which 4x4-tile blocks have been explored (`GameScene.MapExplorationStore`, the fog

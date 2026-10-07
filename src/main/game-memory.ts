@@ -134,7 +134,7 @@ export interface MemoryState {
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */
-export const PLAYER_TILE: Point = { x: 792, y: 400 };
+export const PLAYER_TILE: Point = { x: 804, y: 416 };
 export const TILE_WIDTH = 48;
 export const TILE_HEIGHT = 32;
 
