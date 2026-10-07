@@ -14,6 +14,7 @@
           <button type="button" role="tab" id="tab-hunt" aria-controls="panel-hunt" data-modes="attack">Hunt</button>
           <button type="button" role="tab" id="tab-explore" aria-controls="panel-explore" data-modes="explore">Explore</button>
           <button type="button" role="tab" id="tab-travel" aria-controls="panel-travel" data-modes="travel">Travel</button>
+          <button type="button" role="tab" id="tab-grind" aria-controls="panel-grind" data-modes="grind">Grind</button>
           <button type="button" role="tab" id="tab-gather" aria-controls="panel-gather" data-modes="gather">Gather</button>
           <button type="button" role="tab" id="tab-triad" aria-controls="panel-triad" data-modes="triad deck">Triple Triad</button>
           <button type="button" role="tab" id="tab-train" aria-controls="panel-train" data-modes="train">Train</button>
@@ -128,6 +129,33 @@
             </div>
           </div>
           <p class="see-also">Potions, and spell keys for fighting: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
+
+        <section class="panel" id="panel-grind" role="tabpanel" aria-labelledby="tab-grind" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Grind</h1>
+              <p>Levels your character up: picks the map with the most experience an hour for your level and class, travels there and hunts,
+                moving on once you've outgrown it (needs the memory reader).</p>
+            </div>
+            <button type="button" id="grind-button" class="start" title="Pick the best map for your level, travel there and hunt, moving on when you outgrow it (needs the memory reader)">Start Grind</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Planning</legend>
+              <label title="After this long hunting on a map, look again for a better one (it stays unless another is clearly better). Reaching a new level looks again straight away.">Plan again every <input id="grind-replan" type="number" min="1"> minutes</label>
+              <label title="Monsters more than this many levels above you count as too strong: maps mostly of them are left out, and the rest count for less">Monsters up to <input id="grind-above" type="number" min="0" max="50"> levels above mine</label>
+              <p class="hint">A new level, or leaving the map (a death, say), plans again straight away.</p>
+            </fieldset>
+            <section class="card route-card">
+              <h2>Last plan</h2>
+              <p id="grind-plan" class="hint">Not planned yet.</p>
+            </section>
+          </div>
+          <p class="see-also">Grind hunts as Hunt does, always seeking monsters: attack, items and selling are set under
+            <button type="button" class="link" data-goto="tab-hunt">Hunt</button>; spell keys and potions under
+            <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>; the way there as
+            <button type="button" class="link" data-goto="tab-travel">Travel</button> goes.</p>
         </section>
 
         <section class="panel" id="panel-gather" role="tabpanel" aria-labelledby="tab-gather" hidden>

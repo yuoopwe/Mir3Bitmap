@@ -54,6 +54,14 @@ export interface HuntSettings {
   unstuckKey: BindableKey;
 }
 
+/** Grind mode: levels the character up on the best map for their level (src/main/grind.ts). */
+export interface GrindSettings {
+  /** Plan again (and maybe move on) after hunting this many minutes on a map; a new level plans again too. */
+  replanMinutes: number;
+  /** Monsters more than this many levels above the character count as too strong. */
+  maxLevelsAbove: number;
+}
+
 export interface Settings {
   windowTitle: string;
   /** 'print' works while the game is covered by other windows; 'blt' is faster but needs it visible. */
@@ -85,6 +93,7 @@ export interface Settings {
   /** Train mode: the spell key cast on the character over and over, and how often. */
   trainKey: BindableKey;
   trainIntervalMs: number;
+  grind: GrindSettings;
 }
 
 /** Somewhere Travel can go: a map or an NPC (id "map:<index>" or "npc:<index>"). */
@@ -113,7 +122,7 @@ export interface NameEntry {
 }
 
 export interface Status {
-  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel';
+  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel' | 'grind';
   message: string;
   /** Time spent grabbing the last frame from the game window. */
   captureMs?: number;
@@ -164,6 +173,8 @@ export interface BotApi {
   startGather(): Promise<void>;
   /** Goes to a map or an NPC, by its id from searchPlaces. */
   startTravel(placeId: string): Promise<void>;
+  /** Levels the character up: the best map for their level, travelled to and hunted on, moving on when outgrown. */
+  startGrind(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;

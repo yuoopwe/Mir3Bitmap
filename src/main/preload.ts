@@ -9,6 +9,7 @@ const api: BotApi = {
   startDeck: () => ipcRenderer.invoke('bot:deck'),
   startGather: () => ipcRenderer.invoke('bot:gather'),
   startTravel: (placeId) => ipcRenderer.invoke('bot:travel', placeId),
+  startGrind: () => ipcRenderer.invoke('bot:grind'),
   searchPlaces: (query) => ipcRenderer.invoke('travel:search', query),
   stop: () => ipcRenderer.invoke('bot:stop'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
