@@ -670,6 +670,10 @@ function Read-View($scene, $module, $domain) {
   }
 }
 
+# Objects further than this (in tiles, either way) from the player aren't sent, NPCs apart: on a crowded map (300 and more
+# monsters) reading and sending them all made readings come too late. The screen shows about 27 either way at 2560x1440.
+$ObjectRange = 40
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -703,11 +707,15 @@ while ($true) {
         $items = $list.ReadObjectField('_items').AsArray()
         $user = $null
         $objects = [System.Collections.Generic.List[object]]::new()
+        # Where the player is, for leaving out what's far off.
+        $me = $null
+        try { $meObject = $scene.ReadObjectField('_User'); if (-not $meObject.IsNull) { $l = $meObject.ReadValueTypeField('_CurrentLocation'); $me = @($l.ReadField[int]('x'), $l.ReadField[int]('y')) } } catch {}
         for ($i = 0; $i -lt $size; $i++) {
           $o = $items.GetObjectValue($i)
           if ($o.IsNull) { continue }
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
+          if ($me -and ([math]::Abs($x - $me[0]) -gt $ObjectRange -or [math]::Abs($y - $me[1]) -gt $ObjectRange) -and $o.Type.Name -ne 'Client.Models.NPCObject' -and $o.Type.Name -ne 'Client.Models.UserObject') { continue }
           $name = $o.ReadStringField('_Name')
           if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
