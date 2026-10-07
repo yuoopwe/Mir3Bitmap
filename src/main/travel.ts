@@ -132,7 +132,7 @@ export interface TravelData {
   /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
   monsterStats?: [number, number, number, number][];
   /**
-   * Every sub-boss, boss and behemoth that respawns on a map, as [monster (index into ), map, x, y, how many,
+   * Every sub-boss, boss and behemoth that respawns on a map, as [monster (index into `monsters`), map, x, y, how many,
    * respawn minutes (once killed), kind (1 sub-boss, 2 boss, 3 behemoth)].
    */
   bossSpawns?: [number, number, number, number, number, number, number][];
