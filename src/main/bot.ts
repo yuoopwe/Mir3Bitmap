@@ -114,6 +114,8 @@ const STILL_WAIT_MS = 2000;
  */
 const RUN_AIM_TILES = 4;
 const STEP_AIM_TILES = 2;
+/** How far out a run or step may be aimed to get clear of the character's own sprite. */
+const AIM_OUT_TILES = 6;
 /** Seeking (Hunt with "Seek when idle"): give up on a goal after this long; a spawn spot visited is left this long. */
 const SEEK_GIVE_UP_MS = 45_000;
 const SPOT_REVISIT_MS = 5 * 60_000;
@@ -1815,22 +1817,50 @@ export class Bot {
     const map = this.options.memory.map();
     const exits = map ? this.exitTiles(map) : null;
     const exitAhead = !!map && !!exits?.size && Array.from({ length: stride * 2 }, (_, k) => toward(k + 1)).some((t) => exits.has(t.y * map.width + t.x));
-    const run = straight >= stride && free(point) && !exitAhead;
+    let run = straight >= stride && free(point) && !exitAhead;
+    // Starting a run: not with the cursor on the character itself (tall when mounted), or nothing happens.
+    let runAt = { tile: runTile, point };
+    if (run && !this.running) {
+      const clear = await this.clearOfMe(user, toward, RUN_AIM_TILES, free);
+      if (clear) runAt = clear;
+      else run = false;
+    }
     if (!run) {
       this.stopRunning();
-      const stepTile = free(tileToScreen(user, toward(STEP_AIM_TILES).x, toward(STEP_AIM_TILES).y)) ? toward(STEP_AIM_TILES) : next;
-      const stepPoint = tileToScreen(user, stepTile.x, stepTile.y);
+      // A step: a click a little way off the way the path goes, pushed further out if it would land on the character.
+      const clear = await this.clearOfMe(user, toward, STEP_AIM_TILES, free);
+      const stepTile = clear?.tile ?? next;
+      const stepPoint = clear?.point ?? tileToScreen(user, next.x, next.y);
       this.lastAim = { tile: stepTile, point: stepPoint, running: false };
       await this.click(stepPoint, this.delay('attackClick'));
       return;
     }
-    this.lastAim = { tile: runTile, point, running: true };
-    this.holdRun(point);
+    this.lastAim = { tile: runAt.tile, point: runAt.point, running: true };
+    this.holdRun(runAt.point);
     const vk = this.teleportKey();
     if (vk !== null && straight >= 6 && now >= this.teleportReadyAt) {
       this.key(vk);
       this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
     }
+  }
+
+  /**
+   * The first spot from `first` tiles out (up to AIM_OUT_TILES) along the way `toward`
+   * goes that's on the game world and not on the character itself: the game's title says
+   * what's under the mouse, and a mounted character's sprite reaches a couple of tiles up.
+   */
+  private async clearOfMe(user: Point & { name?: string }, toward: (tiles: number) => Point, first: number, free: (p: Point) => boolean): Promise<{ tile: Point; point: Point } | null> {
+    const me = this.options.memory.latest()?.user?.name;
+    for (let tiles = first; tiles <= AIM_OUT_TILES; tiles++) {
+      const tile = toward(tiles);
+      const point = tileToScreen(user, tile.x, tile.y);
+      if (!free(point)) continue;
+      if (!me) return { tile, point };
+      this.input.mouseMove(this.hwnd, point.x, point.y);
+      await this.clock.wait(HOVER_SETTLE_MS);
+      if (mouseObjectName(this.input.windowTitle(this.hwnd)) !== me) return { tile, point };
+    }
+    return null;
   }
 
   // ---- Travel ----
