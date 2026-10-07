@@ -203,6 +203,24 @@ for (const r of read('RespawnInfo')) {
   bossSpawns.push([nameIndex(monster.MonsterName, monster), map.Index, at[0], at[1], r.Count || 1, r.Delay || 0, monster.IsBehemoth ? 3 : monster.IsBoss ? 2 : 1]);
 }
 
+// ---- Bosses summoned by kills: a global count of kills of some monsters that, at a number, spawns a boss by the player ----
+// Each as [boss (index into monsters), kills it takes, [the monsters whose kills count (indices into monsters)]].
+const bossEvents = [];
+{
+  const triggers = new Map();
+  for (const t of read('MonsterEventTrigger')) {
+    if (t.Type !== 'MonsterDie' || !t.Monster?.Index) continue;
+    (triggers.get(t.Event?.Index) ?? triggers.set(t.Event?.Index, []).get(t.Event?.Index)).push(t.Monster.Index);
+  }
+  for (const a of read('MonsterEventAction')) {
+    if (a.Type !== 'MonsterPlayerSpawn' || !a.MonsterParameter1?.Index || !a.TriggerValue) continue;
+    const boss = monsterInfo.get(a.MonsterParameter1.Index);
+    const killers = (triggers.get(a.Event?.Index) ?? []).map((i) => monsterInfo.get(i)).filter((m) => m?.MonsterName);
+    if (!boss?.MonsterName || !killers.length) continue;
+    bossEvents.push([nameIndex(boss.MonsterName, boss), a.TriggerValue, killers.map((m) => nameIndex(m.MonsterName, m))]);
+  }
+}
+
 // ---- Quests picked up from an NPC (the rest start by themselves on entering a map) ----
 // Each: who gives and takes it, the level and class it needs, the quests to have done first, its experience
 // reward, and its tasks: kill (or collect drops from) monsters, go somewhere, or talk to someone.
@@ -375,5 +393,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, bossSpawns, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, bossSpawns, bossEvents, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

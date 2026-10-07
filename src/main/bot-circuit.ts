@@ -10,8 +10,8 @@
 import type { CircuitView } from '../shared/types';
 import { loadTravelData, mapName, type TravelQuest } from './travel';
 import { RouteCosts } from './quest-planner';
-import { autoLevelsAbove } from './grind';
-import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks, type CircuitPlan, type CircuitStop } from './boss-planner';
+import { autoLevelsAbove, levelAllows } from './grind';
+import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks, summonFor, type CircuitPlan, type CircuitStop, type Summon } from './boss-planner';
 import type { MemoryState } from './game-memory';
 import { BotError, MEMORY_START_MS, Stopped } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -29,6 +29,9 @@ const HAND_IN_TRIES = 3;
 const FORGE_STONE = 'Forge Stone';
 
 const DEFAULTS = { quests: [1840], keepHunting: false, retreatHpPercent: 35 };
+
+/** Summoning a boss (killing what brings it) is given up after this long, and that boss left for the run. */
+const SUMMON_GIVE_UP_MS = 60 * 60_000;
 
 export class BossCircuit {
   constructor(private readonly bot: BotContext) {}
@@ -51,6 +54,8 @@ export class BossCircuit {
     /** When each spawn was last cleared or found empty, and the spawns left for this run. */
     const clearedAt = new Map<string, number>();
     const tooHard = new Set<string>();
+    /** Bosses summoned by kills that were given up on (too long, too hard, nowhere to summon them), for this run. */
+    const summonsGivenUp = new Set<string>();
     /** Quests the NPC didn't give, until when; hand-ins that didn't take. */
     const notOffered = new Map<number, number>();
     let handInFailures = 0;
@@ -122,11 +127,31 @@ export class BossCircuit {
       }
       const names = new Set(farming ? quests.flatMap((q) => questTasks(q, [])).map((t) => t.monster.toLowerCase()) : wanted);
       const spawns = bossSpawns(data, names).filter((s) => !farming || CIRCUIT.farmKinds.includes(s.kind));
-
-      // 4. The circuit from here, as far above the level as the character's fights say is safe.
       const fights = this.bot.options.grindLog.fights(user.name);
       const band = autoLevelsAbove(fights, this.bot.settings.grind.maxLevelsAbove, Date.now());
       const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
+
+      // A wanted boss with no spawn of its own comes when summoned (the Elite Bounties' behemoths): kill what brings it, by it.
+      const summon = farming ? null : summonFor(data, wanted.filter((n) => !spawns.some((s) => s.monster.toLowerCase() === n) && !summonsGivenUp.has(n)));
+      if (summon) {
+        const bossLevel = data.monsterStats?.[data.monsters!.indexOf(summon.boss)]?.[0] ?? 0;
+        const who = { map: map.index, level: user.level, cls: user.class, waypoints: unlocked };
+        const where = summon.maps.find(([m]) => {
+          const info = data.maps.find((x) => x.i === m);
+          return info && levelAllows(info, user.level!) && routes.steps(map.index, m, who) < Infinity;
+        });
+        if (bossLevel > user.level + band.levels || !where) {
+          summonsGivenUp.add(summon.boss.toLowerCase());
+          this.bot.status(`Skipping ${summon.boss}: ${!where ? 'nowhere to summon it' : `level ${bossLevel}: too strong for level ${user.level} yet`}`);
+          continue;
+        }
+        const result = await this.summonAt(summon, where[0], settings.retreatHpPercent);
+        if (result === 'danger') await this.bot.survival.retreat(`HP low fighting ${summon.boss}`);
+        if (result === 'danger' || result === 'timeout' || result === 'unreachable') summonsGivenUp.add(summon.boss.toLowerCase());
+        continue;
+      }
+
+      // 4. The circuit from here, as far above the level as the character's fights say is safe.
       const plan = planCircuit(data, spawns, { map: map.index, level: user.level, cls: user.class, waypoints: unlocked, maxLevelsAbove: band.levels }, {
         now, routes, clearedAt, tooHard, need: farming ? undefined : need,
       });
@@ -224,6 +249,47 @@ export class BossCircuit {
       if (why === 'done') this.bot.status(`Done with ${spawn.monster} (${mapName(data, spawn.map)})`);
       return why;
     });
+  }
+
+  /**
+   * Summons a boss that comes by kills: on `map`, kills the monsters that bring it (and it, once it's there) until
+   * the quest has it ('done'), or for SUMMON_GIVE_UP_MS ('timeout'), or the HP runs low against it ('danger').
+   */
+  private async summonAt(summon: Summon, map: number, retreatHpPercent: number): Promise<string> {
+    const memory = this.bot.options.memory;
+    const data = loadTravelData();
+    const boss = summon.boss.toLowerCase();
+    try {
+      this.bot.status(await this.bot.travel.travelTo(`map:${map}`));
+    } catch (error) {
+      if (error instanceof Stopped || !(error instanceof BotError)) throw error;
+      this.bot.status(`Couldn't get to ${mapName(data, map)} to summon ${summon.boss} (${error.message})`);
+      return 'unreachable';
+    }
+    const start = this.bot.clock.now();
+    this.bot.status(`Summoning ${summon.boss} at ${mapName(data, map)}: killing ${summon.killers.join(', ')} (it comes every ${summon.every} kills, counted for everyone, by whoever makes the last)`);
+    const why = await this.bot.hunting.huntLoop({
+      seek: true,
+      seekSpots: true,
+      only: [summon.boss, ...summon.killers],
+      breakOff: () => {
+        const reading = memory.latest();
+        const user = reading?.user;
+        if (user?.dead) return 'dead';
+        const low = user?.hp !== undefined && !!user.maxHp && (user.hp / user.maxHp) * 100 < retreatHpPercent;
+        return low && this.losing(reading!, boss) ? 'danger' : null;
+      },
+      stopWhen: () => {
+        const reading = memory.latest();
+        if (reading && this.left(reading, boss) <= 0) return 'done';
+        if (this.bot.survival.bagFull(reading)) return 'bag';
+        if (reading?.map && reading.map.index !== map) return 'left';
+        return this.bot.clock.now() - start > SUMMON_GIVE_UP_MS ? 'timeout' : null;
+      },
+    });
+    if (why === 'done') this.bot.status(`${summon.boss} done`);
+    if (why === 'timeout') this.bot.status(`No ${summon.boss} after ${SUMMON_GIVE_UP_MS / 60_000} minutes at ${mapName(data, map)}: left for this run`);
+    return why;
   }
 
   /** How many more of a monster the quests on the go want, by the quest targets now. */

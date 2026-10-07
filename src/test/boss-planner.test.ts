@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { test } from 'node:test';
-import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks } from '../main/boss-planner';
+import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks, summonFor } from '../main/boss-planner';
 import { RouteCosts } from '../main/quest-planner';
-import { loadTravelData, type TravelData, type TravelQuest } from '../main/travel';
+import { loadTravelData, mapName, type TravelData, type TravelQuest } from '../main/travel';
 
 const data = loadTravelData(path.join(__dirname, '..', '..', 'game-data', 'travel.json'));
 
@@ -120,4 +120,18 @@ test('the real Supply Hunt (Grade E): its ten sub-bosses, none on PvP or Warped 
   const plan = planCircuit(data, spawns, { map: CIRCUIT.arcadia, level: 50, maxLevelsAbove: 5 }, { now: NOW, routes: new RouteCosts(data), need: new Map([...names].map((n) => [n, 3])) });
   assert.deepEqual(new Set(plan.stops.map((s) => s.spawn.monster.toLowerCase())), names);
   assert.deepEqual(plan.skipped, []);
+});
+
+test("summonFor: the Elite Bounties' behemoths come by kills (no spawn of their own): what to kill, how many, and where", () => {
+  const kektal = summonFor(data, ['[behemoth] demonic kektal'])!;
+  assert.equal(kektal.boss, '[Behemoth] Demonic Kektal');
+  assert.equal(kektal.every, 25);
+  assert.deepEqual(kektal.killers, ['RedKektal']);
+  assert.equal(mapName(data, kektal.maps[0][0]), 'Flea Cave Lv 3');
+  const queen = summonFor(data, ['[behemoth] arachnid brood queen'])!;
+  assert.equal(queen.every, 1000);
+  assert.deepEqual(new Set(queen.killers), new Set(['Dark Arachnid', 'Spider Bat', 'Arachnid Gazer', 'Venomous Arachnid']));
+  assert.ok(queen.maps.some(([m]) => mapName(data, m) === 'Illusion Woods'));
+  // With a spawn of its own, a boss isn't summoned.
+  assert.equal(summonFor(data, ['zuma keeper']), null);
 });

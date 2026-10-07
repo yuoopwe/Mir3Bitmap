@@ -136,6 +136,11 @@ export interface TravelData {
    * respawn minutes (once killed), kind (1 sub-boss, 2 boss, 3 behemoth)].
    */
   bossSpawns?: [number, number, number, number, number, number, number][];
+  /**
+   * Bosses summoned by kills: a count (shared by every player) of kills of some monsters that, at a number, spawns the
+   * boss by whoever made the last one. As [boss (index into `monsters`), kills it takes, [those monsters (indices)]].
+   */
+  bossEvents?: [number, number, number[]][];
   /** Quests picked up from an NPC: giver and taker (NPC ids), level, class mask, quests to have done first, exp reward and tasks. */
   quests?: TravelQuest[];
   /** Where each quest task's region is, by region id: [map, x, y]. */

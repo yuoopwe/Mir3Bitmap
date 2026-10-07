@@ -180,6 +180,35 @@ export function planCircuit(
   return { stops, skipped };
 }
 
+/** A boss that comes only when summoned: kills of `killers` (lower-case names: `every` of them, counted for every player) bring it. */
+export interface Summon {
+  boss: string;
+  every: number;
+  killers: string[];
+  /** Maps where those monsters spawn, the most first, as [map, how many]. */
+  maps: [number, number][];
+}
+
+/** How the first of these bosses (lower-case names) that's summoned by kills comes, or null if none is. */
+export function summonFor(data: TravelData, names: readonly string[]): Summon | null {
+  for (const name of names) {
+    const event = (data.bossEvents ?? []).find(([boss]) => (data.monsters?.[boss] ?? '').toLowerCase() === name);
+    if (!event) continue;
+    const [boss, every, killers] = event;
+    const counts = new Map<number, number>();
+    for (const [map, spots] of Object.entries(data.spawns ?? {})) {
+      for (const [, , n, set] of spots) {
+        const list = data.spawnSets?.[set] ?? [];
+        const hits = list.filter((i) => killers.includes(i)).length;
+        if (hits) counts.set(Number(map), (counts.get(Number(map)) ?? 0) + (n * hits) / list.length);
+      }
+    }
+    const maps = [...counts].filter(([map]) => !CIRCUIT.excludedMaps.test(mapName(data, map))).sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    return { boss: data.monsters![boss], every, killers: killers.map((i) => data.monsters?.[i] ?? '').filter(Boolean), maps };
+  }
+  return null;
+}
+
 /** "Zuma Keeper at Zuma Temple Lv 5 (back in 6 min)". */
 export function describeStop(stop: CircuitStop, now: number): string {
   const wait = Math.ceil((stop.readyAt - now) / 60_000);

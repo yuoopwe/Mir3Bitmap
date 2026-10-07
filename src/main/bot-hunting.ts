@@ -108,8 +108,9 @@ export class Hunting {
   private minimapSelf: Point | null = null;
   /** Quests mode hunting: only quest monsters, whatever the Hunt setting. */
   private forceQuestOnly = false;
-  /** Boss circuit hunting: only these monsters (lower-case names), and no wandering off to look for them. */
+  /** Boss circuit hunting: only these monsters (lower-case names), and (unless onlySeekSpots) no wandering off to look for them. */
   private onlyNames: Set<string> | null = null;
+  private onlySeekSpots = false;
   /** Seeking from memory: where it's heading (a monster the game knows of, or a spawn spot), and the spots seen lately. */
   private seek: { kind: 'monster' | 'spot'; key: string; label: string; target: Point; map: number; since: number; path: Point[] | null; moved: { at: number; x: number; y: number } } | null = null;
   private readonly visitedSpots = new Map<string, number>();
@@ -128,15 +129,18 @@ export class Hunting {
    * Grind's options: `seek` overrides "Seek when idle"; once `stopWhen` gives a
    * reason, the fight going on is finished and the reason returned; once
    * `breakOff` gives one, it's returned straight away, mid-fight (to get away).
-   * `only`: just these monsters (by name), sought only where the game knows of them.
+   * `only`: just these monsters (by name), sought only where the game knows of them, or with `seekSpots` at their
+   * spawn spots on the map too.
    */
-  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; breakOff?: () => string | null; questOnly?: boolean; only?: string[] } = {}): Promise<string> {
+  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; breakOff?: () => string | null; questOnly?: boolean; only?: string[]; seekSpots?: boolean } = {}): Promise<string> {
     if (options.only) {
       this.onlyNames = new Set(options.only.map((n) => n.toLowerCase()));
+      this.onlySeekSpots = !!options.seekSpots;
       try {
         return await this.huntLoop({ ...options, only: undefined });
       } finally {
         this.onlyNames = null;
+        this.onlySeekSpots = false;
       }
     }
     if (options.questOnly) {
@@ -523,7 +527,7 @@ export class Hunting {
       goal = null;
     }
     // Only certain monsters (the Boss circuit, at their spawn): none known of, nowhere else to look.
-    if (!goal && this.onlyNames) return false;
+    if (!goal && this.onlyNames && !this.onlySeekSpots) return false;
     if (!goal) goal = this.pickSpawnSpot(map, here, skip, now, wanted);
     if (!goal) {
       // No spawn data for this map: explore instead.
