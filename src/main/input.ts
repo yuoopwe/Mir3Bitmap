@@ -28,6 +28,8 @@ export interface GameInput {
   rightUp(hwnd: Handle, x: number, y: number): void;
   leftDown(hwnd: Handle, x: number, y: number, flags?: number): void;
   leftUp(hwnd: Handle, x: number, y: number, flags?: number): void;
+  /** A double-click of the left button at (x, y), as the game sees one (its double-click message, not two clicks). */
+  doubleClick(hwnd: Handle, x: number, y: number): void;
   /** Turns the wheel over (x, y): down (positive) or up (negative). */
   mouseWheel(hwnd: Handle, x: number, y: number, notches: number): void;
 }

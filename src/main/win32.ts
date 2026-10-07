@@ -57,6 +57,7 @@ const WM_KEYDOWN = 0x0100;
 const WM_MOUSEMOVE = 0x0200;
 const WM_LBUTTONDOWN = 0x0201;
 const WM_LBUTTONUP = 0x0202;
+const WM_LBUTTONDBLCLK = 0x0203;
 const WM_KEYUP = 0x0101;
 const WM_RBUTTONDOWN = 0x0204;
 const WM_RBUTTONUP = 0x0205;
@@ -271,6 +272,15 @@ export function leftDown(hwnd: Handle, x: number, y: number, flags = 0): void {
 
 export function leftUp(hwnd: Handle, x: number, y: number, flags = 0): void {
   SendMessageW(hwnd, WM_LBUTTONUP, flags, pointParam(x, y));
+}
+
+/** A double-click as Windows delivers one: down, up, the double-click message (in place of the second down), up. */
+export function doubleClick(hwnd: Handle, x: number, y: number): void {
+  mouseMove(hwnd, x, y);
+  leftDown(hwnd, x, y);
+  leftUp(hwnd, x, y);
+  SendMessageW(hwnd, WM_LBUTTONDBLCLK, 0x0001, pointParam(x, y));
+  leftUp(hwnd, x, y);
 }
 
 /** Turns the mouse wheel over (x, y) in the window:  down (positive) or up (negative). */

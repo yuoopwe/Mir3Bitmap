@@ -7,7 +7,7 @@
  * call one another through it and never import each other.
  */
 
-import type { Delays, KeyId, Point, Settings, Status } from '../shared/types';
+import type { Delays, KeptItem, KeyId, Point, Settings, Status } from '../shared/types';
 import type { TriadMemory } from './triad-memory';
 import { GAME_HEIGHT, GAME_WIDTH, PLAYER, type Rect } from './layout';
 import type { NameBook } from './names';
@@ -29,6 +29,7 @@ import type { Grinding } from './bot-grind';
 import type { TripleTriad } from './bot-triad';
 import type { Gathering } from './bot-gathering';
 import type { GatherTrips } from './bot-gather-trips';
+import type { Looting } from './bot-loot';
 
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
@@ -80,6 +81,8 @@ export interface BotOptions {
   memory: MemorySource;
   /** Monster names seen so far, for the window's kill/skip list. */
   monsters?: (names: string[]) => void;
+  /** What the loot judge has kept out of sales, newest first, for the window's "Kept this run". */
+  kept?: (items: KeptItem[]) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
   /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */
@@ -127,6 +130,7 @@ export class BotContext {
   triad!: TripleTriad;
   gathering!: Gathering;
   gatherTrips!: GatherTrips;
+  loot!: Looting;
 
   constructor(
     public settings: Settings,

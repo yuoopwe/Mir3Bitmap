@@ -98,6 +98,8 @@ const monstersCount = element<HTMLSpanElement>('monsters-count');
 let skipMonsters: string[] = [];
 let monstersSeen: string[] = [];
 const activityLog = element<HTMLOListElement>('log');
+const keptList = element<HTMLOListElement>('kept');
+const equipUpgrades = element<HTMLInputElement>('equip-upgrades');
 /** The log fills the Stats & log tab, so it keeps plenty. */
 const LOG_LENGTH = 500;
 let lastLogged = '';
@@ -117,6 +119,7 @@ const STAT_ROWS: { label: string; hint?: string; show: (counts: StatCounts) => s
     { label: 'Monsters killed', hint: 'Targets that died while being attacked. Without the memory reader: targets gone from view.', show: (c) => count(c.kills) },
     { label: 'Items picked up', hint: 'With the memory reader: items in reach that were then gone. Without it: pick-up tries after kills.', show: (c) => count(c.items) },
     { label: 'Nodes gathered', show: (c) => count(c.gathered) },
+    { label: 'Items kept', hint: 'Bag items the loot judge locked and kept out of a sale: upgrades, and Legendary or rarer finds', show: (c) => count(c.kept) },
   ],
   [
     { label: 'Triple Triad played', show: (c) => count(c.triadPlayed) },
@@ -311,6 +314,7 @@ function readSettings(): Settings {
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
       townPortalKey: townPortalKey.value,
+      equipUpgrades: equipUpgrades.checked,
       unstuckKey: unstuckKey.value,
       randomTeleportKey: randomKey.value,
       hpPotionKey: hpKey.value,
@@ -365,6 +369,7 @@ function applySettings(settings: Partial<Settings>): void {
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
     townPortalKey.value = hunt.townPortalKey ?? '3';
+    equipUpgrades.checked = hunt.equipUpgrades ?? false;
     unstuckKey.value = hunt.unstuckKey ?? 'F2';
     randomKey.value = hunt.randomTeleportKey ?? '1';
     hpKey.value = hunt.hpPotionKey;
@@ -516,6 +521,24 @@ function logActivity(message: string, mode: Status['mode']): void {
   while (activityLog.children.length > LOG_LENGTH) activityLog.lastElementChild?.remove();
 }
 
+/** What the loot judge kept, newest first: the name, its rarity, and why. */
+function showKept(items: KeptItem[]): void {
+  keptList.replaceChildren(
+    ...items.map((item) => {
+      const entry = document.createElement('li');
+      entry.title = `Kept at ${new Date(item.at).toLocaleTimeString()}`;
+      const cells = [item.name, item.rarity, item.reason].map((text, i) => {
+        const span = document.createElement('span');
+        span.className = ['kept-name', 'kept-rarity', 'kept-reason'][i];
+        span.textContent = text;
+        return span;
+      });
+      entry.append(...cells);
+      return entry;
+    }),
+  );
+}
+
 /** "45s", "12m 05s", "1h 05m": seconds stop mattering after the first hour. */
 function duration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -624,6 +647,7 @@ async function init(): Promise<void> {
   statsResetButton.addEventListener('click', () => void window.bot.resetStats().then(showStats));
   setInterval(renderStats, 1000);
   window.bot.onNames(showNames);
+  window.bot.onKept(showKept);
   window.bot.onMonsters((names) => {
     monstersSeen = names;
     showMonsters();

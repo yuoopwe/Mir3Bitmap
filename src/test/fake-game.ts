@@ -10,7 +10,9 @@
  * window, quests, a shop (sold in rounds, from the bag window's Main tab),
  * death, Return to Arcadia (only out of combat, and back again from Arcadia),
  * the Town Portal scroll, the mount, a bag, gathering nodes and the profession
- * levels (read only once the Professions window has been opened). Time is virtual: every wait jumps ahead, so a
+ * levels (read only once the Professions window has been opened), and gear:
+ * what's worn and the bag's wearable items, with cells while the bag is open,
+ * the lock key over a cell, and a double-click on one to put it on. Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
  * tests to check.
  */
@@ -20,6 +22,8 @@ import { VK, type GameInput, type Handle } from '../main/input';
 import { GAME_HEIGHT, GAME_WIDTH } from '../main/layout';
 import { isWall, type MapGrid } from '../main/map-grid';
 import { classFlagOf, loadTravelData, type TravelData, type TravelQuest } from '../main/travel';
+import { ITEM_SLOTS } from '../main/loot-judge';
+import type { MemoryItem } from '../main/game-memory';
 
 /** A run moves a stride (2 tiles, 3 mounted) this often; a click's step takes STEP_MS. Positions change when a move starts. */
 export const STRIDE_MS = 650;
@@ -74,7 +78,10 @@ export type FakeEvent =
   /** A monster hit the player. */
   | { t: number; type: 'hurt'; name: string; damage: number; hp: number }
   /** A node clicked next to the player: refused (too low a level, or no tool), or picked (once the pick is done). */
-  | { t: number; type: 'gather'; node: number; map: number; refused: boolean };
+  | { t: number; type: 'gather'; node: number; map: number; refused: boolean }
+  /** The lock key over a bag item's cell (locked: how it is now), and an item put on by a double-click. */
+  | { t: number; type: 'lock'; name: string; locked: boolean }
+  | { t: number; type: 'equip'; name: string; slot: number };
 
 export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal';
 
@@ -122,6 +129,9 @@ export interface FakeNode {
   level?: number;
 }
 
+/** A worn or bag item: its name, Library.ItemType and slot (Library.EquipmentSlot worn, else the bag slot); the rest as MemoryItem, defaulting to a Common item anyone of level 1 can wear. */
+export type FakeItem = Partial<MemoryItem> & { name: string; type: number; slot: number };
+
 export interface FakeGameSetup {
   data?: TravelData;
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
@@ -160,6 +170,11 @@ export interface FakeGameSetup {
   nodes?: FakeNode[];
   /** No gathering tool in the Toolbelt: every pick is refused. */
   noTool?: boolean;
+  /** What's worn, and the wearable items in the bag (counted in `bag.used` like any other). */
+  gear?: { worn?: FakeItem[]; bag?: FakeItem[] };
+  /** The lock key (Scroll Lock over a bag cell) does nothing; a double-click on a bag item doesn't put it on. */
+  lockFails?: boolean;
+  equipFails?: boolean;
 }
 
 interface Monster extends MemoryObject {
@@ -257,6 +272,10 @@ export class FakeGame {
   private readonly professionExp = new Map<number, number>();
   private professionsLoaded: boolean;
   private readonly professionsNeverLoad: boolean;
+  /** What's worn (slot: EquipmentSlot) and the bag's wearable items (slot: bag slot). */
+  readonly gear: { worn: MemoryItem[]; bag: MemoryItem[] };
+  private readonly lockFails: boolean;
+  private readonly equipFails: boolean;
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -314,6 +333,12 @@ export class FakeGame {
     for (const [id, level] of Object.entries(setup.professions?.levels ?? {})) this.professionLevels.set(Number(id), level);
     this.professionsLoaded = !!setup.professions?.loaded;
     this.professionsNeverLoad = !!setup.professions?.neverLoads;
+    const item = (i: FakeItem): MemoryItem => ({
+      rarity: 0, lootLevel: 0, cls: 255, needs: 0, needsAmount: 1, flags: 0, canSell: true, durability: 100, maxDurability: 100, base: {}, added: {}, ...i,
+    });
+    this.gear = { worn: (setup.gear?.worn ?? []).map(item), bag: (setup.gear?.bag ?? []).map(item) };
+    this.lockFails = !!setup.lockFails;
+    this.equipFails = !!setup.equipFails;
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
@@ -367,6 +392,7 @@ export class FakeGame {
       leftDown: () => game.leftClick(),
       leftUp: () => {},
       mouseWheel: (_hwnd, x, y, notches) => game.wheel(x, y, notches),
+      doubleClick: (_hwnd, x, y) => game.doubleClick(x, y),
     };
     this.memory = {
       installed: true,
@@ -636,6 +662,7 @@ export class FakeGame {
       this.keysDown.add(vk);
       if (vk === VK.ESCAPE) this.escape();
       if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
+      if (vk === LOCK_KEY) this.toggleLock();
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
       if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
@@ -833,7 +860,9 @@ export class FakeGame {
     if (reading.sell) {
       // Select All picks from the bag window's open tab (nothing with the bag shut), as many as the panel holds.
       out.push(['Select All', reading.sell.selectAll, () => {
-        const sellable = this.bagWindow.open && this.bagWindow.section === 0 ? Math.max(0, this.bag.used - KEPT_ITEMS) : 0;
+        // Locked items (and those that can't be sold) are left.
+        const left = KEPT_ITEMS + this.gear.bag.filter((i) => !this.sellable(i)).length;
+        const sellable = this.bagWindow.open && this.bagWindow.section === 0 ? Math.max(0, this.bag.used - left) : 0;
         this.selected = Math.min(this.sellPerRound, sellable);
       }]);
       out.push(['Sell', reading.sell.sell, () => (this.sellConfirm ? (this.confirming = true) : this.sold())]);
@@ -856,8 +885,57 @@ export class FakeGame {
     if (!this.selected) return;
     this.events.push({ t: this.t, type: 'sold', items: this.selected });
     this.bag.used -= this.selected;
+    // The gear among them goes first.
+    for (let n = 0; n < this.selected; n++) {
+      const i = this.gear.bag.findIndex((item) => this.sellable(item));
+      if (i < 0) break;
+      this.gear.bag.splice(i, 1);
+    }
     this.bag.refuse = false;
     this.selected = 0;
+  }
+
+  private sellable(item: MemoryItem): boolean {
+    return item.canSell && !(item.flags & 1);
+  }
+
+  /** Where a bag item's cell is, while the bag shows its Main tab: 8 to a row. */
+  private cellOf(item: MemoryItem): MemoryItem['cell'] {
+    if (!this.bagWindow.open || this.bagWindow.section !== 0) return undefined;
+    return { x: BAG_BOX.x + 10 + (item.slot % 8) * 36, y: BAG_BOX.y + 40 + Math.floor(item.slot / 8) * 36, width: 34, height: 34 };
+  }
+
+  private bagItemAt(point: { x: number; y: number }): MemoryItem | undefined {
+    return this.gear.bag.find((i) => {
+      const cell = this.cellOf(i);
+      return !!cell && inside(point, cell);
+    });
+  }
+
+  /** The lock key: locks (or unlocks) the bag item under the mouse. */
+  private toggleLock(): void {
+    const item = this.bagItemAt(this.cursor);
+    if (!item || this.lockFails) return;
+    item.flags ^= 1;
+    this.events.push({ t: this.t, type: 'lock', name: item.name, locked: !!(item.flags & 1) });
+  }
+
+  /** A double-click on a bag item puts it on: in an empty place for it, else the first; what was there goes to its bag slot. */
+  private doubleClick(x: number, y: number): void {
+    this.update();
+    this.cursor = { x, y };
+    const item = this.bagItemAt(this.cursor);
+    const slots = item && ITEM_SLOTS[item.type];
+    if (!item || !slots || this.equipFails) return;
+    const slot = slots.find((s) => !this.gear.worn.some((w) => w.slot === s)) ?? slots[0];
+    const old = this.gear.worn.find((w) => w.slot === slot);
+    this.gear.bag.splice(this.gear.bag.indexOf(item), 1);
+    if (old) {
+      this.gear.worn.splice(this.gear.worn.indexOf(old), 1);
+      this.gear.bag.push({ ...old, slot: item.slot });
+    }
+    this.gear.worn.push({ ...item, slot });
+    this.events.push({ t: this.t, type: 'equip', name: item.name, slot });
   }
 
   private windowBoxes(): { x: number; y: number; width: number; height: number; name: string }[] {
@@ -1053,6 +1131,7 @@ export class FakeGame {
       questLog: [...this.quests].map(([name, q]) => ({ name, completed: q.completed, ready: q.completed || this.isReady(q) })),
       questPending: { regions, talks },
       survival: this.survival(),
+      gear: { worn: this.gear.worn.map((i) => ({ ...i })), bag: this.gear.bag.map((i) => ({ ...i, cell: this.cellOf(i) })) },
       professions: this.professionsLoaded
         ? PROFESSION_NAMES.map((name, i) => {
             const level = this.profession(i + 1);
@@ -1089,8 +1168,10 @@ export class FakeGame {
 
 /** The shopkeeper Grind and Quests sell to (Ludvik, in Arcadia). */
 const SHOP_NPC = 145;
-/** Items Select All leaves (kept, or can't be sold). */
+/** Items Select All leaves (kept, or can't be sold), besides locked gear. */
 const KEPT_ITEMS = 2;
+/** The game's ToggleItemLock key (Scroll Lock). */
+const LOCK_KEY = 0x91;
 const WAYPOINT_ROWS = 10;
 const WAYPOINT_BOX = { x: 450, y: 120, width: 600, height: 460 };
 const QUEST_BOX = { x: 300, y: 120, width: 400, height: 500 };

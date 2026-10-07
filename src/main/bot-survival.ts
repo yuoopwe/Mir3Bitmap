@@ -40,6 +40,9 @@ const INVENTORY_KEY = 0x57;
 /** At most this many Select All / Sell rounds (the sell panel holds only so many items at a time). */
 const SELL_ROUNDS = 20;
 
+/** A trip that couldn't sell (something to keep couldn't be locked): the bag doesn't count as full for this long after. */
+const SELL_PAUSE_MS = 10 * 60_000;
+
 /** This many items in a row that wouldn't pick up count as a full bag... */
 const LOOT_REFUSED_FULL = 3;
 /** ...counting only items this close (further off, it may just be out of reach)... */
@@ -81,6 +84,8 @@ export class Survival {
   private mapBottomRight: Point | null = null;
   /** Items given up on in a row (they wouldn't pick up); reset by one that does, and by selling. */
   lootRefused = 0;
+  /** Until when a full bag is let be, after a trip that couldn't sell. */
+  private sellPausedUntil = 0;
 
   constructor(private readonly bot: BotContext) {}
 
@@ -93,6 +98,8 @@ export class Survival {
   bagFull(reading: MemoryState | null | undefined): boolean {
     const bag = reading?.survival?.bag;
     if (!bag || bag.slots <= 0) return false;
+    // The last trip couldn't sell: hunting goes on for a while, picking up what still fits, before trying again.
+    if (this.bot.clock.now() < this.sellPausedUntil) return false;
     const freeSlots = bag.slots - bag.used;
     const weightPercent = bag.maxWeight > 0 ? (bag.weight / bag.maxWeight) * 100 : 0;
     // Items at the feet that won't pick up, one after another, in a bag already well filled: the game thinks it's full whatever the count says.
@@ -204,8 +211,13 @@ export class Survival {
     await this.bot.travel.travelTo(`npc:${SELL_NPC.id}`);
     const sold = await this.sellAtShop(SELL_NPC.name);
     this.lootRefused = 0;
-    if (this.bagFull(this.bot.options.memory.latest())) throw new BotError(`Sold ${sold} items, but the bag is still full (the rest are kept or can't be sold).`);
-    this.bot.status(`Sold ${sold} items; back to it`);
+    if (sold === null) {
+      this.sellPausedUntil = this.bot.clock.now() + SELL_PAUSE_MS;
+      this.bot.status(`Nothing sold; back to it (trying again in ${SELL_PAUSE_MS / 60_000} minutes)`);
+    } else {
+      if (this.bagFull(this.bot.options.memory.latest())) throw new BotError(`Sold ${sold} items, but the bag is still full (the rest are kept or can't be sold).`);
+      this.bot.status(`Sold ${sold} items; back to it`);
+    }
     // In Arcadia the same button sends you back to where you left (else the caller plans the way back).
     if (from === undefined || from === ARCADIA_MAP) return;
     const memory = this.bot.options.memory;
@@ -220,11 +232,13 @@ export class Survival {
 
   /**
    * At a shopkeeper: clicks them to open the shop, makes sure the bag shows its
-   * Main tab (so Select All never picks potions), presses Select All then Sell
-   * (and Yes on any "are you sure?"), and closes the shop. Returns how many bag
-   * slots it emptied.
+   * Main tab (so Select All never picks potions), locks what the loot judge
+   * says to keep (bot-loot.ts), presses Select All then Sell (and Yes on any
+   * "are you sure?"), and closes the shop; then puts on clear upgrades, if
+   * asked. Returns how many bag slots it emptied, or null when it sold nothing
+   * because something to keep couldn't be locked.
    */
-  private async sellAtShop(npcName: string): Promise<number> {
+  private async sellAtShop(npcName: string): Promise<number | null> {
     const memory = this.bot.options.memory;
     const sellPanel = () => memory.latest()?.survival?.sell;
     const waitFor = async (ok: () => boolean, ms: number) => {
@@ -262,8 +276,11 @@ export class Survival {
     }
     if (memory.latest()?.survival?.inventory?.section !== 0) throw new BotError("Couldn't switch the bag to its Main tab to sell from.");
 
+    // Upgrades and rare finds locked first (Select All leaves locked items): one that won't lock calls the sale off.
+    const unprotected = await this.bot.loot.protectKeepers();
+    if (unprotected) this.bot.status(`Couldn't protect ${unprotected}: not selling`);
     // The sell panel holds only so many: Select All and Sell again until nothing more is picked, or the bag stops emptying.
-    for (let round = 0; round < SELL_ROUNDS; round++) {
+    for (let round = 0; round < SELL_ROUNDS && !unprotected; round++) {
       const selectAll = sellPanel()?.selectAll;
       if (!selectAll?.enabled) {
         if (round === 0) throw new BotError("The shop's Select All button isn't there.");
@@ -284,9 +301,11 @@ export class Survival {
     }
     const after = memory.latest()?.survival?.bag?.used ?? before;
     await this.closeShop();
+    // With the shop shut (a click on an item with it open could offer it for sale), in town and out of combat.
+    if (this.bot.settings.hunt.equipUpgrades) await this.bot.loot.equipUpgrades();
     // Put the bag away again if it was opened for this.
     if (!bagWasOpen && memory.latest()?.survival?.inventory?.open) this.bot.key(INVENTORY_KEY);
-    return Math.max(0, before - after);
+    return unprotected ? null : Math.max(0, before - after);
   }
 
   /** Closes the shop: its close button, else Escape. */

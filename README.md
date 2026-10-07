@@ -82,6 +82,26 @@ monsters spawn (from the game's spawn data in `game-data/travel.json`) that it h
 working its way round the map; failing that, to unexplored ground. Monsters you've unticked don't count. It leaves
 alone monsters it can't walk to (walled off), and gives up on a target after 6 s of neither getting any closer.
 
+### Keeping upgrades out of the sale
+
+Selling with the memory reader (Grind, Quests, Gather trips, and Hunt with "Sell items") uses Ludvik's Select All,
+which would take everything on the bag's Main tab. So first, with the bag open, the loot judge
+(`src/main/loot-judge.ts`) looks at every wearable bag item: its own stats and what it rolled on top, weighted for
+your class (DC for Warriors, MC for Wizards, SC for Taoists... all in one table, `LOOT.weights`, min/max pairs at
+their average), against what you wear where it would go (for rings and bracelets, the weaker of the two). Items you
+can wear (class, level, a stat requirement against your stats) that beat it by 5%, or go where nothing is worn, are
+upgrades; those and anything Legendary or rarer are kept. Each is locked in game (Scroll Lock, the game's
+ToggleItemLock key, with the mouse over its bag cell), and the lock is checked in the game's memory: one that doesn't
+lock within a couple of seconds (or isn't showing in the bag) calls the sale off for that trip ("Couldn't protect X:
+not selling"); the full bag is then let be for 10 minutes while hunting goes on. Locked items stay locked: unlock them
+in game to sell them. What was kept, and why, is listed under "Kept this run" on the Stats & log tab (since the app
+started or the session was reset), and counted with the stats.
+
+"Put on clear upgrades" (Grind tab, Selling; off unless ticked) then, with the shop shut, double-clicks each bag item
+15% better than what's worn, best first, and checks that what's worn changed (giving up on the first that doesn't).
+Never one that's worn out, or that you can't wear yet. Whether Scroll Lock over a cell locks it, Select All leaves
+locked items, and a double-click puts an item on aren't confirmed in game yet; each is checked as it's done.
+
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and
@@ -239,6 +259,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/map-grid.ts`, `map-explorer.ts`, `map-path.ts` – the map from memory, exploring it, walking paths
 - `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
 - `src/main/gather-planner.ts` – where to gather for the profession levels
+- `src/main/loot-judge.ts` – whether a bag item is an upgrade for the class, or rare enough to keep
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses
@@ -251,4 +272,5 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
   - `bot-triad.ts` – Triple Triad and Best deck
   - `bot-gathering.ts` – Gather and Train
   - `bot-gather-trips.ts` – Gathering trips: reading the profession levels, going to the best spot, gathering there
+  - `bot-loot.ts` – at the shop: locking what the loot judge keeps, putting on clear upgrades
 - `src/renderer/` – the control window

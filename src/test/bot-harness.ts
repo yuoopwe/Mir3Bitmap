@@ -3,7 +3,7 @@
  * scenario tests: the settings the app starts with (fuzz off, so waits are
  * exact), a seeded Math.random, and a run with a time limit in game time.
  */
-import type { KeyId, Settings, Status } from '../shared/types';
+import type { KeptItem, KeyId, Settings, Status } from '../shared/types';
 import { Bot } from '../main/bot';
 import { GrindLog } from '../main/grind-log';
 import { NameBook } from '../main/names';
@@ -63,6 +63,8 @@ export interface Played {
   bot: Bot;
   /** Grind's measurements the run kept (stints, kills, deaths). */
   grindLog: GrindLog;
+  /** What the loot judge kept out of sales, as the window's "Kept this run" shows it. */
+  kept: KeptItem[];
 }
 
 /**
@@ -77,6 +79,7 @@ export async function play(
 ): Promise<Played> {
   const statuses: Status[] = [];
   const grindLog = options.grindLog ?? new GrindLog(() => {});
+  let kept: KeptItem[] = [];
   const bot = new Bot(testSettings(options.settings), {
     report: (status) => statuses.push(status),
     names: new NameBook(() => {}),
@@ -86,6 +89,7 @@ export async function play(
     input: game.input,
     clock: game.clock,
     grindLog,
+    kept: (items) => (kept = [...items]),
   });
   const random = Math.random;
   Math.random = seeded(options.seed ?? 1);
@@ -109,5 +113,5 @@ export async function play(
   } finally {
     Math.random = random;
   }
-  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot, grindLog };
+  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot, grindLog, kept };
 }
