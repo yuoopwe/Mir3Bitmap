@@ -49,6 +49,11 @@ const KILL_FLOOR_CLICKS = 3;
  */
 const LOOT_DETOUR_TILES = 6;
 
+/** Walking to an item: standing still this long (blocked, however the map looks) gives up on it... */
+const LOOT_STUCK_MS = 2500;
+/** ...and one that can't be walked to at all (over a wall) is left this long. */
+const LOOT_UNREACHABLE_SKIP_MS = 5 * 60_000;
+
 /** Clicking one target this long without it going, or (with the game's memory) without damage landing on it, means it can't be reached (or isn't a monster): skip it for a while. */
 const TARGET_GIVE_UP_MS = 20_000;
 
@@ -72,6 +77,13 @@ const DETOUR_STEPS = 4;
 const MOVED_THRESHOLD = 4;
 
 /** Something to attack: where to click, and a key to recognise it by from one look to the next. */
+/** An item being walked to, since when, and where the character last moved and when. */
+interface LootWalk {
+  key: string;
+  since: number;
+  moved: { at: number; x: number; y: number };
+}
+
 interface LootTarget {
   key: string;
   /** Tiles from the character (the larger of across and down). */
@@ -160,7 +172,8 @@ export class Hunting {
     let misses = 0;
     const skipped = new Map<string, number>();
     let nextFloorAt = 0;
-    let walkingTo: { key: string; since: number } | null = null;
+    /** The item being walked to, since when, and where the character last moved and when. */
+    let walkingTo: LootWalk | null = null;
     /** Items within reach, and when each was first seen there. */
     const inReachSince = new Map<string, number>();
     let nextItemClickAt = 0;
@@ -277,24 +290,52 @@ export class Hunting {
           nextItemClickAt = this.bot.clock.now() + ITEM_CLICK_EVERY_MS;
           this.bot.statusEvery(`Picking up ${inReachSince.size} item${inReachSince.size === 1 ? '' : 's'}`);
         }
-        // Between monsters (or with none about), walk towards the nearest item out of reach.
-        const far = items
-          .filter((i) => i.distance > reach && this.bot.clickable(i.point) && (live.length === 0 || i.distance <= reach + LOOT_DETOUR_TILES))
-          .sort((a, b) => a.distance - b.distance);
+        // Between monsters (or with none about), walk to the nearest item out of reach: by the way round the walls (the
+        // walking distances worked out for the monsters), leaving out any that can't be walked to at all.
+        const user = memory.user!;
+        const map = this.bot.options.memory.map();
+        // (Set in memoryTargets this round; the cast undoes TypeScript narrowing it to the null it was reset to.)
+        const hunted = this.huntDist as Hunting['huntDist'];
+        const dist = map && hunted?.map === map.index ? hunted.dist : null;
+        const way = new Map<string, { tile: Point; steps: number }>();
+        const far = items.filter((i) => {
+          if (i.distance <= reach) return false;
+          if (map && dist) {
+            const near = nearestApproach(map, dist, [i.at]);
+            if (!near) {
+              skipped.set(i.key, now + LOOT_UNREACHABLE_SKIP_MS);
+              return false;
+            }
+            way.set(i.key, near);
+          }
+          const steps = way.get(i.key)?.steps ?? i.distance;
+          return live.length === 0 || steps <= reach + LOOT_DETOUR_TILES;
+        });
+        far.sort((a, b) => (way.get(a.key)?.steps ?? a.distance) - (way.get(b.key)?.steps ?? b.distance));
         const walk = !target && inReachSince.size === 0 ? (far.find((i) => i.key === walkingTo?.key) ?? far[0]) : undefined;
         if (walk) {
-          const since: number = walkingTo && walkingTo.key === walk.key ? walkingTo.since : now;
-          walkingTo = { key: walk.key, since };
-          if (now - since > LOOT_WALK_GIVE_UP_MS) {
+          const here = { at: now, x: user.x, y: user.y };
+          let going = walkingTo as LootWalk | null;
+          if (going?.key !== walk.key) going = { key: walk.key, since: now, moved: here };
+          else if (user.x !== going.moved.x || user.y !== going.moved.y) going.moved = here;
+          walkingTo = going;
+          // Not getting there (too long), or not moving at all (blocked): leave it.
+          if (now - going.since > LOOT_WALK_GIVE_UP_MS || now - going.moved.at > LOOT_STUCK_MS) {
             skipped.set(walk.key, now + LOOT_SKIP_MS);
             walkingTo = null;
             continue;
           }
           this.bot.releaseHold();
-          this.bot.stopRunning();
-          await this.bot.click(walk.point, this.bot.delay('pickUpClick'));
+          const near = way.get(walk.key);
+          if (map && dist && near) {
+            const path = pathBack(map, dist, near.tile);
+            if (path.length >= 2) await this.bot.moves.driveAlong({ x: user.x, y: user.y }, path, now);
+          } else if (this.bot.clickable(walk.point)) {
+            this.bot.stopRunning();
+            await this.bot.click(walk.point, this.bot.delay('pickUpClick'));
+          }
           await this.bot.sleep(this.bot.delay('runStep'));
-          this.bot.statusEvery(`Walking to an item ${walk.distance} tiles away`);
+          this.bot.statusEvery(`Walking to an item ${near?.steps ?? walk.distance} steps away`);
           continue;
         }
         walkingTo = null;

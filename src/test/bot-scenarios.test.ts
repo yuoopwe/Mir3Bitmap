@@ -184,6 +184,37 @@ test('Quests: "[Afflicted]" monsters (the game tags some) count as the ones the 
   checkAlways(game);
 });
 
+/** Open ground round (x, y) on Bichon, with a wall across at `wallX` from y - 20 to y + 20 (and, with `gapAt`, a gap there): for items behind walls. */
+function bichonWithWall(x: number, y: number, wallX: number, options: { gapAt?: number; box?: { x: number; y: number } } = {}) {
+  const map = openMap(BICHON, 'Bichon Province', bichon.map.width, bichon.map.height);
+  const walls = new Uint8Array(map.walls);
+  const wall = (wx: number, wy: number) => (walls[(wy * map.width + wx) >> 3] |= 1 << ((wy * map.width + wx) & 7));
+  for (let wy = y - 20; wy <= y + 20; wy++) if (wy !== options.gapAt) wall(wallX, wy);
+  // A ring of wall round a tile: nothing gets in.
+  if (options.box) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (dx || dy) wall(options.box.x + dx, options.box.y + dy);
+  return { ...map, walls };
+}
+
+test('Loot: an item walled off (over a wall, no way round) is left alone straight away, not walked at', async () => {
+  const { x, y } = bichon.player;
+  const item = { x: x + 10, y };
+  const map = bichonWithWall(x, y, x + 30, { box: item });
+  const game = new FakeGame({ maps: [map], items: [{ name: 'Gold Ring', ...item }], player: { map: BICHON, x, y, level: 24, pickUpRadius: 1 } });
+  const { statuses } = await play(game, (bot) => bot.startAttack(), { settings: { hunt: { ...testSettings().hunt, loot: true } }, until: () => false, limitMs: 30_000 });
+  assert.ok(!statuses.some((st) => /Walking to an item/.test(st.message)), statuses.map((st) => st.message).join(' | '));
+  assert.deepEqual(of(game, 'move'), []);
+});
+
+test('Loot: an item behind a wall with a way round is walked to round it and picked up', async () => {
+  const { x, y } = bichon.player;
+  // The wall between, with its gap 10 tiles down: the item 8 across, about 20 steps round.
+  const map = bichonWithWall(x, y, x + 4, { gapAt: y + 10 });
+  const game = new FakeGame({ maps: [map], items: [{ name: 'Gold Ring', x: x + 8, y }], player: { map: BICHON, x, y, level: 24, pickUpRadius: 1 } });
+  const { met } = await play(game, (bot) => bot.startAttack(), { settings: { hunt: { ...testSettings().hunt, loot: true } }, until: () => of(game, 'pickup').some((p) => p.items > 0 && !p.refused), limitMs: 2 * 60_000 });
+  assert.ok(met, 'picked up');
+  checkAlways(game);
+});
+
 /** Chickens about the player on Bichon Province, for a level 1 to grind on. */
 function grindOnBichon(setup: Partial<FakeGameSetup> = {}): FakeGame {
   const { x, y } = bichon.player;
