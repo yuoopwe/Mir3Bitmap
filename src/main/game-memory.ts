@@ -23,6 +23,12 @@ export interface MemoryObject {
   pet: boolean;
   /** Library.CombatTargetDisposition: 4 = hostile (can be attacked); guards read 0. */
   disposition?: number | null;
+  /**
+   * Monsters: the most health it has (its Health stat), and hp, the damage the client has seen land on it,
+   * as 0 going negative (the client isn't told a monster's real health: -300 means 300 damage taken so far).
+   */
+  maxHp?: number | null;
+  hp?: number | null;
   /** Gathering nodes: which node it is (GatheringNodeInfo index), whether it's ore (else a plant), and whether it's been picked. */
   node?: number;
   mining?: boolean;
@@ -126,7 +132,13 @@ export interface MemoryState {
   collection?: MemoryCollection | null;
   reason?: string;
   /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat); class is Library.MirClass; mounted: riding (its horse isn't None). */
-  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; combatAgo?: number | null; experience?: number | null; maxExperience?: number | null };
+  user?: {
+    name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; combatAgo?: number | null; experience?: number | null; maxExperience?: number | null;
+    /** Health now and at most. */
+    hp?: number; maxHp?: number;
+    /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */
+    combat?: { minAC: number; maxAC: number; minMR: number; maxMR: number; minDC: number; maxDC: number; minMC: number; maxMC: number; minSC: number; maxSC: number; accuracy: number; agility: number; attackSpeed: number } | null;
+  };
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;

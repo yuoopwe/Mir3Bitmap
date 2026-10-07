@@ -27,6 +27,10 @@ function Write-State($state) {
 # Library.Stat.PickUpRadius: how far (in tiles) clicking at the feet picks things up.
 $PickUpRadius = 40
 
+# Library.Stat numbers for health and the stats that decide how fast the character kills and how much it takes.
+$HealthStat = 2
+$CombatStats = @{ minAC = 4; maxAC = 5; minMR = 6; maxMR = 7; minDC = 8; maxDC = 9; minMC = 10; maxMC = 11; minSC = 12; maxSC = 13; accuracy = 14; agility = 15; attackSpeed = 16 }
+
 # One of the player's stats: Stats.Values is a SortedDictionary, i.e. a binary search tree keyed by stat number.
 function Read-Stat($userObject, [int]$stat) {
   $stats = $userObject.ReadObjectField('_Stats')
@@ -572,7 +576,7 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{
@@ -582,6 +586,12 @@ while ($true) {
             # Library.CombatTargetDisposition: 4 Hostile (can be attacked); guards and the like are something else.
             disposition = $(try { [int]$o.ReadField[byte]('<CombatDisposition>k__BackingField') } catch { $null })
           })
+          if ($kind -eq 'monster') {
+            # Health: the most it has (its Health stat), and the damage seen land on it, as 0 going negative (the client isn't told its real health).
+            $monster = $objects[$objects.Count - 1]
+            $monster.maxHp = $(try { Read-Stat $o $HealthStat } catch { $null })
+            $monster.hp = $(try { $o.ReadField[int]('<CurrentHP>k__BackingField') } catch { $null })
+          }
           if ($kind -eq 'node') {
             # Gathering nodes: which node it is (GatheringNodeInfo), plant (0) or ore (1), and whether it's been picked.
             $node = $objects[$objects.Count - 1]
