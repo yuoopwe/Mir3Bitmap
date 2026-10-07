@@ -12,6 +12,10 @@ npm install
 npm start
 ```
 
+The window has a tab for each mode (Hunt, Explore, Travel, Gather, Triple Triad, Train), each with its Start button
+and that mode's settings, and shared tabs: Keys & potions (spell keys, potions, timing), Monsters, Stats & log, and
+General (the game window, capture, pausing). The status, HP and MP, and Stop stay along the bottom.
+
 `npm test` runs the detection tests against real screenshots in `src/test/`.
 
 `npm run ui-harness` writes `dist/ui-harness/index.html` and prints its address: the control window with a
@@ -36,7 +40,7 @@ Kept simple on purpose:
 2. **Click the nearest name, and keep clicking it until it's gone**, then the next nearest. With "Archer" the left
    button is held down on it instead. Spell keys (F1 every round, the others on their timers) are pressed as it goes.
 3. A target still there after 20 seconds (out of reach, or not really a monster) is skipped for 30 seconds.
-   Names set to "Never attack" in the "Names seen" list are skipped.
+   Names set to "Never attack" under "Names seen on screen" (Monsters tab) are skipped.
 4. With "Pick up items", **click the ground at the character's feet**, which picks up everything within the
    character's pick-up radius. With the memory reader the bot reads that radius (the PickUpRadius stat) and where
    every item lies, so it clicks the moment an item drops within reach, and only walks towards items beyond it
@@ -53,7 +57,7 @@ With the memory reader set up, Hunt knows exactly where every monster is instead
 `game-reader/reader.ps1` attaches read-only to the running game (Microsoft's ClrMD) and streams the objects
 around the player (monsters with their names, map tiles and dead/alive, items on the ground, pets) a few times a
 second. Hunt then clicks the nearest live monster's tile (not anyone's pet), and lists every monster it has seen
-under "Monsters to hunt": untick one to leave it alone. Without the reader it falls back to the screen.
+under "Monsters to hunt" (Monsters tab): untick one to leave it alone. Without the reader it falls back to the screen.
 
 Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen and
 the player's tile is centred on (804, 416), measured with the tile under the mouse from the game's memory (MapControl.MapLocation, also in the reader's output as user.mouseTile) while standing still.
@@ -74,7 +78,7 @@ alone monsters it can't walk to (walled off), and gives up on a target after 6 s
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and
-presses the chosen key ("Train: cast ... on yourself every ... ms", default F1 every 1000 ms, varied by the fuzz
+presses the chosen key (Train tab: "Cast ... on yourself every ... ms", default F1 every 1000 ms, varied by the fuzz
 setting). HP and MP potions are drunk as set for hunting. Stop stops it.
 
 ## Exploring
@@ -171,8 +175,8 @@ finally "Save Deck". If the game won't take two copies of a card, it chooses aga
 
 ## Travel
 
-**Travel** (needs the memory reader) runs you to any map or NPC. Type part of a name in the search box under
-Travel (a map, or an NPC such as "kang" or "alpha"), pick one and press Travel (or double-click it).
+**Travel** (needs the memory reader) runs you to any map or NPC. Type part of a name in the search box on the
+Travel tab (a map, or an NPC such as "kang" or "alpha"), pick one and press Start Travel (or double-click it).
 
 It plans the quickest chain of maps from where you stand, leaving out maps your level can't enter and links your
 class can't use, and goes through waypoint stones where that's quicker: it walks up to the stone, clicks it, picks
