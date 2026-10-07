@@ -1,8 +1,10 @@
 /**
  * Grind's measurements: the experience each character really gained hunting
- * on each map, and for how long, kept between runs (saved by main.ts as
+ * on each map, and for how long; and their fights (each kill timed, the health
+ * it cost, and deaths). Kept between runs (saved by main.ts as
  * userData/grind.json). The planner (grind.ts) blends them with its estimates.
  */
+import type { MemoryState } from './game-memory';
 
 /** One stint of hunting on a map: how long (not travelling, not paused), and the experience it brought. */
 export interface GrindSession {
@@ -13,6 +15,37 @@ export interface GrindSession {
   exp: number;
   /** When it ended (Date.now()), to put the newest first. */
   at: number;
+  /** The kills timed during it, and the damage per second they took: what its estimate is worked out with (grind.ts). */
+  kills?: number;
+  dps?: number;
+}
+
+/** A kill, timed from the first blow to its death. */
+export interface Kill {
+  /** The character's level, and the monster's. */
+  level: number;
+  monsterLevel: number;
+  /** The monster's health (its Health stat), and the damage dealt to it (at most that). */
+  maxHp: number;
+  damage: number;
+  seconds: number;
+  /** The character's health lost while fighting it, as a share of their most. */
+  hpLost: number;
+  /** When it died (Date.now()). */
+  at: number;
+}
+
+/** The character died: their level, and the level of the monster being fought (null: none). */
+export interface Death {
+  level: number;
+  monsterLevel: number | null;
+  at: number;
+}
+
+/** A character's fights: kills and deaths, oldest first. */
+export interface Fights {
+  kills: Kill[];
+  deaths: Death[];
 }
 
 /** What the game's memory says of the character's experience. */
@@ -27,6 +60,12 @@ export interface ExperienceReading {
 const MIN_SESSION_MS = 30_000;
 /** At most this many stints are kept per character (the oldest go first). */
 const MAX_SESSIONS = 200;
+/** ...and this many kills and deaths. */
+const MAX_KILLS = 300;
+const MAX_DEATHS = 50;
+/** Kills quicker than this (seconds) can't be timed; slower ones weren't one fight (out of reach, run off). */
+const MIN_KILL_SECONDS = 0.3;
+const MAX_KILL_SECONDS = 120;
 
 /**
  * Experience gained between two readings. Within a level it's the difference;
@@ -55,9 +94,82 @@ export class ExperienceMeter {
   }
 }
 
-/** Every character's stints, by character name. */
+/** The damage per second in a run of kills (all their damage over all their time), and how many; null without any. */
+export function damageDealt(kills: readonly Kill[]): { dps: number; kills: number } | null {
+  const seconds = kills.reduce((sum, k) => sum + k.seconds, 0);
+  return seconds > 0 ? { dps: kills.reduce((sum, k) => sum + k.damage, 0) / seconds, kills: kills.length } : null;
+}
+
+/** What the fight timer reads: the character, and the monsters about. */
+export type FightReading = Pick<MemoryState, 'user' | 'objects'>;
+
+/**
+ * Times the hunt loop's fights from the game's memory. A monster's fight is
+ * timed from the first blow struck next to it (a click from further off has the
+ * character walk up first), or from the first damage seen land on it (blows
+ * from range), until it's dead; if someone else had hurt it before our first
+ * click, it doesn't count. The character's health lost meanwhile goes to the
+ * monster being fought (rises, from regeneration or potions, only move the
+ * mark). Kills too quick or too slow to time, and bosses, don't count.
+ */
+export class FightTimer {
+  /** Monsters attacked, by id: when first clicked, since when timed, whether someone else hurt it first, and the health lost fighting it. */
+  private readonly fights = new Map<number, { clicked: number; since: number | null; helped: boolean; hpLost: number }>();
+  private lastHp: number | null = null;
+  private dead = false;
+
+  constructor(private readonly isBoss: (name: string) => boolean = () => false) {}
+
+  /** A blow struck at monster `id` (the first next to it starts the clock). */
+  attacked(id: number, reading: FightReading, now: number): void {
+    const monster = reading.objects?.find((o) => o.id === id);
+    if (!monster) return;
+    const fight = this.fights.get(id) ?? this.fights.set(id, { clicked: now, since: null, helped: (monster.hp ?? 0) < 0, hpLost: 0 }).get(id)!;
+    const user = reading.user;
+    if (fight.since === null && user && Math.max(Math.abs(monster.x - user.x), Math.abs(monster.y - user.y)) <= 1) fight.since = now;
+  }
+
+  /** Takes in a reading (`engaged`: the monster being fought); returns the kills it ended, and a death. */
+  update(reading: FightReading, now: number, engaged: number | null, at = Date.now()): { kills: Kill[]; death: Death | null } {
+    const user = reading.user;
+    if (user?.hp !== undefined && user.maxHp) {
+      const fight = engaged !== null ? this.fights.get(engaged) : undefined;
+      if (fight && this.lastHp !== null && user.hp < this.lastHp) fight.hpLost += (this.lastHp - user.hp) / user.maxHp;
+      this.lastHp = user.hp;
+    }
+    let death: Death | null = null;
+    if (user?.dead && !this.dead) {
+      const foe = engaged !== null ? reading.objects?.find((o) => o.id === engaged) : undefined;
+      death = { level: user.level ?? 0, monsterLevel: foe ? foe.level : null, at };
+      this.fights.clear();
+    }
+    this.dead = !!user?.dead;
+    const kills: Kill[] = [];
+    for (const [id, fight] of this.fights) {
+      const monster = reading.objects?.find((o) => o.id === id);
+      if (fight.since === null && (monster?.hp ?? 0) < 0) fight.since = now;
+      const seconds = fight.since === null ? 0 : (now - fight.since) / 1000;
+      // Out of sight, or too long to have been one fight: forgotten.
+      if (!monster || (now - fight.clicked) / 1000 > MAX_KILL_SECONDS) {
+        this.fights.delete(id);
+        continue;
+      }
+      if (!monster.dead) continue;
+      this.fights.delete(id);
+      const damage = Math.min(monster.maxHp ?? 0, -(monster.hp ?? 0));
+      if (fight.helped || seconds < MIN_KILL_SECONDS || damage <= 0 || user?.level === undefined || this.isBoss(monster.name)) continue;
+      kills.push({ level: user.level, monsterLevel: monster.level, maxHp: monster.maxHp!, damage, seconds, hpLost: fight.hpLost, at });
+    }
+    return { kills, death };
+  }
+}
+
+const finite = (o: unknown, keys: string[]) => !!o && keys.every((key) => Number.isFinite((o as Record<string, unknown>)[key]));
+
+/** Every character's stints and fights, by character name. */
 export class GrindLog {
   private readonly characters = new Map<string, GrindSession[]>();
+  private readonly fightLog = new Map<string, Fights>();
 
   constructor(private readonly onChange: () => void) {}
 
@@ -74,19 +186,49 @@ export class GrindLog {
     this.onChange();
   }
 
+  /** A character's kills and deaths. */
+  fights(character: string): Fights {
+    return this.fightLog.get(character) ?? { kills: [], deaths: [] };
+  }
+
+  addKill(character: string, kill: Kill): void {
+    if (!character) return;
+    const fights = this.fights(character);
+    this.fightLog.set(character, { ...fights, kills: [...fights.kills, kill].slice(-MAX_KILLS) });
+    this.onChange();
+  }
+
+  addDeath(character: string, death: Death): void {
+    if (!character) return;
+    const fights = this.fights(character);
+    this.fightLog.set(character, { ...fights, deaths: [...fights.deaths, death].slice(-MAX_DEATHS) });
+    this.onChange();
+  }
+
+  /** Takes what toJSON saved (fights are newer than stints: a file without them loads as before). */
   load(saved: unknown): void {
-    const data = saved as { characters?: Record<string, unknown> } | null;
+    const data = saved as { characters?: Record<string, unknown>; fights?: Record<string, unknown> } | null;
     if (!data || typeof data.characters !== 'object' || !data.characters) return;
     for (const [name, list] of Object.entries(data.characters)) {
       if (!Array.isArray(list)) continue;
-      const valid = list.filter(
-        (s): s is GrindSession => !!s && ['map', 'level', 'ms', 'exp', 'at'].every((key) => Number.isFinite((s as Record<string, unknown>)[key])),
-      );
+      const valid = list
+        .filter((s): s is GrindSession => finite(s, ['map', 'level', 'ms', 'exp', 'at']))
+        .map(({ kills, dps, ...s }) => (Number.isFinite(kills) && Number.isFinite(dps) ? { ...s, kills, dps } : s));
       this.characters.set(name, valid.slice(-MAX_SESSIONS));
+    }
+    for (const [name, fights] of Object.entries(data.fights && typeof data.fights === 'object' ? data.fights : {})) {
+      if (!fights || typeof fights !== 'object') continue;
+      const { kills, deaths } = fights as { kills?: unknown; deaths?: unknown };
+      this.fightLog.set(name, {
+        kills: (Array.isArray(kills) ? kills : []).filter((k): k is Kill => finite(k, ['level', 'monsterLevel', 'maxHp', 'damage', 'seconds', 'hpLost', 'at'])).slice(-MAX_KILLS),
+        deaths: (Array.isArray(deaths) ? deaths : [])
+          .filter((d): d is Death => finite(d, ['level', 'at']) && ((d as Death).monsterLevel === null || Number.isFinite((d as Death).monsterLevel)))
+          .slice(-MAX_DEATHS),
+      });
     }
   }
 
-  toJSON(): { characters: Record<string, GrindSession[]> } {
-    return { characters: Object.fromEntries(this.characters) };
+  toJSON(): { characters: Record<string, GrindSession[]>; fights?: Record<string, Fights> } {
+    return { characters: Object.fromEntries(this.characters), ...(this.fightLog.size ? { fights: Object.fromEntries(this.fightLog) } : {}) };
   }
 }

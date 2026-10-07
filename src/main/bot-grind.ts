@@ -2,8 +2,8 @@
 
 import { walkDistances } from './map-path';
 import { loadTravelData, mapName } from './travel';
-import { chooseGrindMap, describeChoice } from './grind';
-import { ExperienceMeter } from './grind-log';
+import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage } from './grind';
+import { ExperienceMeter, damageDealt } from './grind-log';
 import { BotError, MEMORY_START_MS } from './bot-shared';
 import type { BotContext } from './bot-context';
 
@@ -46,16 +46,22 @@ export class Grinding {
       const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
       const { replanMinutes, maxLevelsAbove, questsFirst } = this.bot.settings.grind;
       const start = { map: map.index, steps: this.bot.travel.exitSteps(data, map, walkDistances(map, here)), at: here };
+      // What the character's fights have shown: how hard they hit, and how far above their level is safe (the setting is the cap).
+      const log = this.bot.options.grindLog;
+      const fights = log.fights(user.name);
+      const band = autoLevelsAbove(fights, maxLevelsAbove, Date.now());
       const choice = chooseGrindMap(data, start, { level, cls: user.class, waypoints: unlocked }, {
-        maxLevelsAbove,
+        maxLevelsAbove: band.levels,
+        damage: measuredDamage(data, fights.kills, level, user.class),
+        danger: dangerByGap(fights),
         current: grinding,
-        measured: this.bot.options.grindLog.sessions(user.name),
+        measured: log.sessions(user.name),
         quests: reading.questTargets ?? undefined,
         questsFirst,
       });
       if (!choice) throw new BotError(`No map to grind on at level ${level} can be reached from ${mapName(data, map.index)}.`);
       grinding = choice.map;
-      const plan = describeChoice(choice, level);
+      const plan = describeChoice(choice, level, band);
       this.bot.status(plan);
       if (map.index !== choice.map) {
         this.bot.status(await this.bot.travel.travelTo(`map:${choice.map}`));
@@ -64,6 +70,7 @@ export class Grinding {
 
       // Hunt until it's time to plan again (time paused doesn't count), measuring the experience it brings.
       const huntStart = this.bot.clock.now();
+      const huntStartAt = Date.now();
       const pausedBefore = this.bot.pausedMs;
       const meter = new ExperienceMeter();
       meter.sample(memory.latest()?.user);
@@ -83,7 +90,9 @@ export class Grinding {
       });
       meter.sample(memory.latest()?.user);
       const ms = this.bot.clock.now() - huntStart - (this.bot.pausedMs - pausedBefore);
-      this.bot.options.grindLog.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now() });
+      // With the damage the kills timed on it took: the estimate it's checked against goes by that.
+      const timed = damageDealt(log.fights(user.name).kills.filter((k) => k.at >= huntStartAt));
+      log.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now(), ...(timed && { kills: timed.kills, dps: timed.dps }) });
       if (why === 'dead') {
         await this.bot.survival.reviveInArcadia();
         continue;

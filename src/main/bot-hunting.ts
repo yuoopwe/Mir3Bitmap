@@ -10,6 +10,7 @@ import { loadTravelData, mapName } from './travel';
 import type { MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type MemoryObject, type MemoryState } from './game-memory';
+import { FightTimer } from './grind-log';
 import { playerHpFill, playerMpFill, readBar, signatureDifference, targetHpFill, viewSignature } from './vision';
 import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, clickable, hostile, wholeSecondsSince } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -83,6 +84,20 @@ const AIM_MISSES = 4;
 
 const AIM_MISS_SKIP_MS = 8000;
 
+let bossNames: Set<string> | null = null;
+
+/** Bosses (by name, from the game data): their kills aren't timed for Grind. */
+function isBoss(name: string): boolean {
+  if (!bossNames) {
+    const data = loadTravelData();
+    bossNames = new Set((data.monsters ?? []).filter((_, i) => data.monsterStats?.[i]?.[3]).map((n) => n.toLowerCase()));
+  }
+  return bossNames.has(name.toLowerCase());
+}
+
+/** The game id of a target from the game's memory ("m123"), else null. */
+const memoryId = (key: string | undefined): number | null => (key?.startsWith('m') ? Number(key.slice(1)) : null);
+
 export class Hunting {
   /** Monster names seen in the game's memory this session. */
   private readonly monstersSeen = new Set<string>();
@@ -132,6 +147,8 @@ export class Hunting {
     /** The current target's distance and the player's tile, and since when they've stayed the same. */
     let approach: { state: string; since: number } | null = null;
     let stopping: string | null = null;
+    /** Each fight timed, for Grind's measurements (kept in the grind log, by character). */
+    const fights = new FightTimer(isBoss);
     this.huntDist = null;
     this.seek = null;
     this.visitedSpots.clear();
@@ -164,6 +181,12 @@ export class Hunting {
 
       for (const [key, until] of skipped) if (until <= now) skipped.delete(key);
       const memory = this.bot.options.memory.latest();
+      if (memory) {
+        const { kills, death } = fights.update(memory, now, memoryId(current?.key));
+        const name = memory.user?.name ?? '';
+        for (const kill of kills) this.bot.options.grindLog.addKill(name, kill);
+        if (death) this.bot.options.grindLog.addDeath(name, death);
+      }
       const candidates = memory ? this.memoryTargets(memory) : this.screenTargets(sightings, now);
       const live = candidates.filter((c) => !skipped.has(c.key));
       let target: HuntTarget | undefined = current ? live.find((c) => c.key === current!.key) : undefined;
@@ -286,6 +309,8 @@ export class Hunting {
       if (target && point) {
         this.bot.stopRunning();
         if (memory) await this.bot.moves.setMounted(false);
+        const id = memoryId(target.key);
+        if (memory && id !== null) fights.attacked(id, memory, this.bot.clock.now());
         if (this.bot.settings.archer) {
           this.bot.hold(point, target.key);
           await this.bot.sleep(this.bot.delay('attackClick'));

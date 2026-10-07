@@ -32,7 +32,7 @@ const defaultSettings: Settings = {
   fightInTheWay: false,
   trainKey: 'F1',
   trainIntervalMs: 1000,
-  grind: { replanMinutes: 15, maxLevelsAbove: 5, questsFirst: false },
+  grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
   questMaxActive: 5,
   hunt: { roam: false, questOnly: false, bagFreeSlots: 15, bagWeightPercent: 95, loot: true, pickUpKey: '', townPortalKey: '3', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
