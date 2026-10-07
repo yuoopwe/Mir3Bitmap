@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { test } from 'node:test';
-import { blendMeasurements, chooseGrindMap, describeChoice, GRIND, levelAllows, rateMap, rateMaps, type GrindChoice, type MapRating, type QuestTarget } from '../main/grind';
-import type { GrindSession } from '../main/grind-log';
+import {
+  autoLevelsAbove, blendMeasurements, characterDamage, chooseGrindMap, damagePerSecond, damageTrust, dangerByGap, describeChoice, GRIND, levelAllows, measuredDamage, rateMap, rateMaps,
+  type GrindChoice, type MapRating, type QuestTarget,
+} from '../main/grind';
+import type { Fights, GrindSession, Kill } from '../main/grind-log';
 import { loadTravelData, planRoute, type Start, type TravelData } from '../main/travel';
 
 const data = loadTravelData(path.join(__dirname, '..', '..', 'game-data', 'travel.json'));
@@ -166,8 +169,10 @@ test('rates blend the estimate with what was measured there', () => {
   const plain = rated(map, 35);
   assert.equal(plain.rate, plain.estimate);
   assert.equal(plain.measured, undefined);
-  // Other maps' stints change nothing here.
-  assert.deepEqual(rated(map, 35, { ...options, measured: [stint(BICHON, 35, 60, 0)] }), plain);
+  // Other maps' stints aren't measurements here, but move the rate by half their trust (see 'measured elsewhere' below).
+  const elsewhere = rated(map, 35, { ...options, measured: [stint(BICHON, 35, 60, 0)] });
+  assert.deepEqual({ ...elsewhere, rate: plain.rate }, plain);
+  assert.ok(Math.abs(elsewhere.rate - plain.rate * (1 - GRIND.elsewhereTrust)) < plain.rate * 1e-9);
   const little = rated(map, 35, { ...options, measured: [stint(map, 35, 5, 0.5)] });
   assert.ok(little.rate < plain.rate && little.rate > plain.rate * 0.85);
   assert.ok(Math.abs(little.measured!.rate - plain.estimate * 0.5) < plain.estimate * 1e-9);
@@ -258,4 +263,132 @@ test('a quest map wins only when close to the best; "Quests first" picks one whe
   assert.equal(chooseGrindMap(data, startOn(), who, { ...options, quests: [], questsFirst: true })!.map, best.map);
   const nowhere: QuestTarget[] = [{ name: 'Nobody', map: null, quest: 'Q' }];
   assert.equal(chooseGrindMap(data, startOn(), who, { ...options, quests: nowhere, questsFirst: true })!.map, best.map);
+});
+
+// ---- Measured fighting: damage, danger, how far above the level ----
+
+const near = (a: number, b: number, share = 1e-9) => Math.abs(a - b) <= Math.abs(b) * share;
+/** A kill at `level` of a monster `above` levels up, taking `seconds` and costing `hpLost` of the health; damage as the estimate would deal in the time, times `power`. */
+function kill(level: number, above: number, hpLost = 0.05, power = 1, seconds = 4, at = 1): Kill {
+  const damage = damagePerSecond(data, level, 0) * seconds * power;
+  return { level, monsterLevel: level + above, maxHp: damage, damage, seconds, hpLost, at };
+}
+const killsOf = (n: number, make: (i: number) => Kill): Kill[] => Array.from({ length: n }, (_, i) => make(i));
+const fightsOf = (kills: Kill[], deaths: Fights['deaths'] = []): Fights => ({ kills, deaths });
+
+test('measured damage: as dealt over what the estimate would deal in the time, applied at the level; trust ramps with the kills', () => {
+  const plain = damagePerSecond(data, 35, 0);
+  assert.equal(measuredDamage(data, [], 35, 0), null);
+  // Twice as fast as the estimate, measured at level 30: twice the estimate at 35.
+  const twice = measuredDamage(data, killsOf(30, (i) => kill(30, 0, 0, 2, 4, i)), 35, 0)!;
+  assert.ok(near(twice.perSecond, plain * 2));
+  // Kills five levels back count less towards trust.
+  assert.ok(near(twice.kills, 30 * GRIND.measureLevelDecay ** 5));
+  // Newest count most: 10 recent kills at 3x outweigh 10 older ones at 1x.
+  const mixed = measuredDamage(data, [...killsOf(10, (i) => kill(35, 0, 0, 1, 4, i)), ...killsOf(10, (i) => kill(35, 0, 0, 3, 4, 100 + i))], 35, 0)!;
+  assert.ok(mixed.perSecond > plain * 2 && mixed.perSecond < plain * 3);
+  // Trust: none at 0 kills, half at 15, full from 30.
+  assert.deepEqual([0, 15, 30, 60].map(damageTrust), [0, 0.5, 1, 1]);
+  assert.equal(characterDamage(data, 35, 0), plain);
+  assert.equal(characterDamage(data, 35, 0, { perSecond: plain * 3, kills: 0 }), plain);
+  assert.ok(near(characterDamage(data, 35, 0, { perSecond: plain * 3, kills: 15 }), plain * 2));
+  assert.ok(near(characterDamage(data, 35, 0, { perSecond: plain * 3, kills: 45 }), plain * 3));
+});
+
+test('measured damage moves the best map: harder for a strong character, easier for a weak one, unvisited maps included', () => {
+  // Experience follows health closely, so the choice moves only where kill time and walking weigh differently: at 47 and 44, say.
+  const choose = (level: number, power: number, kills = 30) =>
+    chooseGrindMap(data, startOn(), { level, cls: 0 }, { ...options, damage: { perSecond: damagePerSecond(data, level, 0) * power, kills } })!;
+  for (const [level, power] of [[47, 3], [44, 1 / 3]]) {
+    const plain = chooseGrindMap(data, startOn(), { level, cls: 0 }, options)!;
+    const measured = choose(level, power);
+    const moved = power > 1 ? measured.monsterLevel > plain.monsterLevel : measured.monsterLevel < plain.monsterLevel;
+    assert.ok(moved, `level ${level}, ${power.toFixed(2)}x: ${measured.name} (${measured.monsterLevel}) against ${plain.name} (${plain.monsterLevel})`);
+    // Not trusted yet (no kills): no change.
+    assert.equal(choose(level, power, 0).map, plain.map);
+  }
+});
+
+test('learned danger: what kills above the level cost replaces dangerPerLevel, as far as there are kills', () => {
+  const level = 35;
+  // A map with monsters above the level.
+  const above = rateMaps(data, { level, cls: 0 }, options).find((r) => r.monsterLevel > level)!;
+  assert.ok(above);
+  const tough = dangerByGap(fightsOf([1, 2, 3, 4, 5].flatMap((gap) => killsOf(10, () => kill(level, gap, 0.6)))));
+  const easy = dangerByGap(fightsOf([1, 2, 3, 4, 5].flatMap((gap) => killsOf(10, () => kill(level, gap, 0.01)))));
+  assert.ok(near(tough.get(2)!, 0.4) && near(easy.get(2)!, 0.99));
+  assert.ok(rated(above.map, level, { ...options, danger: tough }).rate < above.rate);
+  assert.ok(rated(above.map, level, { ...options, danger: easy }).rate > above.rate);
+  // Few kills: mostly dangerPerLevel still. Deaths cost deathCostKills kills' worth each.
+  assert.ok(near(dangerByGap(fightsOf(killsOf(2, () => kill(level, 2, 0.6)))).get(2)!, 0.8 * GRIND.dangerPerLevel ** 2 + 0.2 * 0.4));
+  const died = dangerByGap(fightsOf(killsOf(10, () => kill(level, 2, 0.01)), [{ level, monsterLevel: level + 2, at: 0 }]));
+  assert.ok(died.get(2)! < easy.get(2)! * 0.8);
+  // At or below the level: nothing learned (outlevelling rules there).
+  assert.equal(dangerByGap(fightsOf(killsOf(10, () => kill(level, -3, 0.9)))).size, 0);
+});
+
+test('how far above the level to fight: up to the highest safe gap, one more when clearly safe, at most the cap, one less after a death', () => {
+  const now = 10_000_000;
+  const band = (kills: Kill[], cap = 10, deaths: Fights['deaths'] = []) => autoLevelsAbove(fightsOf(kills, deaths), cap, now);
+  // Nothing seen: the level itself counts as clearly safe, so one above is tried.
+  assert.deepEqual(band([]), { levels: 1, capped: false });
+  // Clearly safe up to +3: +4 tried. Safe but not clearly (20%) at +3: +3.
+  const upTo = (top: number, hpLost: (gap: number) => number) => [...Array(top + 1).keys()].flatMap((gap) => killsOf(6, () => kill(30, gap, hpLost(gap))));
+  assert.equal(band(upTo(3, () => 0.05)).levels, 4);
+  assert.equal(band(upTo(3, (gap) => (gap === 3 ? 0.2 : 0.05))).levels, 3);
+  // Too costly at +2 (half the health a kill): back to +1, not tried higher.
+  assert.equal(band(upTo(4, (gap) => (gap >= 2 ? 0.5 : 0.05))).levels, 1);
+  // Gaps with too few kills to say are passed over; a dangerous one stops the climb even with safe ones above.
+  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(2, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 3, 0.05))]).levels, 4);
+  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(6, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 3, 0.05))]).levels, 1);
+  // Deaths: often (a death in five fights at +2) means unsafe there.
+  assert.equal(band(upTo(2, () => 0.05), 10, [{ level: 30, monsterLevel: 32, at: 0 }]).levels, 1);
+  // The cap.
+  assert.deepEqual(band(upTo(6, () => 0.05), 4), { levels: 4, capped: true });
+  assert.deepEqual(band(upTo(6, () => 0.05), 0), { levels: 0, capped: true });
+  // A death (to something too weak to count as unsafe: it was at the level) drops one level for half an hour.
+  const recent = [{ level: 30, monsterLevel: null, at: now - 10 * MINUTE }];
+  assert.equal(band(upTo(3, () => 0.05), 10, recent).levels, 3);
+  assert.equal(band(upTo(3, () => 0.05), 10, [{ ...recent[0], at: now - 40 * MINUTE }]).levels, 4);
+});
+
+test('measured elsewhere: maps with none of their own go by the others, at half their trust; their own come first', () => {
+  const level = 35;
+  const [first, second] = rateMaps(data, { level, cls: 0 }, options);
+  const measured = [stint(first.map, level, 30, 0.5)];
+  // Fully trusted on its own map; half trusted on the other.
+  assert.ok(near(rated(first.map, level, { ...options, measured }).rate, first.rate * 0.5));
+  assert.ok(near(rated(second.map, level, { ...options, measured }).rate, second.rate * (1 - GRIND.elsewhereTrust * 0.5)));
+  assert.equal(rated(second.map, level, { ...options, measured }).measured, undefined);
+  // A little measured of its own (a quarter of full trust, as estimated): the rest still goes by the others.
+  const own = rated(second.map, level, { ...options, measured: [...measured, stint(second.map, level, 5, 1, 2)] });
+  assert.ok(near(own.rate, second.rate * (0.25 + 0.75 * (1 - GRIND.elsewhereTrust * 0.5))));
+  // Every map is rated with it at once (rateMaps) as it is one at a time.
+  const all = rateMaps(data, { level, cls: 0 }, { ...options, measured });
+  assert.equal(all.find((r) => r.map === second.map)!.rate, rated(second.map, level, { ...options, measured }).rate);
+});
+
+test("no double counting: a stint that went well because of harder hits doesn't add its ratio on top of the measured damage", () => {
+  const level = 35;
+  const dps = damagePerSecond(data, level, 0);
+  const damage = { perSecond: dps * 2, kills: 30 };
+  const [first, second] = rateMaps(data, { level, cls: 0 }, options);
+  // The character really hits twice as hard: a stint on the first map brought what the estimate at twice the damage promises.
+  const promised = rated(first.map, level, { ...options, damage }).estimate;
+  assert.ok(promised > first.estimate);
+  const made = { map: first.map, level, ms: 30 * MINUTE, exp: promised / 2, at: 1 };
+  // Measured during the stint (kept with it), or from before stints kept that (today's damage stands in): either way, as estimated.
+  for (const s of [{ ...made, kills: 40, dps: dps * 2 }, made]) {
+    const opts = { ...options, damage, measured: [s] };
+    assert.ok(near(rated(first.map, level, opts).rate, promised, 1e-6), 'its own map');
+    assert.ok(near(rated(second.map, level, opts).rate, rated(second.map, level, { ...options, damage }).estimate, 1e-6), 'another map');
+  }
+  // Damage measured during the stint wins over today's: hitting harder now than then makes that stint's map look better than it did.
+  const then = { ...made, exp: first.estimate / 2, kills: 40, dps };
+  assert.ok(near(rated(first.map, level, { ...options, damage, measured: [then] }).rate, promised, 1e-6));
+});
+
+test('the status line says how far above the level it fights', () => {
+  assert.match(describeChoice(choices.get(35)!, 35, { levels: 4, capped: false }), /\); fighting up to \+4 \(auto\)$/);
+  assert.match(describeChoice(choices.get(35)!, 35, { levels: 5, capped: true }), /; fighting up to \+5 \(cap\)$/);
 });
