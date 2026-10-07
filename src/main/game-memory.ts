@@ -35,6 +35,31 @@ export interface MemoryObject {
   harvested?: boolean;
 }
 
+/**
+ * An item worn or in the bag, with its stats as rolled. Numbers are the game's own: type is Library.ItemType, rarity
+ * Library.Rarity (0 Common, 1 Superior, 2 Elite, 3 Legendary, 4 Xtreme, 5 Celestial, 6 Unique, 7 Set), cls the classes
+ * that may wear it (Library.RequiredClass flags: 1 Warrior, 2 Wizard, 4 Taoist, 8 Assassin...), needs what the
+ * requirement is (Library.RequiredType: 0 Level, 4 DC, ...) of needsAmount, flags Library.UserItemFlags (1 Locked: the
+ * game won't sell or drop it). Stats by Library.Stat number (names in stat-names.ts): base the item's own, added what
+ * it rolled on top.
+ */
+export interface MemoryItem {
+  slot: number;
+  name: string;
+  type: number;
+  rarity: number;
+  lootLevel: number;
+  cls: number;
+  needs: number;
+  needsAmount: number;
+  flags: number;
+  canSell: boolean;
+  durability: number;
+  maxDurability: number;
+  base: Record<string, number>;
+  added: Record<string, number>;
+}
+
 /** A Triple Triad card as the game holds it. */
 export interface MemoryCard {
   name: string;
@@ -156,6 +181,8 @@ export interface MemoryState {
    * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.
    * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
    */
+  /** What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second. */
+  gear?: { worn: MemoryItem[]; bag: MemoryItem[] } | null;
   professions?: { id: number; name: string; level: number; usable: number; exp: number; toNext: number; canGain: boolean; lockReason: string | null }[] | null;
   /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
   survival?: {

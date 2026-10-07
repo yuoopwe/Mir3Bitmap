@@ -510,6 +510,76 @@ function Read-Survival($scene) {
   return $out
 }
 
+# Gear: what's worn (by Library.EquipmentSlot) and the wearable items in the bag (by bag slot), each with its stats as
+# rolled: the item's own (ItemInfo.Stats) and what it rolled on top (AddedStats), by Library.Stat number.
+# Library.ItemType numbers of things that are worn: weapon, armour, torch, helmet, necklace, bracelet, ring, shoes,
+# poison, amulet, emblem, shield, wings, belt.
+$WearableTypes = @(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 26, 27, 28, 30)
+function Read-EnumField($obj, [string]$name) {
+  $field = $obj.Type.GetFieldByName($name)
+  if (-not $field) { return $null }
+  switch ($field.ElementType.ToString()) {
+    'Int8' { return [int]$obj.ReadField[sbyte]($name) }
+    'UInt8' { return [int]$obj.ReadField[byte]($name) }
+    'Int16' { return [int]$obj.ReadField[int16]($name) }
+    'UInt16' { return [int]$obj.ReadField[uint16]($name) }
+    'Int64' { return $obj.ReadField[long]($name) }
+    default { return $obj.ReadField[int]($name) }
+  }
+}
+# Every value in a Stats (its SortedDictionary is a tree): stat number -> value.
+function Read-AllStats($stats) {
+  $out = @{}
+  if ($stats.IsNull) { return $out }
+  $stack = [System.Collections.Generic.Stack[object]]::new()
+  $root = $stats.ReadObjectField('<Values>k__BackingField').ReadObjectField('_set').ReadObjectField('root')
+  if (-not $root.IsNull) { $stack.Push($root) }
+  while ($stack.Count -gt 0) {
+    $node = $stack.Pop()
+    $pair = $node.ReadValueTypeField('<Item>k__BackingField')
+    $out["$($pair.ReadField[int]('key'))"] = $pair.ReadField[int]('value')
+    foreach ($side in '<Left>k__BackingField', '<Right>k__BackingField') { $child = $node.ReadObjectField($side); if (-not $child.IsNull) { $stack.Push($child) } }
+  }
+  return $out
+}
+function Read-Item($item, [int]$slot) {
+  $info = $item.ReadObjectField('Info')
+  if ($info.IsNull) { return $null }
+  $type = Read-EnumField $info '_ItemType'
+  $rolled = Read-EnumField $item '<newRarity>k__BackingField'
+  return @{
+    slot = $slot; name = $info.ReadStringField('_ItemName'); type = $type
+    # Its rarity as rolled (Library.Rarity: 0 Common .. 7 Set), else the item's own.
+    rarity = $(if ($rolled) { $rolled } else { Read-EnumField $info '_Rarity' })
+    lootLevel = $item.ReadField[int]('<LootLevel>k__BackingField')
+    cls = Read-EnumField $info '_RequiredClass'; needs = Read-EnumField $info '_RequiredType'; needsAmount = $info.ReadField[int]('_RequiredAmount')
+    flags = Read-EnumField $item '<Flags>k__BackingField'; canSell = $info.ReadField[bool]('_CanSell')
+    durability = $item.ReadField[int]('<CurrentDurability>k__BackingField'); maxDurability = $item.ReadField[int]('<MaxDurability>k__BackingField')
+    base = Read-AllStats ($info.ReadObjectField('Stats')); added = Read-AllStats ($item.ReadObjectField('<AddedStats>k__BackingField'))
+  }
+}
+function Read-Gear($scene) {
+  $worn = @()
+  $equipment = $scene.ReadObjectField('Equipment')
+  if (-not $equipment.IsNull) {
+    $slots = $equipment.AsArray()
+    for ($i = 0; $i -lt $slots.Length; $i++) { $item = $slots.GetObjectValue($i); if (-not $item.IsNull) { $read = Read-Item $item $i; if ($read) { $worn += $read } } }
+  }
+  $bag = @()
+  $inventory = $scene.ReadObjectField('Inventory')
+  if (-not $inventory.IsNull) {
+    $slots = $inventory.AsArray()
+    for ($i = 0; $i -lt $slots.Length; $i++) {
+      $item = $slots.GetObjectValue($i)
+      if ($item.IsNull) { continue }
+      $info = $item.ReadObjectField('Info')
+      if ($info.IsNull -or $WearableTypes -notcontains (Read-EnumField $info '_ItemType')) { continue }
+      $read = Read-Item $item $i; if ($read) { $bag += $read }
+    }
+  }
+  return @{ worn = $worn; bag = $bag }
+}
+
 # Profession levels (Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
 # The client only loads them once the Professions window (Ctrl+Shift+P) has been opened: null until then.
 function Read-Professions($scene) {
@@ -614,12 +684,13 @@ while ($true) {
         if (-not $script:questsAt -or $script:questsAt.ElapsedMilliseconds -gt 1000) {
           try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null }
           try { $script:professions = Read-Professions $scene } catch { $script:professions = $null }
+          try { $script:gear = Read-Gear $scene } catch { $script:gear = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; professions = $script:professions; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; professions = $script:professions; gear = $script:gear; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }
