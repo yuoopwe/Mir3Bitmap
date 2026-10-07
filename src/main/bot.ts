@@ -76,6 +76,13 @@ const EXPLORE_AVOID_MS = 10_000;
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
 const NPC_REACH_TILES = 2;
 const TRAVEL_BLOCKED_LIMIT = 8;
+/** Travelling and exploring: monsters this close when blocked (or two right next to you) get fought, not walked into. */
+const FIGHT_RANGE_TILES = 2;
+/** Give up on one monster after this long (out of reach, say), and on fighting altogether after this long. */
+const FIGHT_TARGET_GIVE_UP_MS = 15_000;
+const FIGHT_GIVE_UP_MS = 60_000;
+/** Paths keep off monsters this close (they move, so not further). */
+const STEER_ROUND_TILES = 8;
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
 const WAYPOINT_TELEPORT_MS = 10_000;
@@ -1158,6 +1165,13 @@ export class Bot {
       const user = reading.user!;
       const now = performance.now();
       if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
+      // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
+      const stuck = user.x === moved.x && user.y === moved.y && now - moved.at > EXPLORE_BLOCKED_MS;
+      if ((stuck || this.monstersNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
+        moved = { at: performance.now(), x: NaN, y: NaN };
+        drivenAt = performance.now();
+        continue;
+      }
       if (user.x !== moved.x || user.y !== moved.y) moved = { at: now, x: user.x, y: user.y };
       else if (now - moved.at > EXPLORE_BLOCKED_MS) {
         // Not moving: something the map doesn't show (monsters, pets) is in the way, or the game never marks this block explored.
@@ -1165,7 +1179,8 @@ export class Bot {
         moved.at = now;
         this.statusEvery('Blocked; going round');
       }
-      const plan = planner.plan(map, { x: user.x, y: user.y }, now);
+      // Routes keep off monsters close by.
+      const plan = planner.plan(map, { x: user.x, y: user.y }, now, this.monstersNear(reading, user, STEER_ROUND_TILES).map((m) => ({ x: m.x, y: m.y })));
       if (plan === null) {
         this.stopRunning();
         await this.sleep(300);
@@ -1181,6 +1196,63 @@ export class Bot {
       await this.sleep(RUN_TICK_MS);
       drivenAt = performance.now();
     }
+  }
+
+  /** Live monsters (not pets) within `range` tiles, nearest first. */
+  private monstersNear(reading: MemoryState, here: Point, range: number): MemoryObject[] {
+    const away = (o: MemoryObject) => Math.max(Math.abs(o.x - here.x), Math.abs(o.y - here.y));
+    return (reading.objects ?? [])
+      .filter((o) => o.kind === 'monster' && !o.pet && !o.dead && away(o) <= range)
+      .sort((a, b) => away(a) - away(b));
+  }
+
+  /**
+   * Fights monsters in the way, as Hunt does (clicks and attack keys): the
+   * nearest within FIGHT_RANGE_TILES until none is left there. Returns whether
+   * there was anything to fight.
+   */
+  private async clearTheWay(): Promise<boolean> {
+    const memory = this.options.memory;
+    const started = performance.now();
+    const given = new Set<number>();
+    let fought = false;
+    let current = null as { id: number; since: number } | null;
+    while (performance.now() - started < FIGHT_GIVE_UP_MS) {
+      await this.yieldToEvents();
+      const reading = memory.latest();
+      const user = reading?.user;
+      if (!reading || !user) break;
+      const monster = this.monstersNear(reading, user, FIGHT_RANGE_TILES).find((o) => !given.has(o.id));
+      if (!monster) break;
+      const now = performance.now();
+      if (current?.id !== monster.id) current = { id: monster.id, since: now };
+      else if (now - current.since > FIGHT_TARGET_GIVE_UP_MS) {
+        given.add(monster.id);
+        continue;
+      }
+      if (!fought) {
+        this.stopRunning();
+        fought = true;
+      }
+      this.capture();
+      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
+      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.drinkPotions();
+      const tile = tileToScreen(user, monster.x, monster.y);
+      const point = await this.aimAt({ key: `m${monster.id}`, point: tile, name: monster.name, tile });
+      if (point) {
+        if (this.settings.archer) {
+          this.hold(point, `m${monster.id}`);
+          await this.sleep(this.delay('attackClick'));
+        } else {
+          await this.click(point, this.delay('attackClick'));
+        }
+      }
+      await this.pressKeys(true);
+      this.statusEvery(`Fighting ${monster.name} in the way`);
+    }
+    this.releaseHold();
+    return fought;
   }
 
   /**
@@ -1333,8 +1405,16 @@ export class Bot {
         targets = [at];
       }
 
-      // Not moving while trying to: something the map doesn't show is in the way. Time paused doesn't count.
+      // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
+      const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > EXPLORE_BLOCKED_MS;
+      if ((stuck || this.monstersNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
+        path = null;
+        moved = { at: performance.now(), x: NaN, y: NaN };
+        drivenAt = performance.now();
+        continue;
+      }
+      // Not moving while trying to: something the map doesn't show is in the way. Time paused doesn't count.
       if (here.x !== moved.x || here.y !== moved.y) moved = { at: now, x: here.x, y: here.y };
       else if (now - moved.at > EXPLORE_BLOCKED_MS) {
         if (++route.blocked > TRAVEL_BLOCKED_LIMIT) throw new BotError(`Stuck on ${mapName(data, map.index)}: blocked ${TRAVEL_BLOCKED_LIMIT} times.`);
@@ -1345,11 +1425,13 @@ export class Bot {
       }
       for (const [key, until] of avoid) if (until <= now) avoid.delete(key);
 
-      // Keep to the path while on it; otherwise work out a new one.
+      // Keep to the path while on it (and while no monster stands on the next few tiles); otherwise work out a new one, round them.
+      const monsterTiles = new Set(this.monstersNear(reading, here, STEER_ROUND_TILES).map((m) => m.y * map.width + m.x));
       const onPath: number = path ? path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
       path = path && onPath >= 0 ? path.slice(onPath) : null;
+      if (path?.slice(1, 5).some((t) => monsterTiles.has(t.y * map.width + t.x))) path = null;
       if (!path || path.length < 2) {
-        let dist = walkDistances(map, here, new Set(avoid.keys()));
+        let dist = walkDistances(map, here, new Set([...avoid.keys(), ...monsterTiles]));
         let near = nearestApproach(map, dist, targets);
         if (!near && avoid.size) {
           avoid.clear();
