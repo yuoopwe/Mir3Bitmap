@@ -355,6 +355,17 @@ function Read-Windows($scene) {
   return $boxes
 }
 
+# Whether anything is in the Horse equipment slot (EquipmentSlot.Horse = 18): no mount yet, nothing to get on.
+function Read-HasMount($scene) {
+  try {
+    $equipment = $scene.ReadObjectField('Equipment')
+    if ($equipment.IsNull) { return $null }
+    $slots = $equipment.AsArray()
+    if ($slots.Length -le 18) { return $null }
+    return -not $slots.GetObjectValue(18).IsNull
+  } catch { return $null }
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -392,7 +403,7 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0 }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; hasMount = (Read-HasMount $scene) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{

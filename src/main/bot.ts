@@ -1396,6 +1396,8 @@ export class Bot {
     const reading = memory.latest();
     const mounted = reading?.user?.mounted;
     if (mounted === undefined || mounted === on || performance.now() < this.mountRetryAt) return;
+    // No mount equipped (not bought yet, say): nothing to get on.
+    if (on && reading?.user?.hasMount === false) return;
     // Mounts aren't allowed on this map (the game's data says so, or M did nothing here before).
     const mapIndex = reading?.map?.index;
     if (on && mapIndex !== undefined && (this.noMountMaps.has(mapIndex) || loadTravelData().maps.find((m) => m.i === mapIndex)?.noHorse)) return;
