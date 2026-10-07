@@ -108,6 +108,8 @@ export class Hunting {
   private minimapSelf: Point | null = null;
   /** Quests mode hunting: only quest monsters, whatever the Hunt setting. */
   private forceQuestOnly = false;
+  /** Boss circuit hunting: only these monsters (lower-case names), and no wandering off to look for them. */
+  private onlyNames: Set<string> | null = null;
   /** Seeking from memory: where it's heading (a monster the game knows of, or a spawn spot), and the spots seen lately. */
   private seek: { kind: 'monster' | 'spot'; key: string; label: string; target: Point; map: number; since: number; path: Point[] | null; moved: { at: number; x: number; y: number } } | null = null;
   private readonly visitedSpots = new Map<string, number>();
@@ -124,9 +126,19 @@ export class Hunting {
    * reach, or not really a monster) is skipped for a while.
    *
    * Grind's options: `seek` overrides "Seek when idle"; once `stopWhen` gives a
-   * reason, the fight going on is finished and the reason returned.
+   * reason, the fight going on is finished and the reason returned; once
+   * `breakOff` gives one, it's returned straight away, mid-fight (to get away).
+   * `only`: just these monsters (by name), sought only where the game knows of them.
    */
-  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; questOnly?: boolean } = {}): Promise<string> {
+  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; breakOff?: () => string | null; questOnly?: boolean; only?: string[] } = {}): Promise<string> {
+    if (options.only) {
+      this.onlyNames = new Set(options.only.map((n) => n.toLowerCase()));
+      try {
+        return await this.huntLoop({ ...options, only: undefined });
+      } finally {
+        this.onlyNames = null;
+      }
+    }
     if (options.questOnly) {
       this.forceQuestOnly = true;
       try {
@@ -216,7 +228,13 @@ export class Hunting {
           nextFloorAt = this.bot.clock.now() + FLOOR_CLICK_EVERY_MS;
         }
       }
-      // Time to stop: once no fight is going on.
+      // Time to stop: straight away to break off, else once no fight is going on.
+      const breaking = options.breakOff?.();
+      if (breaking) {
+        this.bot.stopRunning();
+        this.bot.releaseHold();
+        return breaking;
+      }
       stopping ??= options.stopWhen?.() ?? null;
       if (stopping && !current) {
         this.bot.stopRunning();
@@ -338,7 +356,7 @@ export class Hunting {
         const seek = options.seek ?? this.bot.settings.hunt.roam;
         if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
           // Heading somewhere.
-        } else if (seek && this.bot.screenReadable) await this.seekOrRoam();
+        } else if (seek && this.bot.screenReadable && !this.onlyNames) await this.seekOrRoam();
         else {
           await this.bot.sleep(150);
           this.bot.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
@@ -443,6 +461,7 @@ export class Hunting {
    * or the quest log can't be read (then everything counts).
    */
   private questWanted(reading: MemoryState): Set<string> | null {
+    if (this.onlyNames) return this.onlyNames;
     if (!(this.bot.settings.hunt.questOnly || this.forceQuestOnly) || !reading.questTargets) return null;
     const mapIndex = reading.map?.index;
     return new Set(reading.questTargets.filter((t) => t.map === null || t.map === mapIndex).map((t) => t.name.toLowerCase()));
@@ -501,6 +520,8 @@ export class Hunting {
       if (goal.kind === 'spot') this.visitedSpots.set(goal.key, now + SPOT_REVISIT_MS);
       goal = null;
     }
+    // Only certain monsters (the Boss circuit, at their spawn): none known of, nowhere else to look.
+    if (!goal && this.onlyNames) return false;
     if (!goal) goal = this.pickSpawnSpot(map, here, skip, now, wanted);
     if (!goal) {
       // No spawn data for this map: explore instead.

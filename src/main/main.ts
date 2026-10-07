@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { KeptItem, KeyId, NameRule, Settings, Status } from '../shared/types';
+import type { CircuitView, KeptItem, KeyId, NameRule, Settings, Status } from '../shared/types';
 import { loadTravelData, places, searchPlaces } from './travel';
 import { Bot } from './bot';
 import type { Rect } from './layout';
@@ -35,6 +35,7 @@ const defaultSettings: Settings = {
   trainIntervalMs: 1000,
   grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
   questMaxActive: 5,
+  circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35 },
   hunt: { roam: false, questOnly: false, bagFreeSlots: 15, bagWeightPercent: 95, loot: true, pickUpKey: '', townPortalKey: '3', equipUpgrades: false, hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
@@ -124,6 +125,7 @@ const bot = new Bot(defaultSettings, {
   memory: new GameMemory(path.join(app.getAppPath(), 'game-reader')),
   monsters: (list: string[]) => window?.webContents.send('monsters', list),
   kept: (items: KeptItem[]) => window?.webContents.send('kept', items),
+  circuit: (view: CircuitView) => window?.webContents.send('circuit', view),
   imageOf,
   report: (status: Status) => window?.webContents.send('bot:status', status),
 });
@@ -141,6 +143,7 @@ ipcMain.handle('bot:gather', () => bot.startGather());
 ipcMain.handle('bot:travel', (_event, placeId: string) => bot.startTravel(placeId));
 ipcMain.handle('bot:grind', () => bot.startGrind());
 ipcMain.handle('bot:quests', () => bot.startQuests());
+ipcMain.handle('bot:circuit', () => bot.startCircuit());
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => bot.updateSettings({ ...defaultSettings, ...settings }));

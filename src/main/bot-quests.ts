@@ -141,7 +141,7 @@ export class Questing {
    * the Talk / Quests menu) and presses Accept All or Hand In. Returns how many
    * quests that took (0 if the list didn't open or the button was off).
    */
-  private async atQuestNpc(npcId: number, action: 'accept' | 'handIn', why: string): Promise<number> {
+  async atQuestNpc(npcId: number, action: 'accept' | 'handIn', why: string): Promise<number> {
     const memory = this.bot.options.memory;
     const data = loadTravelData();
     const npc = data.npcs.find((n) => n.id === npcId);

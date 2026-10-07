@@ -110,6 +110,8 @@ export interface Settings {
   grind: GrindSettings;
   /** Quests mode: at most this many quests on the go at once (it picks up more as they're handed in). */
   questMaxActive?: number;
+  /** Boss circuit mode (src/main/bot-circuit.ts). */
+  circuit?: CircuitSettings;
 }
 
 /** Somewhere Travel can go: a map or an NPC (id "map:<index>" or "npc:<index>"). */
@@ -138,7 +140,7 @@ export interface NameEntry {
 }
 
 export interface Status {
-  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel' | 'grind' | 'quest';
+  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel' | 'grind' | 'quest' | 'circuit';
   message: string;
   /** Time spent grabbing the last frame from the game window. */
   captureMs?: number;
@@ -150,6 +152,8 @@ export interface Status {
   kills?: number;
   /** Share of the current map uncovered, 0-1, from the last look at the big map. */
   explored?: number | null;
+  /** The character's level, from the game's memory (while a mode that reads it runs). */
+  level?: number | null;
   stats?: Stats;
 }
 
@@ -171,6 +175,26 @@ export interface StatCounts {
   decks: number;
   /** Time spent running a mode, in milliseconds. */
   runningMs: number;
+}
+
+/** Boss circuit: the quests to take (ids), whether to keep hunting bosses once they're done, and the HP to get away at. */
+export interface CircuitSettings {
+  quests: number[];
+  keepHunting: boolean;
+  /** Below this share of HP (%), with the monster not nearly dead: get away, and leave that spawn for the run. */
+  retreatHpPercent: number;
+}
+
+/** The Boss circuit's plan, for its card. */
+export interface CircuitView {
+  /** The quests on the go (null: hunting bosses, the quests done). */
+  quest: string | null;
+  tasks: { monster: string; need: number; done: number }[];
+  /** The spawns in the order they'll be visited, and the minutes until each is back (0: now). */
+  stops: { monster: string; map: string; backIn: number }[];
+  skipped: { monster: string; map: string; why: string }[];
+  /** Forge Stones gained this run (null: not counted). */
+  stones: number | null;
 }
 
 /** An item the loot judge kept out of a sale: its name, rarity and why (shown under "Kept this run"). */
@@ -204,6 +228,8 @@ export interface BotApi {
   startGrind(): Promise<void>;
   /** Picks up quests for your level, does them and hands them in (src/main/bot-quests.ts questLoop). */
   startQuests(): Promise<void>;
+  /** Takes the daily boss quests ticked, does them going round the boss spawns, and hands them in (src/main/bot-circuit.ts). */
+  startCircuit(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;
@@ -221,4 +247,6 @@ export interface BotApi {
   onMonsters(listener: (names: string[]) => void): void;
   /** What the loot judge has kept out of sales since the app started or the session was reset, newest first. */
   onKept(listener: (items: KeptItem[]) => void): void;
+  /** The Boss circuit's plan as it stands: the tasks' counts, the spawns in order and when each is back. */
+  onCircuit(listener: (view: CircuitView) => void): void;
 }

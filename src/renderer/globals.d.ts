@@ -8,6 +8,7 @@ type NameRule = import('../shared/types').NameRule;
 type Stats = import('../shared/types').Stats;
 type StatCounts = import('../shared/types').StatCounts;
 type KeptItem = import('../shared/types').KeptItem;
+type CircuitView = import('../shared/types').CircuitView;
 
 interface Window {
   bot: BotApi;

@@ -104,8 +104,9 @@ export interface FakeMonster {
   /** Health it takes off the player each hit, hitting back once attacked (or when aggressive), every MONSTER_HIT_MS next to them. */
   damage?: number;
   exp?: number;
-  /** Comes back after dying. */
+  /** Comes back after dying (RESPAWN_MS after its body goes, unless `respawnMs` says how long). */
   respawn?: boolean;
+  respawnMs?: number;
   /** Comes at the player once within AGGRO_TILES, a tile every MONSTER_STEP_MS, and keeps them in combat while next to them. */
   aggressive?: boolean;
   /** Leaves an item of this name where it dies. */
@@ -178,6 +179,8 @@ export interface FakeGameSetup {
   /** The lock key (Scroll Lock over a bag cell) does nothing; a double-click on a bag item doesn't put it on. */
   lockFails?: boolean;
   equipFails?: boolean;
+  /** How many of some items (by name) the bag holds besides gear, as the reader counts them (gear.counts): Forge Stone, say. Quest rewards add to them. */
+  itemCounts?: Record<string, number>;
   /** The map view, which sets the game's size too (default: 1600x900 at zoom 100%, as measured). */
   view?: MapView;
 }
@@ -193,6 +196,7 @@ interface Monster extends MemoryObject {
   taken: number;
   exp: number;
   respawn: boolean;
+  respawnMs: number;
   home: { x: number; y: number };
   deadAt: number;
 }
@@ -281,6 +285,8 @@ export class FakeGame {
   readonly gear: { worn: MemoryItem[]; bag: MemoryItem[] };
   private readonly lockFails: boolean;
   private readonly equipFails: boolean;
+  /** Items counted by name in the bag (gear.counts). */
+  readonly itemCounts: Map<string, number>;
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -348,6 +354,7 @@ export class FakeGame {
     this.gear = { worn: (setup.gear?.worn ?? []).map(item), bag: (setup.gear?.bag ?? []).map(item) };
     this.lockFails = !!setup.lockFails;
     this.equipFails = !!setup.equipFails;
+    this.itemCounts = new Map(Object.entries(setup.itemCounts ?? { 'Forge Stone': 0, 'Phoenix Tear': 0 }));
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
@@ -435,7 +442,7 @@ export class FakeGame {
     this.monsters.push({
       id: this.nextId++, kind: 'monster', name: m.name, x: m.x, y: m.y, dead: false, level: m.level ?? stats?.[0] ?? 1, pet: false,
       disposition: m.disposition ?? 4, map: m.map ?? this.player.map, hits: m.hits ?? 1, taken: 0, exp: m.exp ?? stats?.[1] ?? 10,
-      respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0, drops: m.drops,
+      respawn: m.respawn ?? m.respawnMs !== undefined, respawnMs: m.respawnMs ?? RESPAWN_MS, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0, drops: m.drops,
       maxHp: m.health ?? stats?.[2] ?? 100, hp: 0, hitsFor: m.damage ?? 0, nextHitAt: 0,
     });
   }
@@ -529,7 +536,7 @@ export class FakeGame {
       if (!m.dead && m.aggressive) this.closeIn(m);
       if (!m.dead && m.hitsFor) this.hitBack(m);
       if (!m.dead) continue;
-      if (m.respawn && this.t - m.deadAt >= CORPSE_MS + RESPAWN_MS && this.free(m.map, m.home)) Object.assign(m, { dead: false, taken: 0, hp: 0, x: m.home.x, y: m.home.y });
+      if (m.respawn && this.t - m.deadAt >= CORPSE_MS + m.respawnMs && this.free(m.map, m.home)) Object.assign(m, { dead: false, taken: 0, hp: 0, x: m.home.x, y: m.home.y });
     }
   }
 
@@ -1006,6 +1013,7 @@ export class FakeGame {
     for (const q of this.questsAt(npc).ready) {
       q.completed = true;
       this.player.experience += q.quest.exp ?? 0;
+      for (const [item, amount] of q.quest.items ?? []) if (this.itemCounts.has(item)) this.itemCounts.set(item, this.itemCounts.get(item)! + amount);
       this.events.push({ t: this.t, type: 'quest', key: q.quest.key ?? q.quest.name, what: 'handedIn' });
     }
   }
@@ -1108,12 +1116,12 @@ export class FakeGame {
       if (q.completed || this.isReady(q)) continue;
       for (const i of this.currentTasks(q)) {
         const task = q.quest.tasks[i];
-        if (task.type === 'KillMonster' || task.type === 'GainItem') for (const [name, m] of task.monsters ?? []) targets.push({ name, map: m ?? null, quest: q.quest.name });
+        if (task.type === 'KillMonster' || task.type === 'GainItem') for (const [name, m] of task.monsters ?? []) targets.push({ name, map: m ?? null, quest: q.quest.name, done: q.done[i], need: task.amount });
         else if (task.type === 'Region' && task.region) regions.push({ quest: q.quest.name, region: task.region.id, map: task.region.map });
         else if (task.type === 'TalkToNPC' && task.npc !== undefined) talks.push({ quest: q.quest.name, npc: task.npc });
       }
     }
-    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, hitsFor: _hf, nextHitAt: _nh, required: _rq, pickAt: _pa, pickedAt: _pd, ...o }: Partial<Monster & Npc & GatherPoint> & MemoryObject): MemoryObject => o;
+    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, respawnMs: _rm, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, hitsFor: _hf, nextHitAt: _nh, required: _rq, pickAt: _pa, pickedAt: _pd, ...o }: Partial<Monster & Npc & GatherPoint> & MemoryObject): MemoryObject => o;
     return {
       inGame: true,
       user: {
@@ -1142,7 +1150,7 @@ export class FakeGame {
       questPending: { regions, talks },
       survival: this.survival(),
       view: { ...this.view },
-      gear: { worn: this.gear.worn.map((i) => ({ ...i })), bag: this.gear.bag.map((i) => ({ ...i, cell: this.cellOf(i) })) },
+      gear: { worn: this.gear.worn.map((i) => ({ ...i })), bag: this.gear.bag.map((i) => ({ ...i, cell: this.cellOf(i) })), counts: Object.fromEntries(this.itemCounts) },
       professions: this.professionsLoaded
         ? PROFESSION_NAMES.map((name, i) => {
             const level = this.profession(i + 1);

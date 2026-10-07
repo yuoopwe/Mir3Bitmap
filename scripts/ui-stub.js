@@ -6,7 +6,7 @@
 (() => {
   /** Every call the window made: { fn, args }, the args copied the way Electron's IPC copies them. */
   const calls = [];
-  const listeners = { status: [], names: [], monsters: [], kept: [] };
+  const listeners = { status: [], names: [], monsters: [], kept: [], circuit: [] };
   const record = (fn, ...args) => calls.push({ fn, args: structuredClone(args) });
   const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -219,6 +219,20 @@
         return `Travelling to ${label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`;
       });
     },
+    async startCircuit() {
+      record('startCircuit');
+      const view = (done) => ({
+        quest: 'Seasonal Supply Hunt - Grade E',
+        tasks: ['Prajna Guardian', 'Jinchon Warlord', 'Black Palace Warlord'].map((monster, i) => ({ monster, need: 3, done: Math.min(3, Math.max(0, done - i * 3)) })),
+        stops: [{ monster: 'Jinchon Warlord', map: 'Jinchon Palace Lv 6', backIn: 0 }, { monster: 'Black Palace Warlord', map: 'Black Palace Lv 4', backIn: 6 }],
+        skipped: [{ monster: 'Tainted Terror', map: 'Desert City Lv 4', why: 'too hard this run' }],
+        stones: 0,
+      });
+      run('circuit', 'Going round the boss circuit', 1000, (tick) => {
+        listeners.circuit.forEach((listener) => listener(view(Math.min(9, Math.floor(tick / 2)))));
+        return `Supply Hunt - Grade E ${Math.min(9, Math.floor(tick / 2))}/9 · next: Jinchon Warlord at Jinchon Palace Lv 6`;
+      });
+    },
     async startGrind() {
       record('startGrind');
       const plan = 'Grinding at Zuma Temple Lv 3: ~1.5M est, 1.2M measured exp/h for level 35 (still the best)';
@@ -286,6 +300,9 @@
     },
     onKept(listener) {
       listeners.kept.push(listener);
+    },
+    onCircuit(listener) {
+      listeners.circuit.push(listener);
     },
     onMonsters(listener) {
       listeners.monsters.push(listener);

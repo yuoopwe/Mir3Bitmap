@@ -172,16 +172,19 @@ export interface MemoryState {
   waypoints?: MemoryWaypoints | null;
   /** The game's windows showing (by the scene's field name): the run button held over one doesn't run. */
   windows?: (MemoryBox & { name: string })[] | null;
-  /** Monsters still needed by unfinished quest tasks (map: only those on that map count, when the task says). */
-  questTargets?: { name: string; map: number | null; quest: string }[] | null;
+  /** Monsters still needed by unfinished quest tasks (map: only those on that map count, when the task says), and the task's progress: done of need. */
+  questTargets?: { name: string; map: number | null; quest: string; done?: number; need?: number }[] | null;
   /** The quest log: each quest (by its internal name), handed in or not, and whether every task is done. */
   questLog?: { name: string; completed: boolean; ready: boolean }[] | null;
   /** Unfinished quest tasks to go somewhere (a region, by index, on a map) or talk to someone (an NPC, by index). */
   questPending?: { regions: { quest: string; region: number; map: number | null }[]; talks: { quest: string; npc: number }[] } | null;
   /** The map view: the game's size, its map zoom, and where the character's tile is drawn (see MapView). */
   view?: MapView | null;
-  /** What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second. */
-  gear?: { worn: MemoryItem[]; bag: MemoryItem[] } | null;
+  /**
+   * What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second;
+   * counts: how many the bag holds of a few items by name (Forge Stone, Phoenix Tear).
+   */
+  gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number> } | null;
   /**
    * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
    * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.

@@ -10,6 +10,7 @@ import { GrindLog } from '../main/grind-log';
 import { VK } from '../main/input';
 import { DEFAULT_VIEW } from '../main/game-memory';
 import type { Bot } from '../main/bot';
+import type { CircuitView } from '../shared/types';
 import { loadTravelData } from '../main/travel';
 import { play, testSettings } from './bot-harness';
 import { BAG_KEY, FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup, type FakeItem } from './fake-game';
@@ -846,8 +847,159 @@ test('At 2560x1440 the modes that read the screen stop, saying why; the others s
     const { message, statuses } = await play(game, start);
     assert.equal(
       message,
-      `The game is 2560x1440: ${name} reads the screen, which needs 1600x900: set the game to 1600x900 (Hunt, Explore, Travel, Gather, Quests and Grind work at any size with the memory reader).`,
+      `The game is 2560x1440: ${name} reads the screen, which needs 1600x900: set the game to 1600x900 (Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work at any size with the memory reader).`,
     );
     assert.equal(statuses.length, 1, 'stopped before starting');
   }
+});
+
+// ---- Boss circuit ----
+
+const SUPPLY_HUNT = 'Seasonal Supply Hunt - Grade E';
+const SOUL_QUESTS = data.npcs.find((n) => n.id === 237)!;
+const PRAJNA_TEMPLE_10 = 29;
+const JINCHON_6 = 57;
+const JINCHON_4N = 54;
+/** The Supply Hunt's two nearest sub-bosses from Arcadia, and where they spawn (travel.json's bossSpawns). */
+const GUARDIAN = { name: 'Prajna Guardian', map: PRAJNA_TEMPLE_10, x: 196, y: 197 };
+const WARLORD = { name: 'Jinchon Warlord', map: JINCHON_6, x: 197, y: 199 };
+
+/** Runs `body` with the Supply Hunt cut down to these monsters' tasks (in the travel data the bot and the fake game share). */
+async function withSupplyHunt<T>(monsters: string[], body: () => Promise<T>): Promise<T> {
+  const quest = data.quests!.find((q) => q.id === 1840)!;
+  const tasks = quest.tasks;
+  quest.tasks = tasks.filter((t) => monsters.includes(t.monsters![0][0]));
+  try {
+    return await body();
+  } finally {
+    quest.tasks = tasks;
+  }
+}
+
+/** Some of a sub-boss round its spawn tile. */
+const bossesAt = (spawn: { name: string; map: number; x: number; y: number }, n: number, more: Partial<FakeGameSetup['monsters'] extends (infer M)[] | undefined ? M : never> = {}) =>
+  Array.from({ length: n }, (_, i) => ({ name: spawn.name, map: spawn.map, x: spawn.x + [3, 0, -3, 0][i % 4], y: spawn.y + [0, 3, 0, -3][i % 4], ...more }));
+
+/** In Arcadia beside the Soul Evolution Quests NPC, level 45, with the Supply Hunt on offer. */
+function inArcadia(setup: Partial<FakeGameSetup> = {}, player: Partial<FakeGameSetup['player']> = {}): FakeGame {
+  return new FakeGame({ allNpcs: true, offers: [SUPPLY_HUNT], ...setup, player: { map: ARCADIA, x: SOUL_QUESTS.at![0] + 2, y: SOUL_QUESTS.at![1] + 2, level: 45, ...player } });
+}
+
+const killsOf = (game: FakeGame, name: string) => of(game, 'attack').filter((a) => a.killed && a.name === name);
+
+test('Boss circuit: takes the Supply Hunt at the Soul Evolution Quests, kills 3 each of two sub-bosses on two maps, and hands it in', async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    const game = inArcadia({ monsters: [...bossesAt(GUARDIAN, 4), ...bossesAt(WARLORD, 4)] });
+    let view: CircuitView | null = null;
+    const handedIn = (lines: { message: string }[]) => lines.some((s) => s.message.startsWith('Handed in'));
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), { until: handedIn, limitMs: 40 * 60_000, onCircuit: (v) => (view = v) });
+    assert.ok(met, `handed in (${statuses.at(-1)?.message})`);
+    assert.deepEqual(of(game, 'quest').map((q) => [q.key, q.what]), [[SUPPLY_HUNT, 'accepted'], [SUPPLY_HUNT, 'ready'], [SUPPLY_HUNT, 'handedIn']]);
+    // Three each (and any fought for being in the way).
+    assert.ok(killsOf(game, GUARDIAN.name).length >= 3 && killsOf(game, WARLORD.name).length >= 3);
+    // Both maps visited; the status said what was next, with the count.
+    const visited = new Set(of(game, 'mapChange').map((c) => c.to));
+    assert.ok(visited.has(PRAJNA_TEMPLE_10) && visited.has(JINCHON_6));
+    const lines = statuses.map((s) => s.message);
+    assert.ok(lines.some((m) => /^Supply Hunt - Grade E 0\/6 · next: (Prajna Guardian at Prajna Temple Lv 10|Jinchon Warlord at Jinchon Palace Lv 6)$/.test(m)), lines.join(' | '));
+    assert.ok(lines.includes('Handed in Seasonal Supply Hunt - Grade E: +100 Forge Stones; rewards 100 Forge Stone, 25 Phoenix Tear, 1 Companion Ticket, 2 Synthesis Scroll (1000), 2 Synthesis Scroll (250)'), lines.join(' | '));
+    assert.equal(game.itemCounts.get('Forge Stone'), 100);
+    assert.ok(view, 'the Circuit card was shown');
+    checkAlways(game);
+  });
+});
+
+test('Boss circuit: a spawn found empty is left for the other, and visited again once it is due back (15 minutes on)', async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    // At the Prajna Guardians' spawn, none there; Warlords at Jinchon Palace Lv 6. The Guardians are back once the bot has left.
+    const game = new FakeGame({
+      allNpcs: true, quests: [{ key: SUPPLY_HUNT, state: 'active' }], monsters: bossesAt(WARLORD, 3),
+      player: { map: PRAJNA_TEMPLE_10, x: GUARDIAN.x + 1, y: GUARDIAN.y + 1, level: 45 },
+    });
+    let added = false;
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+      during: () => {
+        if (!added && of(game, 'mapChange').some((c) => c.from === PRAJNA_TEMPLE_10)) {
+          added = true;
+          for (const m of bossesAt(GUARDIAN, 3)) game.addMonster(m);
+        }
+      },
+      until: () => game.questState(SUPPLY_HUNT) === 'ready',
+      limitMs: 60 * 60_000,
+    });
+    assert.ok(met, `done (${statuses.at(-1)?.message})`);
+    // Left after a minute of nothing, for Jinchon; back to the Guardians after.
+    const changes = of(game, 'mapChange');
+    const left = changes.find((c) => c.from === PRAJNA_TEMPLE_10)!;
+    assert.ok(left.t >= 60_000, `left after ${Math.round(left.t / 1000)} s`);
+    assert.equal(changes.at(-1)!.to, PRAJNA_TEMPLE_10);
+    const lines = statuses.map((s) => s.message);
+    assert.ok(lines.some((m) => /next: Prajna Guardian at Prajna Temple Lv 10 \(back in \d+ min\)$/.test(m)), lines.join(' | '));
+    // The Warlords first, then the Guardians.
+    assert.ok(killsOf(game, WARLORD.name).length >= 3 && killsOf(game, GUARDIAN.name).length >= 3);
+    assert.ok(killsOf(game, WARLORD.name)[2].t < killsOf(game, GUARDIAN.name)[0].t);
+    checkAlways(game);
+  });
+});
+
+test('Boss circuit: HP running low against a sub-boss means getting away (Town Portal) and leaving that spawn for the run', async () => {
+  await withSupplyHunt([WARLORD.name], async () => {
+    // Warlords that take many blows and hit hard.
+    const game = inArcadia({ quests: [{ key: SUPPLY_HUNT, state: 'active' }], monsters: bossesAt(WARLORD, 3, { hits: 50, damage: 150 }) });
+    const tooHard = 'Jinchon Warlord at Jinchon Palace Lv 6 is too hard: left for this run';
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+      until: (lines) => lines.some((s) => s.message.startsWith('Skipping Jinchon Warlord at Jinchon Palace Lv 6')),
+      limitMs: 30 * 60_000,
+    });
+    assert.ok(met, statuses.map((s) => s.message).join(' | '));
+    const lines = statuses.map((s) => s.message);
+    assert.ok(lines.includes('HP low fighting Jinchon Warlord: reading a Town Portal scroll'), lines.join(' | '));
+    assert.ok(lines.includes(tooHard), lines.join(' | '));
+    assert.ok(lines.includes('Skipping Jinchon Warlord at Jinchon Palace Lv 6: too hard this run'));
+    assert.ok(of(game, 'mapChange').some((c) => c.from === JINCHON_6 && c.via === 'portal'));
+    assert.ok(!game.player.dead && game.player.hp > 0);
+    // Got away mid-fight: the warlords still all there.
+    assert.deepEqual(killsOf(game, WARLORD.name), []);
+  });
+});
+
+test("Boss circuit: the Supply Hunt done today stops it, saying so; with Keep hunting bosses it goes round the bosses instead", async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    const done = inArcadia({ quests: [{ key: SUPPLY_HUNT, state: 'completed' }] });
+    const { message } = await play(done, (bot) => bot.startCircuit());
+    assert.equal(message, 'Supply Hunt - Grade E done for today; next one after reset.');
+    assert.deepEqual(of(done, 'mapChange'), []);
+
+    const farm = inArcadia({ quests: [{ key: SUPPLY_HUNT, state: 'completed' }], monsters: [...bossesAt(GUARDIAN, 2), ...bossesAt(WARLORD, 2)] });
+    const { met, statuses } = await play(farm, (bot) => bot.startCircuit(), {
+      settings: { circuit: { quests: [1840], keepHunting: true, retreatHpPercent: 35 } },
+      until: () => of(farm, 'attack').filter((a) => a.killed).length >= 2,
+      limitMs: 30 * 60_000,
+    });
+    assert.ok(met, `hunting bosses (${statuses.at(-1)?.message})`);
+    assert.ok(statuses.some((s) => s.message.startsWith('Hunting bosses · next: ')));
+    assert.deepEqual(of(farm, 'quest'), []);
+    checkAlways(farm);
+  });
+});
+
+test('Boss circuit: a death mid-circuit, then Return, and on round the circuit to hand it in', async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    const game = inArcadia({ monsters: [...bossesAt(GUARDIAN, 4), ...bossesAt(WARLORD, 4)] });
+    let died = false;
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+      during: () => {
+        if (!died && of(game, 'attack').some((a) => a.killed)) {
+          died = true;
+          game.kill();
+        }
+      },
+      until: () => game.questState(SUPPLY_HUNT) === 'completed',
+      limitMs: 60 * 60_000,
+    });
+    assert.ok(met, `handed in after dying (${statuses.at(-1)?.message})`);
+    assert.ok(of(game, 'mapChange').some((c) => c.via === 'revive'));
+    assert.ok(killsOf(game, GUARDIAN.name).length >= 3 && killsOf(game, WARLORD.name).length >= 3);
+    checkAlways(game);
+  });
 });

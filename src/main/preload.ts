@@ -11,6 +11,7 @@ const api: BotApi = {
   startTravel: (placeId) => ipcRenderer.invoke('bot:travel', placeId),
   startGrind: () => ipcRenderer.invoke('bot:grind'),
   startQuests: () => ipcRenderer.invoke('bot:quests'),
+  startCircuit: () => ipcRenderer.invoke('bot:circuit'),
   searchPlaces: (query) => ipcRenderer.invoke('travel:search', query),
   stop: () => ipcRenderer.invoke('bot:stop'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
@@ -24,6 +25,9 @@ const api: BotApi = {
   },
   onMonsters: (listener) => {
     ipcRenderer.on('monsters', (_event, names) => listener(names));
+  },
+  onCircuit: (listener) => {
+    ipcRenderer.on('circuit', (_event, view) => listener(view));
   },
   onKept: (listener) => {
     ipcRenderer.on('kept', (_event, items) => listener(items));

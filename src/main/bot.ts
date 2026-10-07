@@ -19,11 +19,12 @@ import { TripleTriad } from './bot-triad';
 import { Gathering } from './bot-gathering';
 import { GatherTrips } from './bot-gather-trips';
 import { Looting } from './bot-loot';
+import { BossCircuit } from './bot-circuit';
 
 export type { BotOptions } from './bot-context';
 
 /** The modes that work at any size of game with the memory reader: they place everything from the map view. */
-const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind'];
+const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind', 'circuit'];
 
 /** What the rest are called, for the message. */
 const SCREEN_MODE_NAMES: Partial<Record<Status['mode'], string>> = { triad: 'Triple Triad', deck: 'Best deck', train: 'Train' };
@@ -44,6 +45,7 @@ export class Bot {
     ctx.gathering = new Gathering(ctx);
     ctx.gatherTrips = new GatherTrips(ctx);
     ctx.loot = new Looting(ctx);
+    ctx.circuit = new BossCircuit(ctx);
     this.ctx = ctx;
   }
 
@@ -109,6 +111,10 @@ export class Bot {
     void this.run('quest', () => this.ctx.quests.questLoop());
   }
 
+  startCircuit(): void {
+    void this.run('circuit', () => this.ctx.circuit.circuitLoop());
+  }
+
   startGrind(): void {
     void this.run('grind', () => this.ctx.grind.grindLoop());
   }
@@ -124,7 +130,7 @@ export class Bot {
       throw new BotError(`${game}: without the memory reader the bot reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}. Either ${set}, or set up the memory reader (scripts/setup-game-reader.ps1).`);
     }
     if (!MEMORY_MODES.includes(mode)) {
-      throw new BotError(`${game}: ${SCREEN_MODE_NAMES[mode] ?? mode} reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}: ${set} (Hunt, Explore, Travel, Gather, Quests and Grind work at any size with the memory reader).`);
+      throw new BotError(`${game}: ${SCREEN_MODE_NAMES[mode] ?? mode} reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}: ${set} (Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work at any size with the memory reader).`);
     }
   }
 
@@ -142,7 +148,7 @@ export class Bot {
       this.ctx.screenSize = size;
       this.ctx.lastView = null;
       if (!this.ctx.screenReadable) this.checkSize(mode, size);
-      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding', quest: 'Questing' };
+      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding', quest: 'Questing', circuit: 'Going round the boss circuit' };
       this.ctx.status(starting[mode]);
       message = await task();
     } catch (error) {

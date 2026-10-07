@@ -326,7 +326,10 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
     const link = byId.get(at)!;
     const land = { x: link.land[0], y: link.land[1] };
     if (link.to === place.map) {
-      const total = cost + finish(place.npc ? link.npcSteps?.[place.npc.id] : undefined, link.steps ? undefined : land);
+      // A spot (no NPC id: a quest's "go to", a boss spawn) is never among the landing's steps: guessed from the landing,
+      // not a flat 100 (which made leaving and coming straight back in look quicker than the walk there).
+      const spot = place.npc !== undefined && place.npc.id < 0;
+      const total = cost + finish(place.npc ? link.npcSteps?.[place.npc.id] : undefined, link.steps && !spot ? undefined : land);
       if (!arrived || total < arrived.cost) arrived = { cost: total, via: at };
     }
     for (const e of exits.get(link.to) ?? []) {

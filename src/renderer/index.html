@@ -16,6 +16,7 @@
           <button type="button" role="tab" id="tab-travel" aria-controls="panel-travel" data-modes="travel">Travel</button>
           <button type="button" role="tab" id="tab-grind" aria-controls="panel-grind" data-modes="grind">Grind</button>
           <button type="button" role="tab" id="tab-quests" aria-controls="panel-quests" data-modes="quest">Quests</button>
+          <button type="button" role="tab" id="tab-circuit" aria-controls="panel-circuit" data-modes="circuit">Boss circuit</button>
           <button type="button" role="tab" id="tab-gather" aria-controls="panel-gather" data-modes="gather">Gather</button>
           <button type="button" role="tab" id="tab-triad" aria-controls="panel-triad" data-modes="triad deck">Triple Triad</button>
           <button type="button" role="tab" id="tab-train" aria-controls="panel-train" data-modes="train">Train</button>
@@ -152,6 +153,40 @@
           <p class="see-also">It fights as Hunt does: attack, items and selling are set under
             <button type="button" class="link" data-goto="tab-hunt">Hunt</button>; spell keys and potions under
             <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+        </section>
+
+        <section class="panel" id="panel-circuit" role="tabpanel" aria-labelledby="tab-circuit" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Boss circuit</h1>
+              <p>Takes the daily boss quests ticked below, goes round the sub-boss spawns they want (nearest and back first), kills them and
+                hands the quests in for the Forge Stones; then, if you like, keeps going round for the bosses' drops (needs the memory reader).</p>
+            </div>
+            <button type="button" id="circuit-button" class="start" title="Take the daily boss quests, go round their spawns and hand them in (needs the memory reader)">Start circuit</button>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Quests</legend>
+              <div id="circuit-quests"></div>
+              <p class="hint" id="circuit-level-hint">Quests above your level are greyed out once the bot has seen your character.</p>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Going round</legend>
+              <label title="Once the quests are done for the day, keep going round the same spawns for the bosses' drops (about 1 in 10 bosses drops Forge Stones) until you stop it"><input id="circuit-keep" type="checkbox"> Keep hunting bosses</label>
+              <label title="Below this share of health, with the monster not nearly dead, it gets away (Town Portal scroll, else Return to Arcadia) and leaves that spawn for the run">Get away below <input id="circuit-retreat" type="number" min="5" max="90"> % HP</label>
+              <p class="hint">Monsters further above your level than your fights say is safe (Grind's measurements) are skipped.</p>
+            </fieldset>
+            <section class="card route-card">
+              <h2>Circuit</h2>
+              <p id="circuit-summary" class="hint">Not planned yet.</p>
+              <ul id="circuit-tasks" class="circuit-list"></ul>
+              <ol id="circuit-stops" class="circuit-list"></ol>
+            </section>
+          </div>
+          <p class="see-also">It fights as Hunt does: attack, items and selling are set under
+            <button type="button" class="link" data-goto="tab-hunt">Hunt</button>; spell keys and potions under
+            <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>; the way there as
+            <button type="button" class="link" data-goto="tab-travel">Travel</button> goes.</p>
         </section>
 
         <section class="panel" id="panel-grind" role="tabpanel" aria-labelledby="tab-grind" hidden>
