@@ -183,6 +183,11 @@ export interface MemoryState {
    * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.
    * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
    */
+  /**
+   * The map view: the game's size, its map zoom (1 = 100%), and where MapControl puts the character's cell: offsetX/offsetY
+   * cells in from the top left, nudged by pixelX/pixelY. At 1600x900 and zoom 1: 16, 14, 8, -48 (PLAYER_TILE 804,416).
+   */
+  view?: { width: number; height: number; zoom: number; offsetX: number; offsetY: number; pixelX: number; pixelY: number } | null;
   /** What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second. */
   gear?: { worn: MemoryItem[]; bag: MemoryItem[] } | null;
   professions?: { id: number; name: string; level: number; usable: number; exp: number; toNext: number; canGain: boolean; lockReason: string | null }[] | null;

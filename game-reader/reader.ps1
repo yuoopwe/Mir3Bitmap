@@ -624,6 +624,20 @@ function Read-CombatAgo($userObject, $module, $domain) {
   return [math]::Round(([double]$now - [double]$combat) / 1e7, 1)
 }
 
+# The map view: the game's size (Config.GameSize), its map zoom (Config.MapZoom), and how MapControl places the
+# character's cell (its static OffSetX/OffSetY in cells and PixelOffsetX/PixelOffsetY): a bigger window shows more map.
+function Read-View($scene, $module, $domain) {
+  $config = $module.GetTypeByName('Client.Envir.Config')
+  $size = $config.GetStaticFieldByName('<GameSize>k__BackingField').ReadStruct($domain)
+  $map = $module.GetTypeByName('Client.Scenes.Views.MapControl')
+  $int = { param($name) $map.GetStaticFieldByName($name).Read[int]($domain) }
+  return @{
+    width = $size.ReadField[int]('width'); height = $size.ReadField[int]('height')
+    zoom = $config.GetStaticFieldByName('_MapZoom').Read[single]($domain)
+    offsetX = (& $int 'OffSetX'); offsetY = (& $int 'OffSetY'); pixelX = (& $int 'PixelOffsetX'); pixelY = (& $int 'PixelOffsetY')
+  }
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -705,7 +719,7 @@ while ($true) {
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; professions = $script:professions; gear = $script:gear; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }
