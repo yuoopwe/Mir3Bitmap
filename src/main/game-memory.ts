@@ -169,8 +169,19 @@ export function tileToScreen(user: { x: number; y: number }, x: number, y: numbe
   return { x: PLAYER_TILE.x + (x - user.x) * TILE_WIDTH, y: PLAYER_TILE.y + (y - user.y) * TILE_HEIGHT };
 }
 
+/** What the bot uses of the memory reader: GameMemory, or a stand-in game in the tests. */
+export interface MemorySource {
+  readonly installed: boolean;
+  start(): void;
+  stop(): void;
+  latest(maxAgeMs?: number): MemoryState | null;
+  map(): MapGrid | null;
+  fresh(timeoutMs?: number): Promise<MemoryState | null>;
+  readonly problem: string;
+}
+
 /** Runs the memory reader in the background and keeps its latest reading. */
-export class GameMemory {
+export class GameMemory implements MemorySource {
   private child: ChildProcessWithoutNullStreams | null = null;
   private state: MemoryState | null = null;
   private stateAt = 0;

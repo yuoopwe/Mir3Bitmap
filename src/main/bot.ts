@@ -32,7 +32,7 @@ import { ExperienceMeter, type GrindLog } from './grind-log';
 import { RouteCosts, nextQuestAction, questKey } from './quest-planner';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
-import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
+import { tileToScreen, type MemorySource, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
 import { chooseDeck, deckInputs } from './triad-deck';
 import {
   createFrame,
@@ -328,8 +328,8 @@ export interface BotOptions {
   triad: TriadMemory;
   /** Renders part of a frame as a PNG data URL (for showing learned names). */
   imageOf: (frame: Frame, box: Rect) => string;
-  /** Reads the game's memory (exact monsters and positions) when installed. */
-  memory: GameMemory;
+  /** Reads the game's memory (exact monsters and positions) when installed: GameMemory, or a stand-in in the tests. */
+  memory: MemorySource;
   /** Monster names seen so far, for the window's kill/skip list. */
   monsters?: (names: string[]) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
