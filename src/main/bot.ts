@@ -6,7 +6,7 @@
 
 import type { Settings, Stats, Status } from '../shared/types';
 import { GAME_HEIGHT, GAME_WIDTH } from './layout';
-import { BotError, Stopped } from './bot-shared';
+import { BotError, Stopped, ViewError } from './bot-shared';
 import { BotContext, type BotOptions } from './bot-context';
 import { Movement } from './bot-movement';
 import { Travel } from './bot-travel';
@@ -21,6 +21,12 @@ import { GatherTrips } from './bot-gather-trips';
 import { Looting } from './bot-loot';
 
 export type { BotOptions } from './bot-context';
+
+/** The modes that work at any size of game with the memory reader: they place everything from the map view. */
+const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind'];
+
+/** What the rest are called, for the message. */
+const SCREEN_MODE_NAMES: Partial<Record<Status['mode'], string>> = { triad: 'Triple Triad', deck: 'Best deck', train: 'Train' };
 
 export class Bot {
   private readonly ctx: BotContext;
@@ -107,6 +113,21 @@ export class Bot {
     void this.run('grind', () => this.ctx.grind.grindLoop());
   }
 
+  /**
+   * A game of any size will do for the modes that go by the game's memory (Hunt with the reader, Explore, Travel,
+   * Gather, Quests, Grind); the rest read the screen, which is measured at 1600x900 only.
+   */
+  private checkSize(mode: Status['mode'], size: { width: number; height: number }): void {
+    const set = `set the game to ${GAME_WIDTH}x${GAME_HEIGHT}`;
+    const game = `The game is ${size.width}x${size.height}`;
+    if (!this.ctx.options.memory.installed) {
+      throw new BotError(`${game}: without the memory reader the bot reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}. Either ${set}, or set up the memory reader (scripts/setup-game-reader.ps1).`);
+    }
+    if (!MEMORY_MODES.includes(mode)) {
+      throw new BotError(`${game}: ${SCREEN_MODE_NAMES[mode] ?? mode} reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}: ${set} (Hunt, Explore, Travel, Gather, Quests and Grind work at any size with the memory reader).`);
+    }
+  }
+
   private async run(mode: Status['mode'], task: () => Promise<string>): Promise<void> {
     if (this.ctx.mode !== 'idle') return;
     this.ctx.mode = mode;
@@ -118,14 +139,14 @@ export class Bot {
       if (!this.ctx.hwnd) throw new BotError(`No window titled "${this.ctx.settings.windowTitle}..." found`);
       if (this.ctx.input.isMinimized(this.ctx.hwnd)) throw new BotError('The game is minimized; restore it first.');
       const size = this.ctx.input.clientSize(this.ctx.hwnd);
-      if (size.width !== GAME_WIDTH || size.height !== GAME_HEIGHT) {
-        throw new BotError(`The game is ${size.width}x${size.height}; set it to ${GAME_WIDTH}x${GAME_HEIGHT}.`);
-      }
+      this.ctx.screenSize = size;
+      this.ctx.lastView = null;
+      if (!this.ctx.screenReadable) this.checkSize(mode, size);
       const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding', quest: 'Questing' };
       this.ctx.status(starting[mode]);
       message = await task();
     } catch (error) {
-      if (error instanceof BotError) message = error.message;
+      if (error instanceof BotError || error instanceof ViewError) message = error.message;
       else if (!(error instanceof Stopped)) message = `Error: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
       // Never leave the character running on its own, or a button held down.

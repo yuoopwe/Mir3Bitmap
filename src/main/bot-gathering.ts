@@ -1,10 +1,8 @@
 /** Gather mode (plants and ore) and Train mode (a spell cast on yourself). */
 
 import type { Point } from '../shared/types';
-import { PLAYER, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR } from './layout';
-import { tileToScreen, type MemoryObject, type MemoryState } from './game-memory';
-import { playerHpFill, playerMpFill, readBar } from './vision';
-import { BotError, MEMORY_START_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, clickable, keyCode } from './bot-shared';
+import type { MemoryObject, MemoryState } from './game-memory';
+import { BotError, MEMORY_START_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /** Gathering: give up walking to a node after this long, and on a node that hasn't been picked this long after clicking it. */
@@ -23,8 +21,8 @@ const GATHER_WANDER_MS = 4000;
 
 const GATHER_BLOCKED_MS = 1200;
 
-/** The character's body, for casting spells on themselves. */
-const SELF: Point = { x: PLAYER.x, y: PLAYER.y + 20 };
+/** The character's body, for casting spells on themselves: this far below where they stand. */
+const SELF_BELOW = 20;
 
 /** Train mode never casts faster than this. */
 const MIN_TRAIN_INTERVAL_MS = 100;
@@ -89,8 +87,7 @@ export class Gathering {
         wander = { ...wander, until: wander.until + pause, movedAt: wander.movedAt + pause };
       }
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
       const now = this.bot.clock.now();
       for (const [id, until] of skipped) if (until <= now) skipped.delete(id);
@@ -117,7 +114,7 @@ export class Gathering {
       const nodes = (reading.objects ?? []).filter(
         (o) =>
           o.kind === 'node' && !o.harvested && !skipped.has(o.id) && (o.mining ? this.bot.settings.gatherOre : this.bot.settings.gatherPlants) &&
-          (!hooks.canPick || hooks.canPick(o)) && clickable(tileToScreen(user, o.x, o.y)),
+          (!hooks.canPick || hooks.canPick(o)) && this.bot.clickable(this.bot.toScreen(user, o.x, o.y)),
       );
       const distance = (o: { x: number; y: number }) => Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y));
 
@@ -152,7 +149,8 @@ export class Gathering {
         }
         const dir = ROAM_DIRECTIONS[wander.direction];
         const scale = dir.x && dir.y ? ROAM_DISTANCE / Math.SQRT2 : ROAM_DISTANCE;
-        this.bot.holdRun({ x: Math.round(PLAYER.x + dir.x * scale), y: Math.round(PLAYER.y + dir.y * scale * 0.75) });
+        const player = this.bot.player();
+        this.bot.holdRun({ x: Math.round(player.x + dir.x * scale), y: Math.round(player.y + dir.y * scale * 0.75) });
         this.bot.statusEvery(`Looking for something to gather (${gathered} gathered)`);
         await this.bot.sleep(this.bot.delay('runStep'));
         continue;
@@ -170,7 +168,7 @@ export class Gathering {
         }
         // Head for the tile next to it, on this side.
         const next = { x: node.x - Math.sign(node.x - user.x), y: node.y - Math.sign(node.y - user.y) };
-        const point = tileToScreen(user, next.x, next.y);
+        const point = this.bot.toScreen(user, next.x, next.y);
         if (away > GATHER_RUN_TILES) this.bot.holdRun(point);
         else {
           this.bot.stopRunning();
@@ -193,7 +191,7 @@ export class Gathering {
       }
       // Click it, and once more if nothing has happened halfway to giving up.
       if (clickedAt === null || (!current.retried && now - clickedAt > GATHER_PICK_GIVE_UP_MS / 2)) {
-        const tile = tileToScreen(user, node.x, node.y);
+        const tile = this.bot.toScreen(user, node.x, node.y);
         // Click where the game says the node is under the mouse, else the middle of its tile.
         await this.bot.moves.setMounted(false);
         const point = (await this.bot.aimAt({ key: `n${node.id}`, point: tile, name: node.name, tile })) ?? tile;
@@ -219,10 +217,10 @@ export class Gathering {
     while (true) {
       await this.bot.yieldToEvents();
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
-      this.bot.input.mouseMove(this.bot.hwnd, SELF.x, SELF.y);
+      const player = this.bot.player();
+      this.bot.input.mouseMove(this.bot.hwnd, player.x, player.y + SELF_BELOW);
       this.bot.key(vk);
       casts++;
       this.bot.statusEvery(`Training: ${casts} casts`);

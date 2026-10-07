@@ -100,7 +100,8 @@ export async function play(
     await new Promise<void>((resolve) => {
       const tick = () => {
         const last = statuses.at(-1);
-        if (statuses.length > 1 && last?.mode === 'idle') return resolve();
+        // Ended: the last status is the idle one (alone, when the run is refused before it starts).
+        if (last?.mode === 'idle') return resolve();
         options.during?.();
         if (!met && options.until?.(statuses)) {
           met = true;

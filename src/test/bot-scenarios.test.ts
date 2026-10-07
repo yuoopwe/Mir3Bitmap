@@ -8,6 +8,8 @@ import { test } from 'node:test';
 import { chooseGrindMap } from '../main/grind';
 import { GrindLog } from '../main/grind-log';
 import { VK } from '../main/input';
+import { DEFAULT_VIEW } from '../main/game-memory';
+import type { Bot } from '../main/bot';
 import { loadTravelData } from '../main/travel';
 import { play, testSettings } from './bot-harness';
 import { BAG_KEY, FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup, type FakeItem } from './fake-game';
@@ -40,6 +42,7 @@ const of = <T extends FakeEvent['type']>(game: FakeGame, type: T) => game.events
 /** What every run checks: the cursor was never too close to run, and no guard was ever attacked. */
 function checkAlways(game: FakeGame): void {
   assert.deepEqual(of(game, 'runTooClose'), [], `the cursor came within ${RUN_DEAD_ZONE} tiles while running`);
+  assert.deepEqual(of(game, 'offScreen'), [], 'the mouse went off the screen, or onto the main panel');
   assert.deepEqual(of(game, 'attack').filter((a) => a.disposition === 0), [], 'a guard was attacked');
   // M only ever pressed standing still.
   assert.deepEqual(of(game, 'mount').filter((m) => m.moving), [], 'M pressed mid-move');
@@ -773,4 +776,78 @@ test("Loot judge: a double-click that doesn't put the upgrade on is given up on,
   assert.ok(statuses.some((s) => s.message === "Couldn't put on Iron Sword (double-clicking it did nothing); leaving it in the bag"));
   assert.deepEqual(game.gear.worn.map((w) => w.name), ['Rusty Sword', 'Leather Cap']);
   checkAlways(game);
+});
+
+// ---- Any size of game ----
+
+/** The map view at 2560x1440, as the reader gave it in game: more map is drawn round the character. */
+const VIEW_2560 = { width: 2560, height: 1440, zoom: 1, offsetX: 26, offsetY: 22, pixelX: 8, pixelY: -34 };
+
+test('At 2560x1440: Travel crosses three maps by their links, running', async () => {
+  const game = onBichon({ view: VIEW_2560 });
+  const { message } = await play(game, (bot) => bot.startTravel(`map:${LEFT_WING}`));
+  assert.equal(message, 'Arrived at Left Wing');
+  assert.deepEqual(of(game, 'mapChange').map((c) => [c.from, c.to, c.via]), [[BICHON, TOWN_HALL, 'link'], [TOWN_HALL, LEFT_WING, 'link']]);
+  assert.ok(of(game, 'move').filter((m) => m.run).length > 10);
+  checkAlways(game);
+});
+
+test('At 2560x1440: Hunt with the memory reader attacks the wolves on this bigger screen, never the guard', async () => {
+  const { x, y } = bichon.player;
+  const game = onBichon({
+    view: VIEW_2560,
+    monsters: [
+      { name: 'Guard', x: x + 2, y, level: 50, disposition: 0 },
+      { name: 'Wolf', x: x - 2, y: y + 1, hits: 2 },
+      // Off a 1600x900 screen, but on this one (clicked straight away: the way there is clear).
+      { name: 'Wolf', x: x - 22, y: y + 3, hits: 2 },
+    ],
+  });
+  const kills = () => of(game, 'attack').filter((a) => a.killed).length;
+  const { met } = await play(game, (bot) => bot.startAttack(), { until: () => kills() >= 2, limitMs: 3 * 60_000 });
+  assert.ok(met, 'both wolves killed');
+  checkAlways(game);
+});
+
+test('At 2560x1440: Gathering trips travel to the spot and gather there', async () => {
+  const nodes = nodesAround(COPPER, DEAD_PIT, 228, 204, 3);
+  const game = onBichon({ view: VIEW_2560, nodes, allNpcs: true, professions: { levels: { [MINING]: 5 }, loaded: true } }, bichon.player, { level: 10 });
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), until: () => picks(game, DEAD_PIT).length >= 3, limitMs: 10 * 60_000 });
+  assert.ok(met, `gathered at Dead Pit (${statuses.at(-1)?.message})`);
+  assert.equal(of(game, 'mapChange').at(-1)!.to, DEAD_PIT);
+  checkAlways(game);
+});
+
+test('At 2560x1440: a full bag means Arcadia, selling to Ludvik, and back to grinding', async () => {
+  const game = grindOnBichon({ view: VIEW_2560, bag: { used: 38, slots: 40 } });
+  const { met, statuses } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });
+  assert.ok(met, `back to grinding after selling (${statuses.at(-1)?.message})`);
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 6]);
+  assert.deepEqual(of(game, 'mapChange').map((c) => [c.from, c.to, c.via]), [[BICHON, ARCADIA, 'arcadia'], [ARCADIA, BICHON, 'back']]);
+  checkAlways(game);
+});
+
+test('A map zoom other than 100% stops the bot, saying to set it back', async () => {
+  for (const view of [{ ...VIEW_2560, zoom: 1.5 }, { ...DEFAULT_VIEW, zoom: 0.8 }]) {
+    const game = onBichon({ view });
+    const { message } = await play(game, (bot) => bot.startTravel(`map:${LEFT_WING}`));
+    assert.equal(message, `Set the map zoom to 100% (it's at ${Math.round(view.zoom * 100)}%): other zooms aren't measured yet.`);
+    assert.deepEqual(of(game, 'mapChange'), []);
+  }
+  // Gathering trips give up on a spot they can't get to and plan again: not on this.
+  const game = onBichon({ view: { ...VIEW_2560, zoom: 2 }, professions: { levels: { [MINING]: 5 }, loaded: true } }, bichon.player, { level: 10 });
+  const { message } = await play(game, (bot) => bot.startGather(), { settings: tripSettings() });
+  assert.match(message, /^Set the map zoom to 100%/);
+});
+
+test('At 2560x1440 the modes that read the screen stop, saying why; the others start', async () => {
+  for (const [start, name] of [[(bot: Bot) => bot.startTriad(), 'Triple Triad'], [(bot: Bot) => bot.startTrain(), 'Train'], [(bot: Bot) => bot.startDeck(), 'Best deck']] as const) {
+    const game = onBichon({ view: VIEW_2560 });
+    const { message, statuses } = await play(game, start);
+    assert.equal(
+      message,
+      `The game is 2560x1440: ${name} reads the screen, which needs 1600x900: set the game to 1600x900 (Hunt, Explore, Travel, Gather, Quests and Grind work at any size with the memory reader).`,
+    );
+    assert.equal(statuses.length, 1, 'stopped before starting');
+  }
 });

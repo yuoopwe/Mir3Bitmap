@@ -6,7 +6,7 @@
 
 import type { Point } from '../shared/types';
 import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTile } from './pathing';
-import { tileToScreen, type MemoryState } from './game-memory';
+import type { MemoryState } from './game-memory';
 import { findCharacterOnMap, findMapBottomRight, findMapTopLeft, isBagFull } from './vision';
 import { VK } from './input';
 import { BotError, STATUS_INTERVAL_MS, boxCentre, keyCode } from './bot-shared';
@@ -253,7 +253,7 @@ export class Survival {
       const reading = memory.latest();
       const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
       if (!npc || !reading?.user) throw new BotError(`Can't see ${npcName} to sell to.`);
-      const tile = tileToScreen(reading.user, npc.x, npc.y);
+      const tile = this.bot.toScreen(reading.user, npc.x, npc.y);
       const point = (await this.bot.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
       this.bot.status(`Opening ${npcName}'s shop`);
       await this.bot.click(point, this.bot.delay('menu'));
