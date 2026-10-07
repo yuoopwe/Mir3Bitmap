@@ -214,6 +214,8 @@ export class BossCircuit {
     let progressAt = start;
     let kills = this.bot.kills;
     let left = need?.get(name) ?? 0;
+    /** The damage seen on the monsters wanted here, added up: changing, the fight is going somewhere (a long one too). */
+    let damage = 0;
     this.bot.status(`${progress} · ${spawn.monster} at ${spawn.mapName}${stop.readyAt > start ? `: waiting for them to come back` : ''}`);
     return this.bot.hunting.huntLoop({
       seek: true,
@@ -239,6 +241,11 @@ export class BossCircuit {
         }
         if (this.bot.kills !== kills) {
           kills = this.bot.kills;
+          progressAt = now;
+        }
+        const seen = (reading?.objects ?? []).filter((o) => o.kind === 'monster' && o.name.toLowerCase() === name).reduce((sum, o) => sum + (o.hp ?? 0), 0);
+        if (seen !== damage) {
+          damage = seen;
           progressAt = now;
         }
         if ((reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && o.name.toLowerCase() === name)) seenAt = Math.max(seenAt, now);

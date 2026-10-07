@@ -23,7 +23,10 @@ const FIGHT_RANGE_TILES = 2;
 /** Monsters more than this many levels below the player don't count as crowding round (they're still fought if they block the way). */
 const THREAT_LEVELS = 10;
 
-/** Give up on one monster after this long (out of reach, say), and on fighting altogether after this long. */
+/**
+ * Give up on one monster after this long with no damage landing on it (out of reach, say), and on fighting altogether
+ * after this long with none landing on anything: a fight that's going somewhere (a behemoth takes minutes) goes on.
+ */
 const FIGHT_TARGET_GIVE_UP_MS = 15_000;
 
 const FIGHT_GIVE_UP_MS = 60_000;
@@ -46,7 +49,7 @@ const KILL_FLOOR_CLICKS = 3;
  */
 const LOOT_DETOUR_TILES = 6;
 
-/** Clicking one target this long without it going means it can't be reached (or isn't a monster): skip it for a while. */
+/** Clicking one target this long without it going, or (with the game's memory) without damage landing on it, means it can't be reached (or isn't a monster): skip it for a while. */
 const TARGET_GIVE_UP_MS = 20_000;
 
 const TARGET_SKIP_MS = 30_000;
@@ -152,7 +155,8 @@ export class Hunting {
       }
     }
     let lastSellCheck = this.bot.clock.now();
-    let current: { key: string; since: number } | null = null;
+    /** The target, since when (or since damage last landed on it), and the damage seen on it then. */
+    let current: { key: string; since: number; hp?: number | null } | null = null;
     let misses = 0;
     const skipped = new Map<string, number>();
     let nextFloorAt = 0;
@@ -307,6 +311,12 @@ export class Hunting {
           current = null;
           approach = null;
         }
+      }
+      // Damage landing on it is getting somewhere (the game's memory has it): only a target nothing's happening to is given up on.
+      const onTarget = target && memory ? memory.objects?.find((o) => o.id === memoryId(target!.key)) : undefined;
+      if (current && onTarget?.hp !== undefined && onTarget.hp !== null && onTarget.hp !== current.hp) {
+        if (current.hp !== undefined) current.since = now;
+        current.hp = onTarget.hp;
       }
       if (target && now - current!.since > TARGET_GIVE_UP_MS) {
         skipped.set(target.key, now + TARGET_SKIP_MS);
@@ -706,8 +716,10 @@ export class Hunting {
     const started = this.bot.clock.now();
     const given = new Set<number>();
     let fought = false;
-    let current = null as { id: number; since: number } | null;
-    while (this.bot.clock.now() - started < FIGHT_GIVE_UP_MS) {
+    let current = null as { id: number; since: number; hp?: number | null } | null;
+    /** When damage last landed on what's being fought (the start, till then). */
+    let progressAt = started;
+    while (this.bot.clock.now() - progressAt < FIGHT_GIVE_UP_MS) {
       await this.bot.yieldToEvents();
       const reading = memory.latest();
       const user = reading?.user;
@@ -716,8 +728,13 @@ export class Hunting {
       const monster = (weakToo ? this.monstersNear(reading, user, range) : this.threatsNear(reading, user, range)).find((o) => !given.has(o.id));
       if (!monster) break;
       const now = this.bot.clock.now();
-      if (current?.id !== monster.id) current = { id: monster.id, since: now };
-      else if (now - current.since > FIGHT_TARGET_GIVE_UP_MS) {
+      if (current?.id !== monster.id) current = { id: monster.id, since: now, hp: monster.hp };
+      else if (monster.hp !== undefined && monster.hp !== null && monster.hp !== current.hp) {
+        // Damage landing on it: going somewhere, however long it takes.
+        current.hp = monster.hp;
+        current.since = now;
+        progressAt = now;
+      } else if (now - current.since > FIGHT_TARGET_GIVE_UP_MS) {
         given.add(monster.id);
         continue;
       }

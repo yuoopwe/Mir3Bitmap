@@ -551,6 +551,17 @@ test("Fights are timed from the game's memory: each monster's health going down 
   checkAlways(game);
 });
 
+test('A monster that takes minutes to kill (a behemoth) is fought to the end while the blows land, not given up on', async () => {
+  const { x, y } = bichon.player;
+  // 6000 health, 60 a blow: a hundred blows, far past the 20 s a target nothing's happening to gets.
+  const game = onBichon({ monsters: [{ name: '[Behemoth] Demonic Kektal', x: x - 2, y: y + 1, health: 6000 }] }, bichon.player, { damage: 60 });
+  const { met, statuses } = await play(game, (bot) => bot.startAttack(), { until: () => of(game, 'attack').some((a) => a.killed), limitMs: 10 * 60_000 });
+  assert.ok(met, 'killed');
+  assert.ok(of(game, 'attack').length >= 100);
+  assert.ok(!statuses.some((st) => /Taking too long/.test(st.message)));
+  checkAlways(game);
+});
+
 test('A death is noted with the level of the monster being fought', async () => {
   const { x, y } = bichon.player;
   const log = new GrindLog(() => {});
