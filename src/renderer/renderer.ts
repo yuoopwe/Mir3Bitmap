@@ -16,7 +16,7 @@ const DELAY_FIELDS: { id: DelayId; label: string; defaultMs: number }[] = [
   { id: 'menu', label: 'Selling clicks', defaultMs: 200 },
 ];
 const DEFAULT_FUZZ_PERCENT = 20;
-const DEFAULT_GRIND: Settings['grind'] = { replanMinutes: 15, maxLevelsAbove: 5 };
+const DEFAULT_GRIND: Settings['grind'] = { replanMinutes: 15, maxLevelsAbove: 5, questsFirst: false };
 const PICK_UP_KEYS = ['', 'Tab', 'Space', '`', 'Z', 'X', 'C', 'V', 'G', 'F'];
 const POTION_KEYS = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
 const RULE_LABELS: Record<NameRule, string> = { auto: 'Auto', attack: 'Always attack', ignore: 'Never attack' };
@@ -70,6 +70,7 @@ const travelButton = element<HTMLButtonElement>('travel-button');
 const grindButton = element<HTMLButtonElement>('grind-button');
 const grindReplan = element<HTMLInputElement>('grind-replan');
 const grindAbove = element<HTMLInputElement>('grind-above');
+const grindQuestsFirst = element<HTMLInputElement>('grind-quests-first');
 const grindPlan = element<HTMLParagraphElement>('grind-plan');
 const stopButton = element<HTMLButtonElement>('stop-button');
 const modeText = element<HTMLSpanElement>('mode');
@@ -289,6 +290,7 @@ function readSettings(): Settings {
     grind: {
       replanMinutes: Math.max(readNumber(grindReplan, DEFAULT_GRIND.replanMinutes), 1),
       maxLevelsAbove: Math.min(readNumber(grindAbove, DEFAULT_GRIND.maxLevelsAbove), 50),
+      questsFirst: grindQuestsFirst.checked,
     },
     hunt: {
       roam: roam.checked,
@@ -337,6 +339,7 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.trainIntervalMs !== undefined) trainInterval.value = String(settings.trainIntervalMs);
   if (settings.grind?.replanMinutes !== undefined) grindReplan.value = String(settings.grind.replanMinutes);
   if (settings.grind?.maxLevelsAbove !== undefined) grindAbove.value = String(settings.grind.maxLevelsAbove);
+  if (settings.grind?.questsFirst !== undefined) grindQuestsFirst.checked = settings.grind.questsFirst;
   const hunt = settings.hunt;
   if (hunt) {
     roam.checked = hunt.roam;
