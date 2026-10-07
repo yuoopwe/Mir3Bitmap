@@ -2,7 +2,7 @@
 
 import type { Point } from '../shared/types';
 import { PLAYER, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR } from './layout';
-import { tileToScreen, type MemoryObject } from './game-memory';
+import { tileToScreen, type MemoryObject, type MemoryState } from './game-memory';
 import { playerHpFill, playerMpFill, readBar } from './vision';
 import { BotError, MEMORY_START_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, clickable, keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -29,6 +29,22 @@ const SELF: Point = { x: PLAYER.x, y: PLAYER.y + 20 };
 /** Train mode never casts faster than this. */
 const MIN_TRAIN_INTERVAL_MS = 100;
 
+/** What Gathering trips (bot-gather-trips.ts) change about gathering; plain Gather gives none of them. */
+export interface GatherHooks {
+  /** Only nodes this allows (besides the kinds ticked). */
+  canPick?: (node: MemoryObject) => boolean;
+  /** Checked every round: a reason to stop gathering, returned as it is, or null to carry on. */
+  stopWhen?: (reading: MemoryState) => string | null;
+  /** Nothing to gather in sight: what to do instead of wandering. */
+  idle?: () => Promise<void>;
+  /** A node that won't gather: a reason to stop, or null to carry on (it's left alone for a while, as always). */
+  refused?: (node: MemoryObject, reading: MemoryState) => string | null;
+  /** With "Fight monsters in the way", fight monsters next to the character before anything else. */
+  fight?: boolean;
+  /** A node was picked. */
+  picked?: (node: MemoryObject) => void;
+}
+
 export class Gathering {
   constructor(private readonly bot: BotContext) {}
 
@@ -36,15 +52,23 @@ export class Gathering {
    * Gathers plants and ore: walks next to the nearest node on screen (from the
    * game's memory), clicks it and waits until it's picked, then the next. With
    * none in sight it wanders until some come into view. Potions are drunk as
-   * when hunting.
+   * when hunting. With "Gathering trips" ticked, the trips (bot-gather-trips.ts)
+   * choose where.
    */
   async gatherLoop(): Promise<string> {
     const memory = this.bot.options.memory;
     if (!memory.installed) throw new BotError('Gathering needs the memory reader (run scripts/setup-game-reader.ps1).');
     if (!this.bot.settings.gatherPlants && !this.bot.settings.gatherOre) throw new BotError('Tick "Gather plants" and/or "Gather ore" first.');
     memory.start();
+    if (this.bot.settings.gatherTrips) return this.bot.gatherTrips.tripLoop();
+    return this.gatherHere();
+  }
+
+  /** Gather's work where the character is, changed by `hooks` (see GatherHooks): returns once stopWhen gives a reason. */
+  async gatherHere(hooks: GatherHooks = {}): Promise<string> {
+    const memory = this.bot.options.memory;
     const skipped = new Map<number, number>();
-    let current: { id: number; since: number; clickedAt: number | null; retried: boolean } | null = null;
+    let current: { id: number; node: MemoryObject; since: number; clickedAt: number | null; retried: boolean } | null = null;
     let gathered = 0;
     const started = this.bot.clock.now();
     // Running about while looking for nodes: which way, until when, and where the character last moved.
@@ -79,8 +103,21 @@ export class Gathering {
         continue;
       }
       const user = reading.user!;
+      const stop = hooks.stopWhen?.(reading);
+      if (stop) {
+        this.bot.stopRunning();
+        return stop;
+      }
+      // A monster hitting the character spoils the pick: fight it off first.
+      if (hooks.fight && this.bot.settings.fightInTheWay && this.bot.hunting.threatsNear(reading, user, 1).length > 0 && (await this.bot.hunting.clearTheWay())) {
+        // Start the node over: walking to it and clicking it again.
+        current = null;
+        continue;
+      }
       const nodes = (reading.objects ?? []).filter(
-        (o) => o.kind === 'node' && !o.harvested && !skipped.has(o.id) && (o.mining ? this.bot.settings.gatherOre : this.bot.settings.gatherPlants) && clickable(tileToScreen(user, o.x, o.y)),
+        (o) =>
+          o.kind === 'node' && !o.harvested && !skipped.has(o.id) && (o.mining ? this.bot.settings.gatherOre : this.bot.settings.gatherPlants) &&
+          (!hooks.canPick || hooks.canPick(o)) && clickable(tileToScreen(user, o.x, o.y)),
       );
       const distance = (o: { x: number; y: number }) => Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y));
 
@@ -90,12 +127,17 @@ export class Gathering {
         if (current.clickedAt !== null) {
           gathered++;
           this.bot.stats.count('gathered');
+          hooks.picked?.(current.node);
         }
         current = null;
       }
       if (!node) {
         node = nodes.reduce<MemoryObject | undefined>((best, o) => (!best || distance(o) < distance(best) ? o : best), undefined);
-        if (node) current = { id: node.id, since: now, clickedAt: null, retried: false };
+        if (node) current = { id: node.id, node, since: now, clickedAt: null, retried: false };
+      }
+      if ((!node || !current) && hooks.idle) {
+        await hooks.idle();
+        continue;
       }
       if (!node || !current) {
         // Run (holding the right button) one way, turning now and then, or when blocked.
@@ -143,8 +185,10 @@ export class Gathering {
       const { clickedAt } = current;
       if (clickedAt !== null && now - clickedAt > GATHER_PICK_GIVE_UP_MS) {
         skipped.set(node.id, now + GATHER_SKIP_MS);
-        this.bot.status(`The ${node.name} won't gather (profession level too low, or the wrong tool?); trying another`);
         current = null;
+        const stop = hooks.refused?.(node, reading);
+        if (stop) return stop;
+        if (!hooks.refused) this.bot.status(`The ${node.name} won't gather (profession level too low, or the wrong tool?); trying another`);
         continue;
       }
       // Click it, and once more if nothing has happened halfway to giving up.

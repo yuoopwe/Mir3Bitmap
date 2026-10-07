@@ -30,6 +30,7 @@ export function testSettings(changes: Partial<Settings> = {}): Settings {
     exploreTeleport: false,
     gatherPlants: true,
     gatherOre: true,
+    gatherTrips: false,
     fightInTheWay: false,
     trainKey: 'F1',
     trainIntervalMs: 1000,

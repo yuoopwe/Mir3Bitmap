@@ -95,6 +95,8 @@ export interface Settings {
   /** Gather mode: pick plants (Scavenging Dagger) and/or mine ore (Pick Axe). */
   gatherPlants: boolean;
   gatherOre: boolean;
+  /** Gather mode: go where the profession levels gather best (src/main/gather-planner.ts) instead of where you stand. */
+  gatherTrips?: boolean;
   /** Travel and Explore: fight monsters that block the way (or crowd round) instead of only walking round them. */
   fightInTheWay: boolean;
   /** Train mode: the spell key cast on the character over and over, and how often. */

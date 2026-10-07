@@ -70,12 +70,14 @@ export const MK_SHIFT = 0x0004;
 
 export const VK = {
   SHIFT: 0x10,
+  CONTROL: 0x11,
   ESCAPE: 0x1b,
   N1: 0x31,
   N2: 0x32,
   B: 0x42,
   D: 0x44,
   M: 0x4d,
+  P: 0x50,
   W: 0x57,
   F1: 0x70,
 } as const;
@@ -199,6 +201,37 @@ export async function withShift(hwnd: Handle, action: () => Promise<void>): Prom
     keyUp(hwnd, VK.SHIFT);
     original[VK.SHIFT] &= 0x7f;
     original[VK_LSHIFT] &= 0x7f;
+    SetKeyboardState(original);
+    if (attached) AttachThreadInput(ours, theirs, 0);
+  }
+}
+
+/** Each modifier's left-hand key, which the keyboard state holds as well (Shift, Ctrl, Alt). */
+const LEFT_KEY: Record<number, number> = { 0x10: VK_LSHIFT, 0x11: 0xa2, 0x12: 0xa4 };
+
+/** A key pressed and let go with `modifiers` held as far as the game can tell (Ctrl+Shift+P, say): as withShift does it. */
+export function keyChord(hwnd: Handle, modifiers: number[], vk: number): void {
+  const ours = GetCurrentThreadId();
+  const theirs = GetWindowThreadProcessId(hwnd, null);
+  const attached = theirs !== 0 && theirs !== ours && AttachThreadInput(ours, theirs, 1) !== 0;
+  const original = Buffer.alloc(256);
+  GetKeyboardState(original);
+  const held = Buffer.from(original);
+  for (const m of modifiers) {
+    held[m] |= 0x80;
+    if (LEFT_KEY[m]) held[LEFT_KEY[m]] |= 0x80;
+  }
+  try {
+    SetKeyboardState(held);
+    for (const m of modifiers) keyDown(hwnd, m);
+    keyDown(hwnd, vk);
+    keyUp(hwnd, vk);
+  } finally {
+    for (const m of [...modifiers].reverse()) keyUp(hwnd, m);
+    for (const m of modifiers) {
+      original[m] &= 0x7f;
+      if (LEFT_KEY[m]) original[LEFT_KEY[m]] &= 0x7f;
+    }
     SetKeyboardState(original);
     if (attached) AttachThreadInput(ours, theirs, 0);
   }

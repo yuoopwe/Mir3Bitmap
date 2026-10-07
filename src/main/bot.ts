@@ -17,6 +17,7 @@ import { Questing } from './bot-quests';
 import { Grinding } from './bot-grind';
 import { TripleTriad } from './bot-triad';
 import { Gathering } from './bot-gathering';
+import { GatherTrips } from './bot-gather-trips';
 
 export type { BotOptions } from './bot-context';
 
@@ -34,6 +35,7 @@ export class Bot {
     ctx.grind = new Grinding(ctx);
     ctx.triad = new TripleTriad(ctx);
     ctx.gathering = new Gathering(ctx);
+    ctx.gatherTrips = new GatherTrips(ctx);
     this.ctx = ctx;
   }
 

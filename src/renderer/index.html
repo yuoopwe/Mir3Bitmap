@@ -197,7 +197,8 @@
           <header class="panel-head">
             <div>
               <h1>Gather</h1>
-              <p>Walks to plants and ore on screen and gathers them, wandering when there are none (needs the memory reader and the tool in your Toolbelt).</p>
+              <p>Walks to plants and ore on screen and gathers them, wandering when there are none (needs the memory reader and the tool in your Toolbelt).
+                With Gathering trips, it goes where your profession levels gather best.</p>
             </div>
             <button type="button" id="gather-button" class="start" title="Walk to plants and ore on screen and gather them, wandering when there are none (needs the memory reader and the tool in your Toolbelt)">Start Gather</button>
           </header>
@@ -208,8 +209,19 @@
               <label title="Gather mode mines ore (needs a Pick Axe in the Toolbelt)"><input id="gather-ore" type="checkbox"> Gather ore</label>
               <p class="hint">Plants need a Scavenging Dagger and ore a Pick Axe in your Toolbelt.</p>
             </fieldset>
+            <fieldset class="card">
+              <legend>Trips</legend>
+              <label title="Read your Scavenging and Mining levels, travel to the spot that gives the most profession experience an hour for them, and gather there, selling when the bag is full. A new level, or 20 minutes at a spot, looks again."><input id="gather-trips" type="checkbox"> Gathering trips</label>
+              <p class="hint">The levels are read from the Professions window, which it opens and shuts once (Ctrl+Shift+P). Unticked, it gathers where you stand.</p>
+            </fieldset>
+            <section class="card route-card">
+              <h2>Last plan</h2>
+              <p id="gather-plan" class="hint">Not planned yet.</p>
+            </section>
           </div>
-          <p class="see-also">Potions: <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
+          <p class="see-also">Trips sell as <button type="button" class="link" data-goto="tab-grind">Grind</button> does, and travel (fighting what's
+            in the way, if set) as <button type="button" class="link" data-goto="tab-travel">Travel</button> does; potions:
+            <button type="button" class="link" data-goto="tab-keys">Keys &amp; potions</button>.</p>
         </section>
 
         <section class="panel" id="panel-triad" role="tabpanel" aria-labelledby="tab-triad" hidden>

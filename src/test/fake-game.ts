@@ -8,7 +8,8 @@
  * has monsters, NPCs, other players, items on the ground, the waypoint
  * window, quests, a shop (sold in rounds, from the bag window's Main tab),
  * death, Return to Arcadia (only out of combat, and back again from Arcadia),
- * the Town Portal scroll, the mount and a bag. Time is virtual: every wait jumps ahead, so a
+ * the Town Portal scroll, the mount, a bag, gathering nodes and the profession
+ * levels (read only once the Professions window has been opened). Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
  * tests to check.
  */
@@ -47,6 +48,11 @@ const SIGHT = 12;
 /** Every look at the clock costs this much time, so a loop that never waits still lets time pass. */
 const CLOCK_TICK_MS = 0.1;
 const ARCADIA = { map: 563, x: 647, y: 196 };
+/** A pick takes this long; a picked node comes back this long after. */
+const PICK_MS = 2000;
+const NODE_RESPAWN_MS = 8 * 60_000;
+/** Library.ProfessionId 1-7. */
+const PROFESSION_NAMES = ['Fishing', 'Mining', 'Harvesting', 'Taming', 'Cooking', 'Crafting', 'Farming'];
 
 export type FakeEvent =
   | { t: number; type: 'move'; map: number; from: { x: number; y: number }; to: { x: number; y: number }; run: boolean }
@@ -61,7 +67,9 @@ export type FakeEvent =
   | { t: number; type: 'sold'; items: number }
   /** Return to Arcadia pressed while still in combat: the game says no. */
   | { t: number; type: 'refused'; what: 'arcadia'; combatAgo: number }
-  | { t: number; type: 'pickup'; items: number; refused: boolean };
+  | { t: number; type: 'pickup'; items: number; refused: boolean }
+  /** A node clicked next to the player: refused (too low a level, or no tool), or picked (once the pick is done). */
+  | { t: number; type: 'gather'; node: number; map: number; refused: boolean };
 
 export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal';
 
@@ -96,6 +104,15 @@ export interface FakeNpcSetup {
   menu?: ('talk' | 'quests' | 'waypoints')[];
 }
 
+/** A gathering node (`node`: its GatheringNodeInfo id in travel.json); `level`: the profession level the game asks (default the node's own). */
+export interface FakeNode {
+  node: number;
+  x: number;
+  y: number;
+  map?: number;
+  level?: number;
+}
+
 export interface FakeGameSetup {
   data?: TravelData;
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
@@ -125,6 +142,14 @@ export interface FakeGameSetup {
   players?: { name: string; x: number; y: number; map?: number }[];
   /** Where the Town Portal scroll takes you, and its key (default '3'). */
   townPortal?: { map: number; x: number; y: number; key?: number };
+  /**
+   * Profession levels by Library.ProfessionId (default 1); `loaded`: read from the start, else only once the Professions
+   * window has been opened (`neverLoads`: not even then).
+   */
+  professions?: { levels?: Record<number, number>; loaded?: boolean; neverLoads?: boolean };
+  nodes?: FakeNode[];
+  /** No gathering tool in the Toolbelt: every pick is refused. */
+  noTool?: boolean;
 }
 
 interface Monster extends MemoryObject {
@@ -144,6 +169,15 @@ interface Thing extends MemoryObject {
   map: number;
 }
 
+interface GatherPoint extends MemoryObject {
+  map: number;
+  required: number;
+  exp: number;
+  /** When the pick under way ends. */
+  pickAt: number | null;
+  pickedAt: number;
+}
+
 interface Npc extends MemoryObject {
   map: number;
   npc: number;
@@ -157,7 +191,7 @@ interface ActiveQuest {
   completed: boolean;
 }
 
-type Window = 'waypoints' | 'npcMenu' | 'questList' | 'sell' | 'dialog';
+type Window = 'waypoints' | 'npcMenu' | 'questList' | 'sell' | 'dialog' | 'professions';
 
 const button = (x: number, y: number, text: string, enabled = true, width = 90, height = 26): MemoryButton => ({ x, y, width, height, enabled, text });
 const inside = (p: { x: number; y: number }, b: { x: number; y: number; width: number; height: number }) => p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
@@ -201,6 +235,13 @@ export class FakeGame {
   private readonly townPortal: { map: number; x: number; y: number; key: number };
   private readonly items: Thing[] = [];
   private readonly people: Thing[] = [];
+  private readonly nodes: GatherPoint[] = [];
+  private readonly noTool: boolean;
+  /** Profession levels and experience by id; the reader only has them once the Professions window has been opened. */
+  private readonly professionLevels = new Map<number, number>();
+  private readonly professionExp = new Map<number, number>();
+  private professionsLoaded: boolean;
+  private readonly professionsNeverLoad: boolean;
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -253,6 +294,11 @@ export class FakeGame {
     this.sellConfirm = setup.sellConfirm ?? false;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
     for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
+    for (const n of setup.nodes ?? []) this.addNode(n);
+    this.noTool = !!setup.noTool;
+    for (const [id, level] of Object.entries(setup.professions?.levels ?? {})) this.professionLevels.set(Number(id), level);
+    this.professionsLoaded = !!setup.professions?.loaded;
+    this.professionsNeverLoad = !!setup.professions?.neverLoads;
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
@@ -294,6 +340,12 @@ export class FakeGame {
       captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => out.fill(0),
       keyDown: (_hwnd, vk) => game.key(vk, true),
       keyUp: (_hwnd, vk) => game.key(vk, false),
+      keyChord: (_hwnd, modifiers, vk) => {
+        for (const m of modifiers) game.key(m, true);
+        game.key(vk, true);
+        game.key(vk, false);
+        for (const m of [...modifiers].reverse()) game.key(m, false);
+      },
       mouseMove: (_hwnd, x, y) => game.mouseMove(x, y),
       rightDown: () => game.right(true),
       rightUp: () => game.right(false),
@@ -337,6 +389,15 @@ export class FakeGame {
     });
   }
 
+  addNode(n: FakeNode): void {
+    const info = this.data.gathering?.nodes.find((g) => g.id === n.node);
+    if (!info) throw new Error(`No gathering node ${n.node}`);
+    this.nodes.push({
+      id: this.nextId++, kind: 'node', name: info.name, x: n.x, y: n.y, dead: false, level: 0, pet: false, node: n.node, mining: info.kind === 'ore', harvested: false,
+      map: n.map ?? this.player.map, required: n.level ?? info.level, exp: info.exp, pickAt: null, pickedAt: 0,
+    });
+  }
+
   addItem(name: string, x: number, y: number, map = this.player.map): void {
     this.items.push({ id: this.nextId++, kind: 'item', name, x, y, dead: false, level: 0, pet: false, map });
   }
@@ -367,11 +428,12 @@ export class FakeGame {
     return { x: this.player.x + Math.round((point.x - PLAYER_TILE.x) / TILE_WIDTH), y: this.player.y + Math.round((point.y - PLAYER_TILE.y) / TILE_HEIGHT) };
   }
 
-  private objectAt(tile: { x: number; y: number }): Monster | Npc | undefined {
+  private objectAt(tile: { x: number; y: number }): Monster | Npc | GatherPoint | undefined {
     const map = this.player.map;
     return (
       this.monsters.find((m) => m.map === map && !m.dead && m.x === tile.x && m.y === tile.y) ??
-      this.npcs.find((n) => n.map === map && n.x === tile.x && n.y === tile.y)
+      this.npcs.find((n) => n.map === map && n.x === tile.x && n.y === tile.y) ??
+      this.nodes.find((n) => n.map === map && !n.harvested && n.x === tile.x && n.y === tile.y)
     );
   }
 
@@ -406,6 +468,10 @@ export class FakeGame {
       this.reviveAt = null;
       this.player.dead = false;
       this.teleport(ARCADIA.map, ARCADIA.x, ARCADIA.y, 'revive');
+    }
+    for (const n of this.nodes) {
+      if (n.pickAt !== null && this.t >= n.pickAt) this.picked(n);
+      if (n.harvested && this.t - n.pickedAt >= NODE_RESPAWN_MS) n.harvested = false;
     }
     for (const m of this.monsters) {
       if (!m.dead && m.aggressive) this.closeIn(m);
@@ -538,6 +604,11 @@ export class FakeGame {
       if (vk === VK.ESCAPE) this.escape();
       if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
+      // Ctrl+Shift+P opens and shuts the Professions window.
+      if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
+        if (this.open.has('professions')) this.close('professions');
+        else this.openWindow('professions');
+      }
       return;
     }
     const wasDown = this.keysDown.delete(vk);
@@ -551,7 +622,7 @@ export class FakeGame {
   }
 
   private escape(): void {
-    const order: Window[] = ['waypoints', 'questList', 'sell', 'npcMenu', 'dialog'];
+    const order: Window[] = ['waypoints', 'questList', 'sell', 'npcMenu', 'dialog', 'professions'];
     const top = order.find((w) => this.open.has(w));
     if (top) this.close(top);
   }
@@ -560,6 +631,7 @@ export class FakeGame {
     if (this.open.has(name)) return;
     this.open.add(name);
     if (name === 'waypoints') this.waypointsKnown = true;
+    if (name === 'professions' && !this.professionsNeverLoad) this.professionsLoaded = true;
     this.events.push({ t: this.t, type: 'window', name, open: true });
   }
 
@@ -599,8 +671,35 @@ export class FakeGame {
     this.chasing = null;
     if (thing?.kind === 'monster') return this.attack(thing as Monster);
     if (thing?.kind === 'npc') return this.clickNpc(thing as Npc);
+    if (thing?.kind === 'node') return this.clickNode(thing as GatherPoint);
     if (tile.x === this.player.x && tile.y === this.player.y) return this.pickUp();
     this.step(tile);
+  }
+
+  /** A node clicked: from afar a step toward it; next to it, a pick (refused when the level is too low or there's no tool). */
+  private clickNode(node: GatherPoint): void {
+    if (chebyshev(node, this.player) > 1) return this.step(node);
+    if (node.pickAt !== null) return;
+    if (this.noTool || this.profession(node.mining ? 2 : 3) < node.required) {
+      this.events.push({ t: this.t, type: 'gather', node: node.node!, map: node.map, refused: true });
+      return;
+    }
+    node.pickAt = this.t + PICK_MS;
+  }
+
+  /** A pick done: the node is spent for a while, the bag takes what it gave, and the profession its experience. */
+  private picked(node: GatherPoint): void {
+    node.pickAt = null;
+    node.harvested = true;
+    node.pickedAt = this.t;
+    this.bag.used++;
+    const id = node.mining ? 2 : 3;
+    this.professionExp.set(id, (this.professionExp.get(id) ?? 0) + node.exp);
+    this.events.push({ t: this.t, type: 'gather', node: node.node!, map: node.map, refused: false });
+  }
+
+  private profession(id: number): number {
+    return this.professionLevels.get(id) ?? 1;
   }
 
   /** A click at the feet: picks up what's within reach, unless the bag won't take it. */
@@ -735,6 +834,7 @@ export class FakeGame {
     if (this.confirming) boxes.push({ name: 'MessageBox', ...MESSAGE_BOX });
     if (this.open.has('dialog')) boxes.push({ name: 'NPCDialog', ...DIALOG_BOX });
     if (this.player.dead) boxes.push({ name: 'DeathDialog', ...DEATH_BOX });
+    if (this.open.has('professions')) boxes.push({ name: 'ProfessionsBox', ...PROFESSIONS_BOX });
     return boxes;
   }
 
@@ -820,6 +920,11 @@ export class FakeGame {
 
   // ---- Things that happen to the player ----
 
+  /** The profession goes up (or down) to this level. */
+  setProfession(id: number, level: number): void {
+    this.professionLevels.set(id, level);
+  }
+
   kill(): void {
     this.player.dead = true;
     this.rightHeld = false;
@@ -885,7 +990,7 @@ export class FakeGame {
         else if (task.type === 'TalkToNPC' && task.npc !== undefined) talks.push({ quest: q.quest.name, npc: task.npc });
       }
     }
-    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
+    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, required: _rq, pickAt: _pa, pickedAt: _pd, ...o }: Partial<Monster & Npc & GatherPoint> & MemoryObject): MemoryObject => o;
     return {
       inGame: true,
       user: {
@@ -898,6 +1003,7 @@ export class FakeGame {
         ...this.npcs.filter((n) => n.map === p.map),
         ...this.people.filter((o) => o.map === p.map),
         ...this.items.filter((i) => i.map === p.map),
+        ...this.nodes.filter((n) => n.map === p.map),
       ].map(strip),
       map: { index: map.index, name: map.name, width: map.width, height: map.height },
       waypoints: {
@@ -912,6 +1018,12 @@ export class FakeGame {
       questLog: [...this.quests].map(([name, q]) => ({ name, completed: q.completed, ready: q.completed || this.isReady(q) })),
       questPending: { regions, talks },
       survival: this.survival(),
+      professions: this.professionsLoaded
+        ? PROFESSION_NAMES.map((name, i) => {
+            const level = this.profession(i + 1);
+            return { id: i + 1, name, level, usable: level, exp: this.professionExp.get(i + 1) ?? 0, toNext: 1000, canGain: true, lockReason: null };
+          })
+        : null,
     };
   }
 
@@ -952,3 +1064,4 @@ const BAG_BOX = { x: 1170, y: 120, width: 300, height: 500 };
 const DIALOG_BOX = { x: 300, y: 600, width: 500, height: 150 };
 const DEATH_BOX = { x: 650, y: 300, width: 300, height: 160 };
 const MESSAGE_BOX = { x: 650, y: 500, width: 300, height: 130 };
+const PROFESSIONS_BOX = { x: 500, y: 150, width: 600, height: 500 };
