@@ -95,6 +95,11 @@ const STILL_MS = 400;
 const STILL_WAIT_MS = 2000;
 /** Running: the cursor is held this many tiles from the character, the way the path goes. */
 const RUN_AIM_TILES = 2;
+/** Seeking (Hunt with "Seek when idle"): give up on a goal after this long; a spawn spot visited is left this long. */
+const SEEK_GIVE_UP_MS = 45_000;
+const SPOT_REVISIT_MS = 5 * 60_000;
+/** A spawn spot counts as visited this close. */
+const SPOT_REACH_TILES = 4;
 const MOUNT_RETRY_MS = 30_000;
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
@@ -151,6 +156,14 @@ const LOOT_SKIP_MS = 120_000;
 /** Clicking one target this long without it going means it can't be reached (or isn't a monster): skip it for a while. */
 const TARGET_GIVE_UP_MS = 20_000;
 const TARGET_SKIP_MS = 30_000;
+/**
+ * A target that stays more than a tile or two away while neither it nor the player gets any closer for this
+ * long can't be reached (round a wall, say): it's left alone for TARGET_UNREACHABLE_SKIP_MS.
+ */
+const TARGET_NO_PROGRESS_MS = 6000;
+const TARGET_UNREACHABLE_SKIP_MS = 2 * 60_000;
+/** Walking distances for choosing targets are worked out again this often (or when the player moves). */
+const HUNT_DIST_MS = 1000;
 /**
  * The middle of the tile the character stands on. Names are drawn about a tile
  * above where a character stands (the target brackets around a monster are
@@ -315,6 +328,9 @@ interface HuntTarget {
   name?: string;
   /** From the game's memory: the middle of its map tile on screen, to aim around. */
   tile?: Point;
+  /** From the game's memory: its map tile, and how many steps it is to walk there (round the walls). */
+  at?: Point;
+  steps?: number;
 }
 
 /**
@@ -380,6 +396,12 @@ export class Bot {
   private teleportReadyAt = 0;
   /** M did nothing (no mount, or not allowed here): don't try again before this. */
   private mountRetryAt = 0;
+  /** Seeking from memory: where it's heading (a monster the game knows of, or a spawn spot), and the spots seen lately. */
+  private seek: { kind: 'monster' | 'spot'; key: string; label: string; target: Point; map: number; since: number; path: Point[] | null; moved: { at: number; x: number; y: number } } | null = null;
+  private readonly visitedSpots = new Map<string, number>();
+  private readonly seekExplorer = new MapExplorer();
+  /** Walking distances from the player, for telling which monsters can be reached. */
+  private huntDist: { map: number; x: number; y: number; at: number; dist: Int32Array } | null = null;
   /** Where driveAlong last aimed: the tile and the spot on screen, for telling what a blockage was. */
   private lastAim: { tile: Point; point: Point; running: boolean } | null = null;
   /** Random teleports in a row, and when they may be used again after a pause. */
@@ -610,6 +632,12 @@ export class Bot {
     /** Items within reach, and when each was first seen there. */
     const inReachSince = new Map<string, number>();
     let nextItemClickAt = 0;
+    /** The current target's distance and the player's tile, and since when they've stayed the same. */
+    let approach: { state: string; since: number } | null = null;
+    this.huntDist = null;
+    this.seek = null;
+    this.visitedSpots.clear();
+    this.seekExplorer.reset();
     let paused = this.pausedMs;
     this.options.memory.start();
 
@@ -679,6 +707,7 @@ export class Bot {
         for (const i of inReach) if (!skipped.has(i.key) && !inReachSince.has(i.key)) inReachSince.set(i.key, now);
         if (inReachSince.size > 0 && now >= nextItemClickAt) {
           this.releaseHold();
+          this.stopRunning();
           await this.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
           nextItemClickAt = performance.now() + ITEM_CLICK_EVERY_MS;
           this.statusEvery(`Picking up ${inReachSince.size} item${inReachSince.size === 1 ? '' : 's'}`);
@@ -697,12 +726,26 @@ export class Bot {
             continue;
           }
           this.releaseHold();
+          this.stopRunning();
           await this.click(walk.point, this.delay('pickUpClick'));
           await this.sleep(this.delay('runStep'));
           this.statusEvery(`Walking to an item ${walk.distance} tiles away`);
           continue;
         }
         walkingTo = null;
+      }
+      // Neither the player nor the target getting any closer for a while, with it still out of reach: walled off.
+      if (target?.at && memory?.user) {
+        const gap = Math.max(Math.abs(target.at.x - memory.user.x), Math.abs(target.at.y - memory.user.y));
+        const state = `${target.key} ${memory.user.x},${memory.user.y} ${gap}`;
+        if (!approach || approach.state !== state) approach = { state, since: now };
+        else if (gap > 2 && now - approach.since > TARGET_NO_PROGRESS_MS) {
+          skipped.set(target.key, now + TARGET_UNREACHABLE_SKIP_MS);
+          this.status(`Can't get at ${target.name ?? 'that one'}; trying another`);
+          target = undefined;
+          current = null;
+          approach = null;
+        }
       }
       if (target && now - current!.since > TARGET_GIVE_UP_MS) {
         skipped.set(target.key, now + TARGET_SKIP_MS);
@@ -711,7 +754,8 @@ export class Bot {
         current = null;
       }
       if (!target) {
-        const distance = (c: HuntTarget) => Math.hypot(c.point.x - PLAYER.x, c.point.y - PLAYER.y);
+        // Nearest to walk to, where the game's memory says; else nearest on screen.
+        const distance = (c: HuntTarget) => (c.steps !== undefined ? c.steps * 48 : Math.hypot(c.point.x - PLAYER.x, c.point.y - PLAYER.y));
         target = live.reduce<HuntTarget | undefined>((best, c) => (!best || distance(c) < distance(best) ? c : best), undefined);
         if (target) {
           current = { key: target.key, since: now };
@@ -731,6 +775,7 @@ export class Bot {
         if (point) misses = 0;
       }
       if (target && point) {
+        this.stopRunning();
         if (memory) await this.setMounted(false);
         if (this.settings.archer) {
           this.hold(point, target.key);
@@ -741,11 +786,13 @@ export class Bot {
         await this.pressKeys(true);
         this.statusEvery(`Attacking ${target.name ?? ''} (${memory ? 'game memory' : 'screen'})`);
       } else if (target) {
+        this.stopRunning();
         this.statusEvery(`Lining up on ${target.name ?? 'a monster'}`);
       } else {
         this.releaseHold();
         await this.pressKeys(false);
-        if (this.settings.hunt.roam) await this.seekOrRoam();
+        // With the game's memory: head for monsters it knows of, then where they spawn; else the minimap, or wander.
+        if (this.settings.hunt.roam && !(memory && (await this.seekFromMemory(memory, skipped)))) await this.seekOrRoam();
         else {
           await this.sleep(150);
           this.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.options.memory.problem}`})`);
@@ -783,6 +830,13 @@ export class Bot {
   /** Monsters from the game's memory: alive, not anyone's pet, not set to be skipped, and on screen clear of the HUD. */
   private memoryTargets(memory: MemoryState): HuntTarget[] {
     const user = memory.user!;
+    // Walking distances from here (worked out again when the player moves, or every so often).
+    const map = this.options.memory.map();
+    const now = performance.now();
+    if (map && (!this.huntDist || this.huntDist.map !== map.index || this.huntDist.x !== user.x || this.huntDist.y !== user.y || now - this.huntDist.at > HUNT_DIST_MS)) {
+      this.huntDist = { map: map.index, x: user.x, y: user.y, at: now, dist: walkDistances(map, { x: user.x, y: user.y }) };
+    }
+    const dist = map && this.huntDist?.map === map.index ? this.huntDist.dist : null;
     const skip = new Set((this.settings.skipMonsters ?? []).map((n) => n.toLowerCase()));
     const seen = new Set<string>();
     const targets: HuntTarget[] = [];
@@ -793,7 +847,14 @@ export class Bot {
       const tile = tileToScreen(user, o.x, o.y);
       const point = { x: tile.x + AIM_SPOTS[0][0], y: tile.y + AIM_SPOTS[0][1] };
       if (!clickable(point)) continue;
-      targets.push({ key: `m${o.id}`, point, name: o.name, tile });
+      // Walled off (no way to walk next to it): no use attacking.
+      let steps: number | undefined;
+      if (dist && map) {
+        const near = nearestApproach(map, dist, [{ x: o.x, y: o.y }]);
+        if (!near) continue;
+        steps = near.steps;
+      }
+      targets.push({ key: `m${o.id}`, point, name: o.name, tile, at: { x: o.x, y: o.y }, steps });
     }
     this.reportMonsters(seen);
     return targets;
@@ -905,6 +966,111 @@ export class Bot {
       if (pickUpKey !== null) this.key(pickUpKey);
       await this.sleep(gapMs);
     }
+  }
+
+  /**
+   * Hunting with nothing to fight, from the game's memory: walks (a real path
+   * round the walls) to the nearest monster the game knows of, even off screen;
+   * failing that, to the spot where the most monsters spawn for the walk
+   * (from the game's spawn data) that hasn't been visited lately; failing
+   * that, to unexplored ground. False when there's nothing to go on.
+   */
+  private async seekFromMemory(reading: MemoryState, skipped: ReadonlyMap<string, number>): Promise<boolean> {
+    const map = this.options.memory.map();
+    const user = reading.user;
+    if (!map || !user) return false;
+    const here = { x: user.x, y: user.y };
+    const now = performance.now();
+    const away = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    const skip = new Set((this.settings.skipMonsters ?? []).map((n) => n.toLowerCase()));
+    for (const [key, until] of this.visitedSpots) if (until <= now) this.visitedSpots.delete(key);
+
+    let goal = this.seek && this.seek.map === map.index ? this.seek : null;
+    // A monster the game knows of comes first: one that can be walked to, and isn't being left alone.
+    const dist = walkDistances(map, here);
+    const monsters = (reading.objects ?? []).filter(
+      (o) => o.kind === 'monster' && !o.pet && !o.dead && o.name && !skip.has(o.name.toLowerCase()) && !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
+    );
+    const chased = goal?.kind === 'monster' ? monsters.find((m) => `m${m.id}` === goal!.key) : undefined;
+    if (chased) goal!.target = { x: chased.x, y: chased.y };
+    else if (monsters.length) {
+      const m = monsters.reduce((best, o) => (away(o, here) < away(best, here) ? o : best));
+      goal = { kind: 'monster', key: `m${m.id}`, label: m.name, target: { x: m.x, y: m.y }, map: map.index, since: now, path: null, moved: { at: now, x: NaN, y: NaN } };
+    }
+    // Reached, or taking too long: on to the next.
+    if (goal && (away(here, goal.target) <= (goal.kind === 'spot' ? SPOT_REACH_TILES : 1) || now - goal.since > SEEK_GIVE_UP_MS)) {
+      if (goal.kind === 'spot') this.visitedSpots.set(goal.key, now + SPOT_REVISIT_MS);
+      goal = null;
+    }
+    if (!goal) goal = this.pickSpawnSpot(map, here, skip, now);
+    if (!goal) {
+      // No spawn data for this map: explore instead.
+      const plan = this.seekExplorer.plan(map, here, now, this.obstaclesNear(reading, here, STEER_ROUND_TILES).map((o) => ({ x: o.x, y: o.y })));
+      if (!plan || plan === 'done') return false;
+      await this.driveAlong(here, plan.path, now, false);
+      this.statusEvery('Looking for monsters: exploring');
+      await this.sleep(RUN_TICK_MS);
+      return true;
+    }
+
+    // Not moving while trying to: give this one up and pick another next time.
+    if (here.x !== goal.moved.x || here.y !== goal.moved.y) goal.moved = { at: now, x: here.x, y: here.y };
+    else if (now - goal.moved.at > this.blockedAfterMs() + RUN_TICK_MS * 2) {
+      if (goal.kind === 'spot') this.visitedSpots.set(goal.key, now + SPOT_REVISIT_MS);
+      this.seek = null;
+      return true;
+    }
+    // Keep to the path while on it (and clear of monsters); otherwise work out a new one.
+    const onPath: number = goal.path ? goal.path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
+    goal.path = goal.path && onPath >= 0 ? goal.path.slice(onPath) : null;
+    if (!goal.path || goal.path.length < 2) {
+      const blocked = new Set(this.obstaclesNear(reading, here, STEER_ROUND_TILES).map((o) => o.y * map.width + o.x));
+      const dist = walkDistances(map, here, blocked);
+      const near = nearestApproach(map, dist, [goal.target]);
+      if (!near || near.steps === 0) {
+        if (goal.kind === 'spot') this.visitedSpots.set(goal.key, now + SPOT_REVISIT_MS);
+        this.seek = null;
+        return true;
+      }
+      goal.path = pathBack(map, dist, near.tile);
+    }
+    this.seek = goal;
+    await this.driveAlong(here, goal.path, now, false);
+    this.statusEvery(goal.kind === 'monster' ? `Heading for ${goal.label}` : `Heading for where ${goal.label} spawn`);
+    await this.sleep(RUN_TICK_MS);
+    return true;
+  }
+
+  /**
+   * The best spawn spot on this map not visited lately: near, and with plenty of
+   * monsters (not all of them unticked) for the walk. Null without spawn data.
+   */
+  private pickSpawnSpot(map: MapGrid, here: Point, skip: Set<string>, now: number): NonNullable<Bot['seek']> | null {
+    const data = loadTravelData();
+    const spots = data.spawns?.[map.index];
+    if (!spots?.length) return null;
+    const names = (set: number) => (data.spawnSets?.[set] ?? []).map((i) => data.monsters?.[i] ?? '?');
+    const dist = walkDistances(map, here);
+    let best: { spot: (typeof spots)[number]; score: number; steps: number } | null = null;
+    for (const spot of spots) {
+      const [x, y, n, set] = spot;
+      if (this.visitedSpots.has(`${x},${y}`)) continue;
+      if (names(set).every((name) => skip.has(name.toLowerCase()))) continue;
+      const near = nearestApproach(map, dist, [{ x, y }]);
+      if (!near) continue;
+      // Steps there, less a bonus for how many monsters to expect.
+      const score = near.steps - 15 * Math.log2(1 + n);
+      if (!best || score < best.score) best = { spot, score, steps: near.steps };
+    }
+    if (!best) {
+      // Every spot seen lately: start the round again.
+      if (this.visitedSpots.size) this.visitedSpots.clear();
+      return null;
+    }
+    const [x, y, , set] = best.spot;
+    const list = names(set).filter((name) => !skip.has(name.toLowerCase()));
+    const label = list.slice(0, 3).join(', ') + (list.length > 3 ? '...' : '');
+    return { kind: 'spot', key: `${x},${y}`, label, target: { x, y }, map: map.index, since: now, path: null, moved: { at: now, x: NaN, y: NaN } };
   }
 
   /** With nothing on screen, head for the nearest monster on the minimap, or wander. */
@@ -1336,8 +1502,8 @@ export class Bot {
    * clicking where the path turns, and presses the teleport key (if on) on long
    * straight stretches.
    */
-  private async driveAlong(user: Point, path: Point[], now: number): Promise<void> {
-    await this.setMounted(true);
+  private async driveAlong(user: Point, path: Point[], now: number, mount = true): Promise<void> {
+    if (mount) await this.setMounted(true);
     const next = path[1];
     if (!next) return;
     // How much straight path is ahead, from here the way the first step goes.

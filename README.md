@@ -58,6 +58,14 @@ The reader also sends the current map: which tiles are walls (`MapControl.Cells`
 on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. To save the map you're on for
 tests, run `node scripts/save-map.js` (writes `src/test/fixture-map-<name>.json`).
 
+### Seeking with the memory reader
+
+With "Seek when idle" ticked and the memory reader running, Hunt with nothing to fight walks (a real path round
+the walls) to the nearest monster the game knows of, even off screen; failing that, to the nearest spot where many
+monsters spawn (from the game's spawn data in `game-data/travel.json`) that it hasn't visited in the last 5 minutes,
+working its way round the map; failing that, to unexplored ground. Monsters you've unticked don't count. It leaves
+alone monsters it can't walk to (walled off), and gives up on a target after 6 s of neither getting any closer.
+
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and

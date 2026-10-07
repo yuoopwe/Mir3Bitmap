@@ -67,6 +67,11 @@ export interface TravelData {
   links: TravelLink[];
   npcs: TravelNpc[];
   waypoints?: TravelWaypoint[];
+  /** Where monsters spawn: per map, spots as [x, y, monsters expected there, index into spawnSets]. */
+  spawns?: Record<string, [number, number, number, number][]>;
+  /** Lists of monsters (indices into `monsters`) spawning at a spot. */
+  spawnSets?: number[][];
+  monsters?: string[];
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */
