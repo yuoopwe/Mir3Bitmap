@@ -640,6 +640,17 @@ export class Hunting {
     return this.monstersNear(reading, here, range).filter((o) => !o.level || o.level >= level - THREAT_LEVELS);
   }
 
+  /**
+   * On the way somewhere (Travel, Explore, Gathering trips): fights what's in the way, returning whether it did.
+   * Stuck (not moving while trying to) with monsters close by: always, however weak they are, or it would stand
+   * there for ever. Otherwise, with "Fight monsters in the way", threats crowding round (two right next to you).
+   */
+  async fightIfBlocked(reading: MemoryState, here: Point, stuck: boolean): Promise<boolean> {
+    if (stuck && this.monstersNear(reading, here, FIGHT_RANGE_TILES).length > 0) return this.clearTheWay(FIGHT_RANGE_TILES, true);
+    if (this.bot.settings.fightInTheWay && (stuck || this.threatsNear(reading, here, 1).length >= 2)) return this.clearTheWay();
+    return false;
+  }
+
   /** Live monsters (not pets) within `range` tiles, nearest first. */
   monstersNear(reading: MemoryState, here: Point, range: number): MemoryObject[] {
     const away = (o: MemoryObject) => Math.max(Math.abs(o.x - here.x), Math.abs(o.y - here.y));

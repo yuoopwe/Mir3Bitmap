@@ -449,6 +449,19 @@ test('Travel: boxed in by other players and NPCs on arrival, it still finds a wa
   checkAlways(game);
 });
 
+test('Travel: walled in by weak monsters, it fights its way out even without "Fight monsters in the way"', async () => {
+  const [lx, ly] = LUDVIK.at!;
+  const at = { x: lx - 20, y: ly + 15 };
+  // Every tile round a level 31 taken by level 2 scarecrows: far too weak to count as threats, but in the way.
+  const ring = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+  const monsters = ring.map(([dx, dy]) => ({ name: 'Scarecrow', map: ARCADIA, x: at.x + dx, y: at.y + dy, level: 2 }));
+  const game = new FakeGame({ npcs: [{ id: LUDVIK.id }], monsters, player: { map: ARCADIA, ...at, level: 31 } });
+  const { message } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`), { settings: { fightInTheWay: false } });
+  assert.equal(message, 'Arrived at Ludvik');
+  assert.ok(of(game, 'attack').some((a) => a.killed), 'fought its way out');
+  checkAlways(game);
+});
+
 // ---- Fights measured for Grind ----
 
 test("Fights are timed from the game's memory: each monster's health going down to its death, and the health it cost", async () => {

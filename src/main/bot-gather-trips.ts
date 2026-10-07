@@ -199,7 +199,8 @@ export class GatherTrips {
       // Back to walking after gathering (or anything else): the time stood still doesn't count as blocked.
       if (now - heading.tickAt > RUN_TICK_MS * 4 || here.x !== heading.moved.x || here.y !== heading.moved.y) heading.moved = { at: now, x: here.x, y: here.y };
       else if (now - heading.moved.at > this.bot.moves.blockedAfterMs() + RUN_TICK_MS * 2) {
-        if (this.bot.settings.fightInTheWay && (await this.bot.hunting.clearTheWay())) {
+        const reading = memory.latest();
+        if (reading && (await this.bot.hunting.fightIfBlocked(reading, here, true))) {
           heading.moved.at = this.bot.clock.now();
           return;
         }

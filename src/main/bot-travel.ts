@@ -211,7 +211,7 @@ export class Travel {
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       if (now - drivenAt > EXPLORE_BLOCKED_MS || this.bot.moves.mountBusyAt > moved.at) moved.at = now;
       const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > this.bot.moves.blockedAfterMs();
-      if (this.bot.settings.fightInTheWay && (stuck || this.bot.hunting.threatsNear(reading, here, 1).length >= 2) && (await this.bot.hunting.clearTheWay())) {
+      if (await this.bot.hunting.fightIfBlocked(reading, here, stuck)) {
         path = null;
         moved = { at: this.bot.clock.now(), x: NaN, y: NaN };
         drivenAt = this.bot.clock.now();
