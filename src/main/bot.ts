@@ -48,7 +48,7 @@ import {
   viewSignature,
   type Frame,
 } from './vision';
-import * as win from './win32';
+import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 
 const SELL_CHECK_INTERVAL_SECONDS = 10;
 /** Triple Triad: how often to look while waiting, the pause between clicking a card and its square, and time for a move to play out. */
@@ -269,11 +269,11 @@ interface KeyAction {
 
 // Put the spammable spell on F1 and buffs on F6+.
 const KEY_ACTIONS: KeyAction[] = [
-  { id: 'F1', vk: win.VK.F1, always: true },
-  ...(['F2', 'F3', 'F4', 'F5'] as const).map((id, i): KeyAction => ({ id, vk: win.VK.F1 + 1 + i, delay: 'quickKey', delayWhen: 'after' })),
-  ...(['F6', 'F7', 'F8', 'F9', 'F10', 'F11'] as const).map((id, i): KeyAction => ({ id, vk: win.VK.F1 + 5 + i, delay: 'buffKey', delayWhen: 'before' })),
-  { id: 'F12', vk: win.VK.F1 + 11, delay: 'buffKey', delayWhen: 'after' },
-  { id: 'N1', vk: win.VK.N1, delay: 'itemKey', delayWhen: 'before' },
+  { id: 'F1', vk: VK.F1, always: true },
+  ...(['F2', 'F3', 'F4', 'F5'] as const).map((id, i): KeyAction => ({ id, vk: VK.F1 + 1 + i, delay: 'quickKey', delayWhen: 'after' })),
+  ...(['F6', 'F7', 'F8', 'F9', 'F10', 'F11'] as const).map((id, i): KeyAction => ({ id, vk: VK.F1 + 5 + i, delay: 'buffKey', delayWhen: 'before' })),
+  { id: 'F12', vk: VK.F1 + 11, delay: 'buffKey', delayWhen: 'after' },
+  { id: 'N1', vk: VK.N1, delay: 'itemKey', delayWhen: 'before' },
 ];
 
 /** Virtual-key code for a bindable key name ('1'-'9', 'A'-'Z', 'F1'-'F12', 'Tab', 'Space', '`'), or null for none. */
@@ -283,7 +283,7 @@ function keyCode(name: string): number | null {
   if (name === '`') return 0xc0;
   if (/^[1-9A-Z]$/.test(name)) return name.charCodeAt(0);
   const f = /^F([1-9]|1[0-2])$/.exec(name);
-  return f ? win.VK.F1 + Number(f[1]) - 1 : null;
+  return f ? VK.F1 + Number(f[1]) - 1 : null;
 }
 
 /** Where to point the mouse to run in each direction, keyed by "signX,signY". */
@@ -334,6 +334,8 @@ export interface BotOptions {
   monsters?: (names: string[]) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
+  /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */
+  input?: GameInput;
 }
 
 /** Something to attack: where to click, and a key to recognise it by from one look to the next. */
@@ -393,7 +395,7 @@ function mouseObjectName(title: string): string | null {
 }
 
 export class Bot {
-  private hwnd: win.Handle = null;
+  private hwnd: Handle = null;
   private readonly frame = createFrame(GAME_WIDTH, GAME_HEIGHT);
   private mode: Status['mode'] = 'idle';
   private active = false;
@@ -468,10 +470,13 @@ export class Bot {
   /** The rule flags of the last Triple Triad match read from memory: Best deck picks cards for them. */
   private triadRules = 0;
 
+  private readonly input: GameInput;
+
   constructor(
     private settings: Settings,
     private readonly options: BotOptions,
   ) {
+    this.input = options.input ?? windowsInput();
   }
 
   updateSettings(settings: Settings): void {
@@ -546,10 +551,10 @@ export class Bot {
     this.stats.start(performance.now());
     let message = 'Stopped';
     try {
-      this.hwnd = win.findWindow(this.settings.windowTitle);
+      this.hwnd = this.input.findWindow(this.settings.windowTitle);
       if (!this.hwnd) throw new BotError(`No window titled "${this.settings.windowTitle}..." found`);
-      if (win.isMinimized(this.hwnd)) throw new BotError('The game is minimized; restore it first.');
-      const size = win.clientSize(this.hwnd);
+      if (this.input.isMinimized(this.hwnd)) throw new BotError('The game is minimized; restore it first.');
+      const size = this.input.clientSize(this.hwnd);
       if (size.width !== GAME_WIDTH || size.height !== GAME_HEIGHT) {
         throw new BotError(`The game is ${size.width}x${size.height}; set it to ${GAME_WIDTH}x${GAME_HEIGHT}.`);
       }
@@ -621,14 +626,14 @@ export class Bot {
 
   /** With "pause while my mouse is over the game" on, waits (hands off the game) until the mouse leaves the window. */
   private async pauseWhileMouseOver(): Promise<void> {
-    if (!this.settings.pauseOnMouse || !win.cursorOverWindow(this.hwnd)) return;
+    if (!this.settings.pauseOnMouse || !this.input.cursorOverWindow(this.hwnd)) return;
     // Let go of everything so the player has full control.
     this.stopRunning();
     this.releaseHold();
     this.status('Paused: your mouse is over the game');
     const since = performance.now();
     try {
-      while (this.settings.pauseOnMouse && win.cursorOverWindow(this.hwnd)) {
+      while (this.settings.pauseOnMouse && this.input.cursorOverWindow(this.hwnd)) {
         await new Promise((resolve) => setTimeout(resolve, PAUSE_POLL_MS));
         this.checkpoint();
       }
@@ -641,7 +646,7 @@ export class Bot {
   private capture(): void {
     const start = performance.now();
     try {
-      win.captureClient(this.hwnd, this.settings.capture, GAME_WIDTH, GAME_HEIGHT, this.frame.bytes);
+      this.input.captureClient(this.hwnd, this.settings.capture, GAME_WIDTH, GAME_HEIGHT, this.frame.bytes);
       this.captureFailures = 0;
     } catch (error) {
       // The capture fails now and then; carry on with the last frame unless it keeps failing.
@@ -653,17 +658,17 @@ export class Bot {
   }
 
   private key(vk: number): void {
-    win.keyDown(this.hwnd, vk);
+    this.input.keyDown(this.hwnd, vk);
   }
 
   private async click(point: Point, holdMs: number): Promise<void> {
-    win.mouseMove(this.hwnd, point.x, point.y);
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     try {
       await this.sleep(holdMs);
     } finally {
       // Let go even when Stop comes mid-click (the sleep throws): the game would keep the button held.
-      win.leftUp(this.hwnd, point.x, point.y);
+      this.input.leftUp(this.hwnd, point.x, point.y);
     }
   }
 
@@ -942,10 +947,10 @@ export class Bot {
     const remembered = this.aim?.key === target.key ? [this.aim.offset] : [];
     for (const [dx, dy] of [...remembered, ...AIM_SPOTS]) {
       const point = { x: target.tile!.x + dx, y: target.tile!.y + dy };
-      win.mouseMove(this.hwnd, point.x, point.y);
+      this.input.mouseMove(this.hwnd, point.x, point.y);
       await new Promise((resolve) => setTimeout(resolve, HOVER_SETTLE_MS));
       this.checkpoint();
-      if (mouseObjectName(win.windowTitle(this.hwnd)) === target.name) {
+      if (mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
         this.aim = { key: target.key, offset: [dx, dy] };
         return point;
       }
@@ -975,20 +980,20 @@ export class Bot {
   /** Holds the left button down on a target (archers), following it as it moves; a new target gets a fresh press. */
   private hold(point: Point, id: string): void {
     if (this.holding && this.holding.id === id) {
-      win.mouseMove(this.hwnd, point.x, point.y, win.MK_LBUTTON);
+      this.input.mouseMove(this.hwnd, point.x, point.y, MK_LBUTTON);
       this.holding.point = point;
       return;
     }
     this.releaseHold();
-    win.mouseMove(this.hwnd, point.x, point.y);
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     this.holding = { id, point };
   }
 
   /** Lets go of a held target (before anything else uses the mouse). */
   private releaseHold(): void {
     if (!this.holding) return;
-    win.leftUp(this.hwnd, this.holding.point.x, this.holding.point.y);
+    this.input.leftUp(this.hwnd, this.holding.point.x, this.holding.point.y);
     this.holding = null;
   }
 
@@ -1244,7 +1249,7 @@ export class Bot {
     this.capture();
     let panel = findBigMap(this.frame);
     for (let attempt = 0; attempt < 3 && !!panel !== open; attempt++) {
-      this.key(win.VK.B);
+      this.key(VK.B);
       await this.sleep(BIG_MAP_DELAY_MS);
       this.capture();
       panel = findBigMap(this.frame);
@@ -1529,8 +1534,8 @@ export class Bot {
       // Pressed mid-step, M is ignored: let the character come to a stop first.
       await this.waitUntilStill();
       // A whole key press: M only works on the key coming back up.
-      win.keyDown(this.hwnd, win.VK.M);
-      win.keyUp(this.hwnd, win.VK.M);
+      this.input.keyDown(this.hwnd, VK.M);
+      this.input.keyUp(this.hwnd, VK.M);
       for (const since = performance.now(); performance.now() - since < MOUNT_SETTLE_MS; ) {
         if ((await memory.fresh(500))?.user?.mounted === on) return;
       }
@@ -1825,7 +1830,7 @@ export class Bot {
       const survival = reading.survival;
       if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell || survival?.npcDialog) {
         this.stopRunning();
-        this.key(win.VK.ESCAPE);
+        this.key(VK.ESCAPE);
         await this.sleep(400);
         continue;
       }
@@ -2257,7 +2262,7 @@ export class Bot {
     const before = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? 0;
     const button = action === 'accept' ? list.acceptAll : list.handIn;
     if (!button?.enabled) {
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       return 0;
     }
     await this.click(boxCentre(button), this.delay('menu'));
@@ -2272,7 +2277,7 @@ export class Bot {
       await this.sleep(300);
       after = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? before;
     }
-    this.key(win.VK.ESCAPE);
+    this.key(VK.ESCAPE);
     await this.sleep(300);
     return Math.max(0, after - before);
   }
@@ -2324,7 +2329,7 @@ export class Bot {
     const menu = memory.latest()?.survival?.npcMenu;
     if (menu?.talk?.enabled) await this.click(boxCentre(menu.talk), this.delay('menu'));
     await this.sleep(1500);
-    this.key(win.VK.ESCAPE);
+    this.key(VK.ESCAPE);
     await this.sleep(300);
   }
 
@@ -2399,7 +2404,7 @@ export class Bot {
   private async closeShop(): Promise<void> {
     const close = this.options.memory.latest()?.survival?.sell?.close;
     if (close?.enabled && close.width > 0) await this.click(boxCentre(close), this.delay('menu'));
-    else this.key(win.VK.ESCAPE);
+    else this.key(VK.ESCAPE);
     await this.sleep(300);
   }
 
@@ -2412,7 +2417,7 @@ export class Bot {
     const result = await this.pickWaypoint(stoneName, stone, name, fromMap);
     if (result !== 'teleported' && this.options.memory.latest()?.waypoints?.open) {
       // Close it: left open it covers the screen, and every click after lands on it.
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       await this.sleep(300);
     }
     return result;
@@ -2463,11 +2468,11 @@ export class Bot {
       const first = window.rows[0].activate;
       const before = window.scroll?.value ?? 0;
       if (!scrolledToTop) {
-        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, -50);
+        this.input.mouseWheel(this.hwnd, first.x - 200, first.y + 60, -50);
         scrolledToTop = true;
       } else {
         if (window.scroll && window.scroll.value >= window.scroll.max - window.rows.length) return 'missing';
-        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, 2);
+        this.input.mouseWheel(this.hwnd, first.x - 200, first.y + 60, 2);
       }
       await this.sleep(150);
       if (scrolledToTop && tries > 0 && (await memory.fresh())?.waypoints?.scroll?.value === before) return 'missing';
@@ -2553,7 +2558,7 @@ export class Bot {
     const point = this.runPoint(angle, panel);
     if (point) {
       if (this.running) this.holdRun(point);
-      else win.mouseMove(this.hwnd, point.x, point.y);
+      else this.input.mouseMove(this.hwnd, point.x, point.y);
     }
     this.key(vk);
     // A little random extra, so presses don't land on an exact rhythm.
@@ -2566,18 +2571,18 @@ export class Bot {
   }
 
   private holdRun(point: Point): void {
-    if (this.running) win.mouseMove(this.hwnd, point.x, point.y, win.MK_RBUTTON);
+    if (this.running) this.input.mouseMove(this.hwnd, point.x, point.y, MK_RBUTTON);
     else {
       // The game takes where the cursor is from mouse moves, not from the button press itself.
-      win.mouseMove(this.hwnd, point.x, point.y);
-      win.rightDown(this.hwnd, point.x, point.y);
+      this.input.mouseMove(this.hwnd, point.x, point.y);
+      this.input.rightDown(this.hwnd, point.x, point.y);
     }
     this.running = point;
   }
 
   private stopRunning(): void {
     if (!this.running) return;
-    win.rightUp(this.hwnd, this.running.x, this.running.y);
+    this.input.rightUp(this.hwnd, this.running.x, this.running.y);
     this.running = null;
   }
 
@@ -2699,7 +2704,7 @@ export class Bot {
       }
       if (!screen.myTurn) {
         // Keep the mouse off the cards: a card's tooltip can cover the "Your turn" text.
-        win.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
+        this.input.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
         this.statusEvery("Opponent's turn");
         await this.sleep(TRIAD_POLL_MS);
         continue;
@@ -2724,7 +2729,7 @@ export class Bot {
       await this.sleep(TRIAD_CLICK_GAP_MS);
       await this.click(cellCentre(decision.cell), this.delay('menu'));
       // Move off the card just played, or its tooltip covers the board and the turn text.
-      win.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
+      this.input.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
       await this.sleep(TRIAD_SETTLE_MS);
 
       // Check the card went down before counting it as played.
@@ -2739,7 +2744,7 @@ export class Bot {
   private parkOffCards(live: MemoryTriad): void {
     const bottom = live.squares?.[7];
     const at = bottom ? { x: bottom.x + Math.round(bottom.width / 2), y: bottom.y + bottom.height + 30 } : TRIAD_PARK;
-    win.mouseMove(this.hwnd, at.x, at.y);
+    this.input.mouseMove(this.hwnd, at.x, at.y);
   }
 
   /** One look at a match through the game's memory: plays my move if it's my turn. */
@@ -3051,7 +3056,7 @@ export class Bot {
       this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
       this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
       this.drinkPotions();
-      win.mouseMove(this.hwnd, SELF.x, SELF.y);
+      this.input.mouseMove(this.hwnd, SELF.x, SELF.y);
       this.key(vk);
       casts++;
       this.statusEvery(`Training: ${casts} casts`);
@@ -3063,27 +3068,27 @@ export class Bot {
 
   private async sellItems(): Promise<void> {
     // Open the bag, look at it, and close it again.
-    this.key(win.VK.W);
+    this.key(VK.W);
     await this.sleep(this.menuPause(200));
     this.capture();
     const full = isBagFull(this.frame);
-    this.key(win.VK.W);
+    this.key(VK.W);
     await this.sleep(this.menuPause(200));
     if (!full) return;
 
     this.status('Selling items');
     // Teleport to town, open the map and walk to the shop.
-    this.key(win.VK.N2);
+    this.key(VK.N2);
     await this.sleep(this.menuPause(200));
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(500));
     const start = this.locate();
     if (start) {
-      await this.walk(new Journey(start), start, SHOP_LOCATION, { click: true, stopAtTarget: true, repeatKey: win.VK.N2 });
+      await this.walk(new Journey(start), start, SHOP_LOCATION, { click: true, stopAtTarget: true, repeatKey: VK.N2 });
     }
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(200));
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(200));
 
     // Talk to the shopkeeper and sell.
@@ -3094,32 +3099,32 @@ export class Bot {
       await this.shopClick({ x: 457, y: 526 }, 200);
     }
     for (let i = 0; i < 4; i++) {
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       await this.sleep(this.menuPause(100));
     }
     await this.shopClick({ x: 695, y: 152 }, 100);
     await this.shopClick({ x: 65, y: 130 }, 100);
     await this.shopClick({ x: 1319, y: 314 }, 100);
     await this.shopClick({ x: 135, y: 103 }, 100);
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(100));
 
     // Autorun back out of town; leaving the map means we've arrived.
-    this.key(win.VK.D);
+    this.key(VK.D);
     await this.walkUntilMapChanges(TOWN_EXIT);
-    this.key(win.VK.D);
-    this.key(win.VK.B);
-    this.key(win.VK.B);
+    this.key(VK.D);
+    this.key(VK.B);
+    this.key(VK.B);
   }
 
   private async shopClick(point: Point, pauseAfter: number): Promise<void> {
-    win.mouseMove(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
     await this.sleep(this.menuPause(200));
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     try {
       await this.sleep(this.menuPause(200));
     } finally {
-      win.leftUp(this.hwnd, point.x, point.y);
+      this.input.leftUp(this.hwnd, point.x, point.y);
     }
     await this.sleep(this.menuPause(200 + pauseAfter));
   }
@@ -3211,7 +3216,7 @@ export class Bot {
       await this.click(point, step / 2);
       await this.sleep(step * 1.25);
     } else {
-      win.mouseMove(this.hwnd, point.x, point.y);
+      this.input.mouseMove(this.hwnd, point.x, point.y);
       await this.sleep(step);
     }
   }
