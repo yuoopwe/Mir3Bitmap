@@ -3,13 +3,12 @@
 import type { Point } from '../shared/types';
 import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
-import { GAME_HEIGHT, GAME_WIDTH, HUD_MASKS, PLAYER, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, type Rect } from './layout';
+import { GAME_HEIGHT, GAME_WIDTH, HUD_MASKS, PLAYER, type Rect } from './layout';
 import { locatePlayer } from './minimap';
 import { MapExplorer } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { exploredShare, type MapGrid } from './map-grid';
 import type { MemoryState } from './game-memory';
-import { playerHpFill, playerMpFill, readBar } from './vision';
 import { VK } from './input';
 import { BotError, EXPLORE_AVOID_MS, EXPLORE_BLOCKED_MS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, MEMORY_START_MS, RUN_TICK_MS, STEER_ROUND_TILES, Stopped, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -161,8 +160,7 @@ export class Exploring {
     while (true) {
       await this.bot.yieldToEvents();
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
 
       let panel = findBigMap(this.bot.frame);
@@ -285,8 +283,7 @@ export class Exploring {
     while (true) {
       await this.bot.yieldToEvents();
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();

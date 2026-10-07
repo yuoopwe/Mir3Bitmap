@@ -1,12 +1,9 @@
 /** Travel: the route between maps and walking it, waypoint stones, and the ways off a map (exit tiles). */
 
 import type { Point } from '../shared/types';
-import { PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR } from './layout';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
 import type { MapGrid } from './map-grid';
-import { tileToScreen } from './game-memory';
-import { playerHpFill, playerMpFill, readBar } from './vision';
 import { VK } from './input';
 import { BotError, EXPLORE_AVOID_MS, EXPLORE_BLOCKED_MS, MEMORY_START_MS, RUN_TICK_MS, STEER_ROUND_TILES, boxCentre } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -105,8 +102,7 @@ export class Travel {
     while (true) {
       await this.bot.yieldToEvents();
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();
@@ -314,7 +310,7 @@ export class Travel {
     for (let attempt = 0; attempt < 2 && !memory.latest()?.waypoints?.open; attempt++) {
       const me = user();
       if (!me) return 'failed';
-      const tileAt = tileToScreen(me, stone.x, stone.y);
+      const tileAt = this.bot.toScreen(me, stone.x, stone.y);
       const point = (await this.bot.aimAt({ key: `stone${stone.x},${stone.y}`, point: tileAt, name: stoneName, tile: tileAt })) ?? tileAt;
       this.bot.status(`Opening the waypoints at the ${stoneName}`);
       await this.bot.click(point, this.bot.delay('menu'));

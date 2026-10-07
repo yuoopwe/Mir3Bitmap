@@ -25,7 +25,11 @@ lists the calls the window made. It isn't part of the app.
 
 ## Setup in game
 
-- The game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`.
+- With the memory reader, Hunt, Explore, Travel, Gather, Quests and Grind work with the game at any size (a bigger
+  window shows more of the map), at map zoom 100%: the bot stops and asks you to set it back otherwise (other zooms
+  aren't measured yet). Without the reader, and for Triple Triad, Best deck and Train, which read the screen, the
+  game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. At
+  other sizes HP comes from the game's memory instead of the bar, and MP isn't known (MP potions need 1600x900).
 - Put the spammable attack spell on F1 and buffs on F6 and above.
 - "Background" capture works while other windows cover the game; it can't see a minimized game.
 - "Pause while my mouse is over the game": every mode stops (letting go of keys and buttons) while your mouse
@@ -59,8 +63,13 @@ around the player (monsters with their names, map tiles and dead/alive, items on
 second. Hunt then clicks the nearest live monster's tile (not anyone's pet), and lists every monster it has seen
 under "Monsters to hunt" (Monsters tab): untick one to leave it alone. Without the reader it falls back to the screen.
 
-Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen and
-the player's tile is centred on (804, 416), measured with the tile under the mouse from the game's memory (MapControl.MapLocation, also in the reader's output as user.mouseTile) while standing still.
+Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen (map
+zoom 100%), and where they're drawn comes from the map view the reader sends (`view`: the game's size, its zoom, and
+where MapControl draws the character's tile): a tile is at x = (tx − ux + offsetX) × 48 + pixelX + 24,
+y = (ty − uy + offsetY) × 32 + pixelY + 16, which puts the player's own at (width / 2, height / 2 − 34): (800, 416)
+at 1600x900, (1280, 686) at 2560x1440. Checked at both sizes against the tile under the mouse from the game's memory
+(MapControl.MapLocation, also in the reader's output as user.mouseTile). Clicks on the map keep clear of the game's
+windows (from memory), and of the main panel and target frame, placed for the game's size.
 
 The reader also sends the current map: which tiles are walls (`MapControl.Cells`, read in one go by
 `game-reader/MapReading.cs`) and which 4x4-tile blocks have been explored (`GameScene.MapExplorationStore`, the fog

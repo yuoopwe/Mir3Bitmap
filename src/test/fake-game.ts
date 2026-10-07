@@ -12,14 +12,15 @@
  * the Town Portal scroll, the mount, a bag, gathering nodes and the profession
  * levels (read only once the Professions window has been opened), and gear:
  * what's worn and the bag's wearable items, with cells while the bag is open,
- * the lock key over a cell, and a double-click on one to put it on. Time is virtual: every wait jumps ahead, so a
+ * the lock key over a cell, and a double-click on one to put it on. Its map
+ * view (setup `view`) sets the game's size and where tiles are drawn: the
+ * mouse's tile is worked out from it. Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
  * tests to check.
  */
 import type { Clock } from '../main/clock';
-import { PLAYER_TILE, TILE_HEIGHT, TILE_WIDTH, type MemoryButton, type MemoryObject, type MemorySource, type MemoryState } from '../main/game-memory';
+import { DEFAULT_VIEW, screenToTile, type MapView, type MemoryButton, type MemoryObject, type MemorySource, type MemoryState } from '../main/game-memory';
 import { VK, type GameInput, type Handle } from '../main/input';
-import { GAME_HEIGHT, GAME_WIDTH } from '../main/layout';
 import { isWall, type MapGrid } from '../main/map-grid';
 import { classFlagOf, loadTravelData, type TravelData, type TravelQuest } from '../main/travel';
 import { ITEM_SLOTS } from '../main/loot-judge';
@@ -64,6 +65,8 @@ const PROFESSION_NAMES = ['Fishing', 'Mining', 'Harvesting', 'Taming', 'Cooking'
 export type FakeEvent =
   | { t: number; type: 'move'; map: number; from: { x: number; y: number }; to: { x: number; y: number }; run: boolean }
   | { t: number; type: 'runTooClose'; tiles: number }
+  /** The mouse moved off the game's screen (or into its bottom 80 px, where the main panel is). */
+  | { t: number; type: 'offScreen'; x: number; y: number }
   | { t: number; type: 'mapChange'; from: number; to: number; via: Via }
   | { t: number; type: 'attack'; name: string; level: number; disposition: number | null; killed: boolean }
   | { t: number; type: 'mount'; moving: boolean; mounted: boolean; map: number }
@@ -175,6 +178,8 @@ export interface FakeGameSetup {
   /** The lock key (Scroll Lock over a bag cell) does nothing; a double-click on a bag item doesn't put it on. */
   lockFails?: boolean;
   equipFails?: boolean;
+  /** The map view, which sets the game's size too (default: 1600x900 at zoom 100%, as measured). */
+  view?: MapView;
 }
 
 interface Monster extends MemoryObject {
@@ -292,7 +297,9 @@ export class FakeGame {
   private nextId = 1;
 
   // The input as the game sees it.
-  private cursor = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
+  private cursor: { x: number; y: number };
+  /** Where the map is drawn, and the game's size. */
+  readonly view: MapView;
   private rightHeld = false;
   private readonly keysDown = new Set<number>();
   /** A stride or step under way: where it ends, and when. */
@@ -316,6 +323,8 @@ export class FakeGame {
 
   constructor(setup: FakeGameSetup) {
     this.data = setup.data ?? loadTravelData();
+    this.view = setup.view ?? DEFAULT_VIEW;
+    this.cursor = { x: this.view.width / 2, y: this.view.height / 2 };
     for (const map of setup.maps ?? []) this.maps.set(map.index, map.explored ? map : withBlocks(map));
     const p = setup.player;
     this.player = {
@@ -375,7 +384,7 @@ export class FakeGame {
       findWindow: () => 'fake-game',
       windowTitle: () => game.title(),
       cursorOverWindow: () => false,
-      clientSize: () => ({ width: GAME_WIDTH, height: GAME_HEIGHT }),
+      clientSize: () => ({ width: game.view.width, height: game.view.height }),
       isMinimized: () => false,
       captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => out.fill(0),
       keyDown: (_hwnd, vk) => game.key(vk, true),
@@ -467,7 +476,7 @@ export class FakeGame {
 
   /** The screen point's map tile. */
   private tileAt(point: { x: number; y: number }): { x: number; y: number } {
-    return { x: this.player.x + Math.round((point.x - PLAYER_TILE.x) / TILE_WIDTH), y: this.player.y + Math.round((point.y - PLAYER_TILE.y) / TILE_HEIGHT) };
+    return screenToTile(this.player, point, this.view);
   }
 
   private objectAt(tile: { x: number; y: number }): Monster | Npc | GatherPoint | undefined {
@@ -645,6 +654,7 @@ export class FakeGame {
 
   private mouseMove(x: number, y: number): void {
     this.cursor = { x, y };
+    if (x < 0 || y < 0 || x >= this.view.width || y >= this.view.height - 80) this.events.push({ t: this.t, type: 'offScreen', x, y });
     if (this.rightHeld && this.cursorTiles() <= RUN_DEAD_ZONE) this.events.push({ t: this.t, type: 'runTooClose', tiles: this.cursorTiles() });
   }
 
@@ -1131,6 +1141,7 @@ export class FakeGame {
       questLog: [...this.quests].map(([name, q]) => ({ name, completed: q.completed, ready: q.completed || this.isReady(q) })),
       questPending: { regions, talks },
       survival: this.survival(),
+      view: { ...this.view },
       gear: { worn: this.gear.worn.map((i) => ({ ...i })), bag: this.gear.bag.map((i) => ({ ...i, cell: this.cellOf(i) })) },
       professions: this.professionsLoaded
         ? PROFESSION_NAMES.map((name, i) => {

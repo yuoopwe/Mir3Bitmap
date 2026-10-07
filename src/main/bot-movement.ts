@@ -3,9 +3,8 @@
 import type { Point } from '../shared/types';
 import { waypoint } from './map-explorer';
 import { loadTravelData } from './travel';
-import { tileToScreen } from './game-memory';
 import { VK } from './input';
-import { EXPLORE_BLOCKED_MS, HOVER_SETTLE_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, clickable, keyCode, mouseObjectName } from './bot-shared';
+import { EXPLORE_BLOCKED_MS, HOVER_SETTLE_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, keyCode, mouseObjectName } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /**
@@ -138,10 +137,10 @@ export class Movement {
     // (not on a game window, where holding the button does nothing).
     const dir = { x: Math.sign(next.x - user.x), y: Math.sign(next.y - user.y) };
     const windows = this.bot.options.memory.latest()?.windows ?? [];
-    const free = (p: Point) => clickable(p) && !windows.some((w) => p.x >= w.x && p.x < w.x + w.width && p.y >= w.y && p.y < w.y + w.height);
+    const free = (p: Point) => this.bot.clickable(p) && !windows.some((w) => p.x >= w.x && p.x < w.x + w.width && p.y >= w.y && p.y < w.y + w.height);
     const toward = (tiles: number) => ({ x: user.x + dir.x * tiles, y: user.y + dir.y * tiles });
     const runTile = toward(RUN_AIM_TILES);
-    const point = tileToScreen(user, runTile.x, runTile.y);
+    const point = this.bot.toScreen(user, runTile.x, runTile.y);
     // A run can carry a stride past where it was meant to stop: not towards a way off the map close ahead.
     const map = this.bot.options.memory.map();
     const exits = map ? this.bot.travel.exitTiles(map) : null;
@@ -159,7 +158,7 @@ export class Movement {
       // A step: a click a little way off the way the path goes, pushed further out if it would land on the character.
       const clear = await this.clearOfMe(user, toward, STEP_AIM_TILES, free);
       const stepTile = clear?.tile ?? next;
-      const stepPoint = clear?.point ?? tileToScreen(user, next.x, next.y);
+      const stepPoint = clear?.point ?? this.bot.toScreen(user, next.x, next.y);
       this.lastAim = { tile: stepTile, point: stepPoint, running: false };
       await this.bot.click(stepPoint, this.bot.delay('attackClick'));
       return;
@@ -182,7 +181,7 @@ export class Movement {
     const me = this.bot.options.memory.latest()?.user?.name;
     for (let tiles = first; tiles <= AIM_OUT_TILES; tiles++) {
       const tile = toward(tiles);
-      const point = tileToScreen(user, tile.x, tile.y);
+      const point = this.bot.toScreen(user, tile.x, tile.y);
       if (!free(point)) continue;
       if (!me) return { tile, point };
       this.bot.input.mouseMove(this.bot.hwnd, point.x, point.y);

@@ -9,16 +9,16 @@
 
 import type { Delays, KeptItem, KeyId, Point, Settings, Status } from '../shared/types';
 import type { TriadMemory } from './triad-memory';
-import { GAME_HEIGHT, GAME_WIDTH, PLAYER, type Rect } from './layout';
+import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, hudPanels, type Rect } from './layout';
 import type { NameBook } from './names';
 import { SessionStats } from './session-stats';
 import type { GrindLog } from './grind-log';
-import type { MemorySource } from './game-memory';
-import { createFrame, type Frame } from './vision';
+import { DEFAULT_VIEW, tileToScreen, type MapView, type MemorySource } from './game-memory';
+import { createFrame, playerHpFill, playerMpFill, readBar, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
-import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, keyCode, wholeSecondsSince } from './bot-shared';
-import { HOVER_SETTLE_MS, mouseObjectName } from './bot-shared';
+import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, ViewError, keyCode, wholeSecondsSince } from './bot-shared';
+import { HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
 import type { Movement } from './bot-movement';
 import type { Travel } from './bot-travel';
 import type { Hunting } from './bot-hunting';
@@ -41,12 +41,10 @@ const MAX_CAPTURE_FAILURES = 20;
 const POTION_COOLDOWN_MS = 1500;
 
 /**
- * The middle of the tile the character stands on. Names are drawn about a tile
- * above where a character stands (the target brackets around a monster are
- * centred 32px below its name), so the character's tile is centred 32px below
- * their name (y 383).
+ * The character's feet (about the middle of their tile), this far below where they stand. Names are drawn about a
+ * tile above where a character stands (the target brackets around a monster are centred 32px below its name).
  */
-const FEET: Point = { x: PLAYER.x, y: PLAYER.y + 50 };
+const FEET_BELOW = 50;
 
 
 /** The name of what the game says is under the mouse, from its title ("Mouse Object: <name>, ..."). */
@@ -114,6 +112,10 @@ export class BotContext {
   kills = 0;
   /** All the time spent paused (mouse over the game), so loops can leave it out of their give-up timers. */
   pausedMs = 0;
+  /** The game's client size, from the start of the run: the screen itself is only read at 1600x900. */
+  screenSize = { width: GAME_WIDTH, height: GAME_HEIGHT };
+  /** The map view last read from the game's memory (until then, the 1600x900 one). */
+  lastView: MapView | null = null;
   /** What's been done this session and in all, for the window's stats panel. */
   readonly stats = new SessionStats();
   lastStatusAt = 0;
@@ -206,6 +208,64 @@ export class BotContext {
     this.status('Resumed');
   }
 
+  /** Whether the screen can be read (HP/MP bars, names, the minimap, the big map): it's measured at 1600x900 only. */
+  get screenReadable(): boolean {
+    return this.screenSize.width === GAME_WIDTH && this.screenSize.height === GAME_HEIGHT;
+  }
+
+  /**
+   * The map view: where the game draws the map's tiles, from its memory, else the last one read, else the
+   * 1600x900 one. A map zoom other than 100% stops the bot (it hasn't been measured).
+   */
+  view(): MapView {
+    const read = this.options.memory.latest()?.view;
+    if (read) this.lastView = read;
+    const view = this.lastView ?? DEFAULT_VIEW;
+    if (view.zoom !== 1) throw new ViewError(`Set the map zoom to 100% (it's at ${Math.round(view.zoom * 100)}%): other zooms aren't measured yet.`);
+    return view;
+  }
+
+  /** The middle of a map tile on screen, given the player's tile (tileToScreen in the current view). */
+  toScreen(user: { x: number; y: number }, x: number, y: number): Point {
+    return tileToScreen(user, x, y, this.view());
+  }
+
+  /** Where the character stands on screen (PLAYER at 1600x900), for aiming runs and clicks around them. */
+  player(): Point {
+    const tile = tileToScreen({ x: 0, y: 0 }, 0, 0, this.view());
+    return { x: tile.x, y: tile.y - PLAYER_ABOVE_TILE };
+  }
+
+  /**
+   * Somewhere on the map that can be clicked: on the screen, clear of its edges, and (once the view's been read)
+   * of the game's windows, the main panel and the target frame; without a view, clear of the 1600x900 HUD.
+   */
+  clickable(point: Point): boolean {
+    if (!this.options.memory.latest()?.view && !this.lastView) return clickable(point);
+    const { width, height } = this.view();
+    if (point.x < 20 || point.x > width - 20 || point.y < 20 || point.y > height - 80) return false;
+    const inside = (r: Rect) => point.x >= r.left && point.x < r.right && point.y >= r.top && point.y < r.bottom;
+    // At 1600x900 the HUD measured there counts as well: not every part of it is listed among the windows.
+    const fixed = width === GAME_WIDTH && height === GAME_HEIGHT ? PANEL_MASKS : [];
+    const windows = (this.options.memory.latest()?.windows ?? []).map((w) => ({ left: w.x, top: w.y, right: w.x + w.width, bottom: w.y + w.height }));
+    return ![...windows, ...hudPanels(width, height), ...fixed].some(inside);
+  }
+
+  /**
+   * HP and MP, as shares: off the bars at the bottom of the screen at 1600x900; at other sizes HP from the game's
+   * memory, and MP unknown (MP potions wait for 1600x900).
+   */
+  readVitals(): void {
+    if (this.screenReadable) {
+      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
+      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      return;
+    }
+    const user = this.options.memory.latest()?.user;
+    this.hp = user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null;
+    this.mp = null;
+  }
+
   capture(): void {
     const start = this.clock.now();
     try {
@@ -243,8 +303,11 @@ export class BotContext {
    */
   async aimAt(target: HuntTarget): Promise<Point | null> {
     const remembered = this.aim?.key === target.key ? [this.aim.offset] : [];
+    const { width, height } = this.view();
     for (const [dx, dy] of [...remembered, ...AIM_SPOTS]) {
       const point = { x: target.tile!.x + dx, y: target.tile!.y + dy };
+      // Near an edge of the screen, the spots beyond it.
+      if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height) continue;
       this.input.mouseMove(this.hwnd, point.x, point.y);
       await this.clock.wait(HOVER_SETTLE_MS);
       this.checkpoint();
@@ -320,7 +383,8 @@ export class BotContext {
   async clickFloor(times: number, gapMs: number): Promise<void> {
     const pickUpKey = keyCode(this.settings.hunt.pickUpKey);
     for (let i = 0; i < times; i++) {
-      await this.click(FEET, this.delay('pickUpClick'));
+      const player = this.player();
+      await this.click({ x: player.x, y: player.y + FEET_BELOW }, this.delay('pickUpClick'));
       if (pickUpKey !== null) this.key(pickUpKey);
       await this.sleep(gapMs);
     }

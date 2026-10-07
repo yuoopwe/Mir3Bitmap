@@ -178,18 +178,15 @@ export interface MemoryState {
   questLog?: { name: string; completed: boolean; ready: boolean }[] | null;
   /** Unfinished quest tasks to go somewhere (a region, by index, on a map) or talk to someone (an NPC, by index). */
   questPending?: { regions: { quest: string; region: number; map: number | null }[]; talks: { quest: string; npc: number }[] } | null;
+  /** The map view: the game's size, its map zoom, and where the character's tile is drawn (see MapView). */
+  view?: MapView | null;
+  /** What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second. */
+  gear?: { worn: MemoryItem[]; bag: MemoryItem[] } | null;
   /**
    * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
    * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.
    * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
    */
-  /**
-   * The map view: the game's size, its map zoom (1 = 100%), and where MapControl puts the character's cell: offsetX/offsetY
-   * cells in from the top left, nudged by pixelX/pixelY. At 1600x900 and zoom 1: 16, 14, 8, -48 (PLAYER_TILE 804,416).
-   */
-  view?: { width: number; height: number; zoom: number; offsetX: number; offsetY: number; pixelX: number; pixelY: number } | null;
-  /** What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second. */
-  gear?: { worn: MemoryItem[]; bag: MemoryItem[] } | null;
   professions?: { id: number; name: string; level: number; usable: number; exp: number; toNext: number; canGain: boolean; lockReason: string | null }[] | null;
   /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
   survival?: {
@@ -211,14 +208,43 @@ export interface MemoryState {
   } | null;
 }
 
-/** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */
-export const PLAYER_TILE: Point = { x: 804, y: 416 };
+/**
+ * The map view as MapControl has it: the game's size, its map zoom (1 = 100%), and where it draws the character's
+ * tile: offsetX/offsetY tiles in from the top left, nudged by pixelX/pixelY. The bigger the window, the more map it
+ * shows; tiles stay TILE_WIDTH x TILE_HEIGHT at zoom 1.
+ */
+export interface MapView {
+  width: number;
+  height: number;
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+  pixelX: number;
+  pixelY: number;
+}
+
+/** A tile's size on screen at map zoom 100%. */
 export const TILE_WIDTH = 48;
 export const TILE_HEIGHT = 32;
 
-/** The middle of a map tile on screen, given the player's tile. */
-export function tileToScreen(user: { x: number; y: number }, x: number, y: number): Point {
-  return { x: PLAYER_TILE.x + (x - user.x) * TILE_WIDTH, y: PLAYER_TILE.y + (y - user.y) * TILE_HEIGHT };
+/** The view at 1600x900 and zoom 100%, as measured: for when there's no reading of it (no reader, or older data). */
+export const DEFAULT_VIEW: MapView = { width: 1600, height: 900, zoom: 1, offsetX: 16, offsetY: 14, pixelX: 8, pixelY: -48 };
+
+/**
+ * The middle of a map tile on screen, given the player's tile and the view (measured at 1600x900 and 2560x1440
+ * against the tile under the mouse): the player's own is at (width / 2, height / 2 - 34), (800, 416) at 1600x900.
+ */
+export function tileToScreen(user: { x: number; y: number }, x: number, y: number, view: MapView = DEFAULT_VIEW): Point {
+  return {
+    x: (x - user.x + view.offsetX) * TILE_WIDTH + view.pixelX + TILE_WIDTH / 2,
+    y: (y - user.y + view.offsetY) * TILE_HEIGHT + view.pixelY + TILE_HEIGHT / 2,
+  };
+}
+
+/** The map tile a point on screen is in, given the player's tile and the view: the other way from tileToScreen. */
+export function screenToTile(user: { x: number; y: number }, point: Point, view: MapView = DEFAULT_VIEW): Point {
+  const own = tileToScreen(user, user.x, user.y, view);
+  return { x: user.x + Math.round((point.x - own.x) / TILE_WIDTH), y: user.y + Math.round((point.y - own.y) / TILE_HEIGHT) };
 }
 
 /** What the bot uses of the memory reader: GameMemory, or a stand-in game in the tests. */

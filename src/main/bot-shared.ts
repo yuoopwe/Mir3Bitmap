@@ -72,6 +72,12 @@ export class Stopped extends Error {}
 /** A problem the user can fix; shown as the status message. */
 export class BotError extends Error {}
 
+/**
+ * The map view can't be worked with (a map zoom other than 100%, not measured yet): shown as the status message
+ * like a BotError, but not one, so nothing that gives up on a BotError and carries on swallows it.
+ */
+export class ViewError extends Error {}
+
 export function wholeSecondsSince(time: number, now: number): number {
   return Math.floor((now - time) / 1000);
 }
@@ -100,7 +106,7 @@ export function boxCentre(box: MemoryBox): Point {
   return { x: box.x + Math.round(box.width / 2), y: box.y + Math.round(box.height / 2) };
 }
 
-/** On the game's screen, clear of the edges and the HUD panels. */
+/** On the game's screen at 1600x900, clear of the edges and the HUD panels (BotContext.clickable works from the game's memory). */
 export function clickable(point: Point): boolean {
   if (point.x < 20 || point.x > GAME_WIDTH - 20 || point.y < 20 || point.y > GAME_HEIGHT - 80) return false;
   return !PANEL_MASKS.some((m) => point.x >= m.left && point.x < m.right && point.y >= m.top && point.y < m.bottom);

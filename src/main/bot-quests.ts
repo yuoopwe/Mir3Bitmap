@@ -2,7 +2,7 @@
 
 import { loadTravelData } from './travel';
 import { RouteCosts, nextQuestAction, questKey } from './quest-planner';
-import { tileToScreen, type MemoryState } from './game-memory';
+import type { MemoryState } from './game-memory';
 import { VK } from './input';
 import { BotError, MEMORY_START_MS, Stopped, boxCentre } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -202,7 +202,7 @@ export class Questing {
     const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
     if (!npc || !reading?.user) return false;
     this.bot.stopRunning();
-    const tile = tileToScreen(reading.user, npc.x, npc.y);
+    const tile = this.bot.toScreen(reading.user, npc.x, npc.y);
     const point = (await this.bot.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
     await this.bot.click(point, this.bot.delay('menu'));
     return true;

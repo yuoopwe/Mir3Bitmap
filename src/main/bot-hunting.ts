@@ -2,17 +2,17 @@
 
 import type { Point } from '../shared/types';
 import { findLabels } from './labels';
-import { HUD_MASKS, PANEL_MASKS, PLAYER, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, TARGET_HP_BAR, TARGET_HP_TEXT } from './layout';
+import { HUD_MASKS, PANEL_MASKS, TARGET_HP_BAR, TARGET_HP_TEXT } from './layout';
 import { nearestMonster, readMinimap } from './minimap';
 import { MapExplorer } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { loadTravelData, mapName } from './travel';
 import type { MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
-import { tileToScreen, type MemoryObject, type MemoryState } from './game-memory';
+import type { MemoryObject, MemoryState } from './game-memory';
 import { FightTimer } from './grind-log';
-import { playerHpFill, playerMpFill, readBar, signatureDifference, targetHpFill, viewSignature } from './vision';
-import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, clickable, hostile, wholeSecondsSince } from './bot-shared';
+import { readBar, signatureDifference, targetHpFill, viewSignature } from './vision';
+import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, hostile, wholeSecondsSince } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 const SELL_CHECK_INTERVAL_SECONDS = 10;
@@ -172,8 +172,7 @@ export class Hunting {
       const targetHp = readBar(this.bot.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
       // The target frame only hides names while it's showing.
       const labels = findLabels(this.bot.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.scanMs = this.bot.clock.now() - start;
       const now = this.bot.clock.now();
       const sightings = this.sightings.update(labels, now);
@@ -181,6 +180,14 @@ export class Hunting {
 
       for (const [key, until] of skipped) if (until <= now) skipped.delete(key);
       const memory = this.bot.options.memory.latest();
+      // In a game of another size the screen can't be read: wait for the memory rather than go by the screen.
+      if (!memory && !this.bot.screenReadable) {
+        this.bot.stopRunning();
+        this.bot.releaseHold();
+        this.bot.statusEvery(`Waiting for the game's memory (${this.bot.options.memory.problem}; the screen is only read at 1600x900)`);
+        await this.bot.sleep(300);
+        continue;
+      }
       if (memory) {
         const { kills, death } = fights.update(memory, now, memoryId(current?.key));
         const name = memory.user?.name ?? '';
@@ -246,7 +253,7 @@ export class Hunting {
         }
         // Between monsters (or with none about), walk towards the nearest item out of reach.
         const far = items
-          .filter((i) => i.distance > reach && clickable(i.point) && (live.length === 0 || i.distance <= reach + LOOT_DETOUR_TILES))
+          .filter((i) => i.distance > reach && this.bot.clickable(i.point) && (live.length === 0 || i.distance <= reach + LOOT_DETOUR_TILES))
           .sort((a, b) => a.distance - b.distance);
         const walk = !target && inReachSince.size === 0 ? (far.find((i) => i.key === walkingTo?.key) ?? far[0]) : undefined;
         if (walk) {
@@ -287,7 +294,8 @@ export class Hunting {
       }
       if (!target) {
         // Nearest to walk to, where the game's memory says; else nearest on screen.
-        const distance = (c: HuntTarget) => (c.steps !== undefined ? c.steps * 48 : Math.hypot(c.point.x - PLAYER.x, c.point.y - PLAYER.y));
+        const player = this.bot.player();
+        const distance = (c: HuntTarget) => (c.steps !== undefined ? c.steps * 48 : Math.hypot(c.point.x - player.x, c.point.y - player.y));
         target = live.reduce<HuntTarget | undefined>((best, c) => (!best || distance(c) < distance(best) ? c : best), undefined);
         if (target) {
           current = { key: target.key, since: now };
@@ -330,7 +338,7 @@ export class Hunting {
         const seek = options.seek ?? this.bot.settings.hunt.roam;
         if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
           // Heading somewhere.
-        } else if (seek) await this.seekOrRoam();
+        } else if (seek && this.bot.screenReadable) await this.seekOrRoam();
         else {
           await this.bot.sleep(150);
           this.bot.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
@@ -369,7 +377,7 @@ export class Hunting {
     const items: LootTarget[] = [];
     for (const o of memory.objects ?? []) {
       if (o.kind !== 'item' || skipped.has(`i${o.id}`)) continue;
-      const point = tileToScreen(user, o.x, o.y);
+      const point = this.bot.toScreen(user, o.x, o.y);
       items.push({ key: `i${o.id}`, distance: Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)), point, at: { x: o.x, y: o.y } });
     }
     return items;
@@ -394,9 +402,9 @@ export class Hunting {
       seen.add(o.name);
       if (o.dead || skip.has(o.name.toLowerCase())) continue;
       if (wanted && !wanted.has(o.name.toLowerCase())) continue;
-      const tile = tileToScreen(user, o.x, o.y);
+      const tile = this.bot.toScreen(user, o.x, o.y);
       const point = { x: tile.x + AIM_SPOTS[0][0], y: tile.y + AIM_SPOTS[0][1] };
-      if (!clickable(point)) continue;
+      if (!this.bot.clickable(point)) continue;
       // Walled off (no way to walk next to it): no use attacking.
       let steps: number | undefined;
       if (dist && map) {
@@ -578,9 +586,10 @@ export class Hunting {
       const dy = monster.centre.y - reading.self.y;
       const length = Math.hypot(dx, dy);
       if (length > 0) {
+        const player = this.bot.player();
         const point = {
-          x: Math.round(PLAYER.x + (dx / length) * ROAM_DISTANCE),
-          y: Math.round(PLAYER.y + (dy / length) * ROAM_DISTANCE * 0.75),
+          x: Math.round(player.x + (dx / length) * ROAM_DISTANCE),
+          y: Math.round(player.y + (dy / length) * ROAM_DISTANCE * 0.75),
         };
         this.bot.statusEvery('Heading for a monster on the minimap');
         // Blocked on the way: wander a little to get around it.
@@ -602,7 +611,8 @@ export class Hunting {
     }
     const dir = ROAM_DIRECTIONS[this.roamDirection];
     const scale = dir.x && dir.y ? ROAM_DISTANCE / Math.SQRT2 : ROAM_DISTANCE;
-    const point = { x: Math.round(PLAYER.x + dir.x * scale), y: Math.round(PLAYER.y + dir.y * scale * 0.75) };
+    const player = this.bot.player();
+    const point = { x: Math.round(player.x + dir.x * scale), y: Math.round(player.y + dir.y * scale * 0.75) };
     this.roamStepsLeft--;
 
     if (!(await this.step(point))) {
@@ -690,10 +700,9 @@ export class Hunting {
         fought = true;
       }
       this.bot.capture();
-      this.bot.hp = readBar(this.bot.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.bot.mp = readBar(this.bot.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.bot.readVitals();
       this.bot.drinkPotions();
-      const tile = tileToScreen(user, monster.x, monster.y);
+      const tile = this.bot.toScreen(user, monster.x, monster.y);
       const point = await this.bot.aimAt({ key: `m${monster.id}`, point: tile, name: monster.name, tile });
       if (point) {
         if (this.bot.settings.archer) {
