@@ -396,6 +396,10 @@ export class Bot {
   private teleportReadyAt = 0;
   /** M did nothing (no mount, or not allowed here): don't try again before this. */
   private mountRetryAt = 0;
+  /** Maps where getting on the mount did nothing (on top of those the game data marks as no-mount). */
+  private readonly noMountMaps = new Set<number>();
+  /** When setMounted last pressed M: time standing still for it isn't time being blocked. */
+  private mountBusyAt = 0;
   /** Seeking from memory: where it's heading (a monster the game knows of, or a spawn spot), and the spots seen lately. */
   private seek: { kind: 'monster' | 'spot'; key: string; label: string; target: Point; map: number; since: number; path: Point[] | null; moved: { at: number; x: number; y: number } } | null = null;
   private readonly visitedSpots = new Map<string, number>();
@@ -1348,7 +1352,7 @@ export class Bot {
 
       const user = reading.user!;
       const now = performance.now();
-      if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
+      if (now - drivenAt > EXPLORE_BLOCKED_MS || this.mountBusyAt > moved.at) moved.at = now;
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       const stuck = user.x === moved.x && user.y === moved.y && now - moved.at > this.blockedAfterMs();
       if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
@@ -1389,8 +1393,23 @@ export class Bot {
    */
   private async setMounted(on: boolean): Promise<void> {
     const memory = this.options.memory;
-    const mounted = memory.latest()?.user?.mounted;
+    const reading = memory.latest();
+    const mounted = reading?.user?.mounted;
     if (mounted === undefined || mounted === on || performance.now() < this.mountRetryAt) return;
+    // Mounts aren't allowed on this map (the game's data says so, or M did nothing here before).
+    const mapIndex = reading?.map?.index;
+    if (on && mapIndex !== undefined && (this.noMountMaps.has(mapIndex) || loadTravelData().maps.find((m) => m.i === mapIndex)?.noHorse)) return;
+    try {
+      await this.pressMount(on);
+    } finally {
+      this.mountBusyAt = performance.now();
+    }
+    if (on && mapIndex !== undefined && memory.latest()?.user?.mounted !== true) this.noMountMaps.add(mapIndex);
+  }
+
+  /** Presses M (once the character has stopped) until the game shows the mount as wanted, twice at most. */
+  private async pressMount(on: boolean): Promise<void> {
+    const memory = this.options.memory;
     this.stopRunning();
     this.releaseHold();
     this.statusEvery(on ? 'Getting on the mount' : 'Getting off the mount');
@@ -1658,7 +1677,7 @@ export class Bot {
       }
 
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
-      if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
+      if (now - drivenAt > EXPLORE_BLOCKED_MS || this.mountBusyAt > moved.at) moved.at = now;
       const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > this.blockedAfterMs();
       if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
         path = null;

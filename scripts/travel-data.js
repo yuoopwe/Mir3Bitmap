@@ -189,6 +189,8 @@ const mapList = [...used].map((i) => maps.get(i)).map((m) => {
   if (grid) Object.assign(out, { w: grid.width, h: grid.height });
   if (m.MinimumLevel > 0) out.level = m.MinimumLevel;
   if (m.MaximumLevel > 0) out.maxLevel = m.MaximumLevel;
+  // Mounts aren't allowed (caves, mostly).
+  if (m.CanHorse === false) out.noHorse = true;
   return out;
 });
 

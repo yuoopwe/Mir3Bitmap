@@ -16,6 +16,8 @@ export interface TravelMap {
   h?: number;
   level?: number;
   maxLevel?: number;
+  /** Mounts aren't allowed here. */
+  noHorse?: boolean;
 }
 
 export interface TravelLink {
