@@ -64,6 +64,28 @@ export interface TravelWaypoint {
   npcSteps?: Record<string, number>;
 }
 
+export interface TravelQuest {
+  id: number;
+  name: string;
+  type: string;
+  start: number;
+  finish: number;
+  level?: number;
+  cls?: number;
+  after?: number[];
+  exp?: number;
+  tasks: {
+    type: string;
+    amount: number;
+    stage?: number;
+    /** [monster name] or [monster name, map index]. */
+    monsters?: ([string] | [string, number])[];
+    item?: string;
+    region?: { map: number; at: [number, number] };
+    npc?: number;
+  }[];
+}
+
 export interface TravelData {
   maps: TravelMap[];
   links: TravelLink[];
@@ -76,6 +98,8 @@ export interface TravelData {
   monsters?: string[];
   /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
   monsterStats?: [number, number, number, number][];
+  /** Quests picked up from an NPC: giver and taker (NPC ids), level, class mask, quests to have done first, exp reward and tasks. */
+  quests?: TravelQuest[];
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */

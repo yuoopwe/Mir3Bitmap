@@ -188,6 +188,45 @@ for (const [mapIndex, spots] of spawnsByMap) {
   if (list.length) spawns[mapIndex] = list;
 }
 
+// ---- Quests picked up from an NPC (the rest start by themselves on entering a map) ----
+// Each: who gives and takes it, the level and class it needs, the quests to have done first, its experience
+// reward, and its tasks: kill (or collect drops from) monsters, go somewhere, or talk to someone.
+const questTasks = new Map();
+for (const t of read('QuestTask')) (questTasks.get(t.Quest?.Index) ?? questTasks.set(t.Quest?.Index, []).get(t.Quest?.Index)).push(t);
+const taskMonsters = new Map();
+for (const m of read('QuestTaskMonsterDetails')) (taskMonsters.get(m.Task?.Index) ?? taskMonsters.set(m.Task?.Index, []).get(m.Task?.Index)).push(m);
+const questReqs = new Map();
+for (const r of read('QuestRequirement')) (questReqs.get(r.Quest?.Index) ?? questReqs.set(r.Quest?.Index, []).get(r.Quest?.Index)).push(r);
+const questExp = new Map();
+for (const r of read('QuestReward')) if (r.Item?.Name === 'Experience') questExp.set(r.Quest?.Index, (questExp.get(r.Quest?.Index) ?? 0) + (r.Amount || 0));
+const quests = [];
+for (const q of read('QuestInfo')) {
+  if (q.ActivationMode !== 'Manual' || !q.StartNPC || !q.FinishNPC || q.SeasonalOnly) continue;
+  const quest = { id: q.Index, name: (q.DisplayName || q.QuestName || '').trim(), type: q.QuestType, start: q.StartNPC.Index, finish: q.FinishNPC.Index };
+  for (const r of questReqs.get(q.Index) ?? []) {
+    if (r.Requirement === 'MinLevel') quest.level = Math.max(quest.level ?? 0, r.IntParameter1 || 0);
+    else if (r.Requirement === 'HaveCompleted' && r.QuestParameter) (quest.after ??= []).push(r.QuestParameter.Index);
+    else if (r.Requirement === 'Class' && r.Class && r.Class !== 'None') quest.cls = classMask(r.Class);
+  }
+  const exp = questExp.get(q.Index);
+  if (exp) quest.exp = exp;
+  quest.tasks = (questTasks.get(q.Index) ?? []).map((t) => {
+    const task = { type: t.Task, amount: t.Amount || 0 };
+    if (t.Stage) task.stage = t.Stage;
+    const monsters = (taskMonsters.get(t.Index) ?? []).filter((m) => m.Monster?.Name);
+    if (monsters.length) task.monsters = monsters.map((m) => (m.Map ? [m.Monster.Name, m.Map.Index] : [m.Monster.Name]));
+    if (t.ItemParameter?.Name) task.item = t.ItemParameter.Name;
+    if (t.RegionParameter) {
+      const region = regions.get(t.RegionParameter.Index);
+      const tiles = regionTiles(region);
+      if (region && tiles.length) task.region = { map: region.Map?.Index, at: middle(tiles, mapFile(maps.get(region.Map?.Index) ?? {})) };
+    }
+    if (t.NpcParameter) task.npc = t.NpcParameter.Index;
+    return task;
+  });
+  quests.push(quest);
+}
+
 // ---- Maps ----
 const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map), ...waypoints.map((w) => w.map)]);
 const mapList = [...used].map((i) => maps.get(i)).map((m) => {
@@ -262,5 +301,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns }));
-console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests }));
+console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);
