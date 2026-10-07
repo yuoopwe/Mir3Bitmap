@@ -93,6 +93,8 @@ const MOUNT_SETTLE_MS = 1500;
 /** M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS). */
 const STILL_MS = 400;
 const STILL_WAIT_MS = 2000;
+/** Running: the cursor is held this many tiles from the character, the way the path goes. */
+const RUN_AIM_TILES = 2;
 const MOUNT_RETRY_MS = 30_000;
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
@@ -1336,28 +1338,31 @@ export class Bot {
    */
   private async driveAlong(user: Point, path: Point[], now: number): Promise<void> {
     await this.setMounted(true);
+    const next = path[1];
+    if (!next) return;
+    // How much straight path is ahead, from here the way the first step goes.
     const ahead = waypoint(path);
-    const along = Math.max(0, path.findIndex((t) => t.x === ahead.x && t.y === ahead.y));
-    let aim = path[along];
-    // Not under the HUD, nor over one of the game's windows (holding the button there doesn't run).
-    const windows = this.options.memory.latest()?.windows ?? [];
-    const free = (p: Point) => clickable(p) && !windows.some((w) => p.x >= w.x && p.x < w.x + w.width && p.y >= w.y && p.y < w.y + w.height);
-    for (let i = along; i > 0 && !free(tileToScreen(user, aim.x, aim.y)); i--) aim = path[i - 1];
-    const point = tileToScreen(user, aim.x, aim.y);
-    const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
+    const straight = Math.max(Math.abs(ahead.x - user.x), Math.abs(ahead.y - user.y));
     // A run moves a whole stride (2 tiles, 3 on a mount) or not at all: with less straight path than that
     // before a turn or a wall, it doesn't go, so step a tile at a time instead.
     const stride = this.options.memory.latest()?.user?.mounted ? 3 : 2;
-    this.lastAim = { tile: aim, point, running: steps >= stride };
-    if (steps < stride) {
+    // The run button is held just beyond the character, the way the path goes: the game runs in the cursor's
+    // direction, and a spot far off (over a wall, or one of the game's windows) can stop it.
+    const dir = { x: Math.sign(next.x - user.x), y: Math.sign(next.y - user.y) };
+    const near = { x: user.x + dir.x * RUN_AIM_TILES, y: user.y + dir.y * RUN_AIM_TILES };
+    const point = tileToScreen(user, near.x, near.y);
+    const windows = this.options.memory.latest()?.windows ?? [];
+    const free = clickable(point) && !windows.some((w) => point.x >= w.x && point.x < w.x + w.width && point.y >= w.y && point.y < w.y + w.height);
+    const run = straight >= stride && free;
+    this.lastAim = { tile: run ? near : next, point: run ? point : tileToScreen(user, next.x, next.y), running: run };
+    if (!run) {
       this.stopRunning();
-      const next = path[1];
-      if (next) await this.click(tileToScreen(user, next.x, next.y), this.delay('attackClick'));
+      await this.click(tileToScreen(user, next.x, next.y), this.delay('attackClick'));
       return;
     }
     this.holdRun(point);
     const vk = this.teleportKey();
-    if (vk !== null && steps >= 6 && now >= this.teleportReadyAt) {
+    if (vk !== null && straight >= 6 && now >= this.teleportReadyAt) {
       this.key(vk);
       this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
     }
