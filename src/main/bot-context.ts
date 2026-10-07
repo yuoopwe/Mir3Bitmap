@@ -7,7 +7,7 @@
  * call one another through it and never import each other.
  */
 
-import type { Delays, KeptItem, KeyId, Point, Settings, Status } from '../shared/types';
+import type { CircuitView, Delays, KeptItem, KeyId, Point, Settings, Status } from '../shared/types';
 import type { TriadMemory } from './triad-memory';
 import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, hudPanels, type Rect } from './layout';
 import type { NameBook } from './names';
@@ -30,6 +30,7 @@ import type { TripleTriad } from './bot-triad';
 import type { Gathering } from './bot-gathering';
 import type { GatherTrips } from './bot-gather-trips';
 import type { Looting } from './bot-loot';
+import type { BossCircuit } from './bot-circuit';
 
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
@@ -81,6 +82,8 @@ export interface BotOptions {
   monsters?: (names: string[]) => void;
   /** What the loot judge has kept out of sales, newest first, for the window's "Kept this run". */
   kept?: (items: KeptItem[]) => void;
+  /** The Boss circuit's plan, for the window's Circuit card. */
+  circuit?: (view: CircuitView) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
   /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */
@@ -133,6 +136,7 @@ export class BotContext {
   gathering!: Gathering;
   gatherTrips!: GatherTrips;
   loot!: Looting;
+  circuit!: BossCircuit;
 
   constructor(
     public settings: Settings,
@@ -153,6 +157,7 @@ export class BotContext {
       mp: this.mp,
       kills: this.kills,
       explored: this.explored,
+      level: this.options.memory.latest()?.user?.level ?? null,
       stats: this.stats.snapshot(this.clock.now()),
     });
   }

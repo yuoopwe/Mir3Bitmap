@@ -633,6 +633,17 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
+.circuit-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.circuit-list .done,
+.circuit-list .skipped {
+  color: var(--muted);
+}
+
 #kept {
   max-height: 140px;
   margin: 0;

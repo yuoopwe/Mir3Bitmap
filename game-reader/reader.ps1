@@ -408,7 +408,8 @@ function Read-QuestTargets($scene) {
       # Some quests leave the per-character requirement at 0: the task's own amount is the target then.
       $required = $progress.ReadField[int]('<RequiredAmount>k__BackingField')
       if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
-      if ($required -gt 0 -and $progress.ReadField[long]('<Amount>k__BackingField') -ge $required) { continue }
+      $have = $progress.ReadField[long]('<Amount>k__BackingField')
+      if ($required -gt 0 -and $have -ge $required) { continue }
       if ($kind -eq 2) {
         $region = $task.ReadObjectField('_RegionParameter')
         if (-not $region.IsNull) {
@@ -427,7 +428,8 @@ function Read-QuestTargets($scene) {
         $map = $detail.ReadObjectField('_Map')
         $mapIndex = if ($map.IsNull) { $null } else { $map.ReadField[int]('<Index>k__BackingField') }
         $key = "$name|$mapIndex"
-        if (-not $targets.ContainsKey($key)) { $targets[$key] = @{ name = $name; map = $mapIndex; quest = $questName } }
+        # With the task's progress: done of need.
+        if (-not $targets.ContainsKey($key)) { $targets[$key] = @{ name = $name; map = $mapIndex; quest = $questName; done = $have; need = $required } }
       }
     }
   }
@@ -520,6 +522,8 @@ function Read-Survival($scene) {
 # Library.ItemType numbers of things that are worn: weapon, armour, torch, helmet, necklace, bracelet, ring, shoes,
 # poison, amulet, emblem, shield, wings, belt.
 $WearableTypes = @(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 26, 27, 28, 30)
+# Items the bag is counted for, by name (the Boss circuit's quest rewards).
+$CountedItems = @('Forge Stone', 'Phoenix Tear')
 function Read-EnumField($obj, [string]$name) {
   $field = $obj.Type.GetFieldByName($name)
   if (-not $field) { return $null }
@@ -585,6 +589,9 @@ function Read-Gear($scene) {
     }
   }
   $bag = @()
+  # How many of each CountedItems the bag holds (stacks added up).
+  $counts = @{}
+  foreach ($name in $CountedItems) { $counts[$name] = 0 }
   $inventory = $scene.ReadObjectField('Inventory')
   if (-not $inventory.IsNull) {
     $slots = $inventory.AsArray()
@@ -592,12 +599,15 @@ function Read-Gear($scene) {
       $item = $slots.GetObjectValue($i)
       if ($item.IsNull) { continue }
       $info = $item.ReadObjectField('Info')
-      if ($info.IsNull -or $WearableTypes -notcontains (Read-EnumField $info '_ItemType')) { continue }
+      if ($info.IsNull) { continue }
+      $itemName = $info.ReadStringField('_ItemName')
+      if ($CountedItems -contains $itemName) { $counts[$itemName] += $(try { $item.ReadField[long]('<Count>k__BackingField') } catch { 1 }) }
+      if ($WearableTypes -notcontains (Read-EnumField $info '_ItemType')) { continue }
       $read = Read-Item $item $i
       if ($read) { if ($cells.ContainsKey("$i")) { $read.cell = $cells["$i"] }; $bag += $read }
     }
   }
-  return @{ worn = $worn; bag = $bag }
+  return @{ worn = $worn; bag = $bag; counts = $counts }
 }
 
 # Profession levels (Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).

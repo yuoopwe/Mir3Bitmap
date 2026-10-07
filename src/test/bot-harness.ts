@@ -3,7 +3,7 @@
  * scenario tests: the settings the app starts with (fuzz off, so waits are
  * exact), a seeded Math.random, and a run with a time limit in game time.
  */
-import type { KeptItem, KeyId, Settings, Status } from '../shared/types';
+import type { CircuitView, KeptItem, KeyId, Settings, Status } from '../shared/types';
 import { Bot } from '../main/bot';
 import { GrindLog } from '../main/grind-log';
 import { NameBook } from '../main/names';
@@ -35,6 +35,7 @@ export function testSettings(changes: Partial<Settings> = {}): Settings {
     trainKey: 'F1',
     trainIntervalMs: 1000,
     questMaxActive: 5,
+    circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35 },
     grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
     hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: false, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: '', randomTeleportKey: '' },
     ...changes,
@@ -75,7 +76,7 @@ export interface Played {
 export async function play(
   game: FakeGame,
   start: (bot: Bot) => void,
-  options: { settings?: Partial<Settings>; until?: (statuses: Status[]) => boolean; limitMs?: number; seed?: number; during?: () => void; grindLog?: GrindLog } = {},
+  options: { settings?: Partial<Settings>; until?: (statuses: Status[]) => boolean; limitMs?: number; seed?: number; during?: () => void; grindLog?: GrindLog; onCircuit?: (view: CircuitView) => void } = {},
 ): Promise<Played> {
   const statuses: Status[] = [];
   const grindLog = options.grindLog ?? new GrindLog(() => {});
@@ -90,6 +91,7 @@ export async function play(
     clock: game.clock,
     grindLog,
     kept: (items) => (kept = [...items]),
+    circuit: options.onCircuit,
   });
   const random = Math.random;
   Math.random = seeded(options.seed ?? 1);

@@ -25,7 +25,7 @@ const SETTINGS_KEY = 'settings-v2';
 const STATS_KEY = 'stats-v1';
 /** What the status bar and the activity log call each mode. */
 const MODE_LABELS: Record<Status['mode'], string> = {
-  idle: 'Idle', attack: 'Hunting', explore: 'Exploring', travel: 'Travelling', grind: 'Grinding', quest: 'Questing', gather: 'Gathering', triad: 'Triple Triad', deck: 'Best deck', train: 'Training',
+  idle: 'Idle', circuit: 'Boss circuit', attack: 'Hunting', explore: 'Exploring', travel: 'Travelling', grind: 'Grinding', quest: 'Questing', gather: 'Gathering', triad: 'Triple Triad', deck: 'Best deck', train: 'Training',
 };
 
 function element<T extends HTMLElement>(id: string): T {
@@ -72,6 +72,27 @@ const exploreTeleport = element<HTMLInputElement>('explore-teleport');
 const travelButton = element<HTMLButtonElement>('travel-button');
 const grindButton = element<HTMLButtonElement>('grind-button');
 const questsButton = element<HTMLButtonElement>('quests-button');
+const circuitButton = element<HTMLButtonElement>('circuit-button');
+const circuitQuests = element<HTMLDivElement>('circuit-quests');
+const circuitLevelHint = element<HTMLParagraphElement>('circuit-level-hint');
+const circuitKeep = element<HTMLInputElement>('circuit-keep');
+const circuitRetreat = element<HTMLInputElement>('circuit-retreat');
+const circuitSummary = element<HTMLParagraphElement>('circuit-summary');
+const circuitTasks = element<HTMLUListElement>('circuit-tasks');
+const circuitStops = element<HTMLOListElement>('circuit-stops');
+/** The Boss circuit's quests (as src/main/boss-planner.ts has them): the daily Seasonal Supply Hunts and Elite Bounties, and the level each needs. */
+const CIRCUIT_QUESTS = [
+  { id: 1840, label: 'Seasonal Supply Hunt – Grade E (100 Forge Stones)', level: 40 },
+  { id: 1841, label: 'Seasonal Supply Hunt – Grade D (200 Forge Stones)', level: 90 },
+  { id: 1842, label: 'Seasonal Supply Hunt – Grade C (300 Forge Stones)', level: 190 },
+  { id: 1843, label: 'Seasonal Supply Hunt – Grade B (300 Forge Stones)', level: 340 },
+  { id: 66, label: 'Elite Bounty: Demonic Kektal [Grade F] (5 Forge Stones)', level: 20 },
+  { id: 67, label: 'Elite Bounty: Arachnid Brood Queen [Grade F] (5 Forge Stones)', level: 30 },
+];
+const DEFAULT_CIRCUIT: NonNullable<Settings['circuit']> = { quests: [1840], keepHunting: false, retreatHpPercent: 35 };
+/** The character's level as last seen, kept between runs of the window (it greys out quests above it). */
+const LEVEL_KEY = 'level-v1';
+const circuitQuestInputs = new Map<number, HTMLInputElement>();
 const questMax = element<HTMLInputElement>('quest-max');
 const grindReplan = element<HTMLInputElement>('grind-replan');
 const grindAbove = element<HTMLInputElement>('grind-above');
@@ -301,6 +322,11 @@ function readSettings(): Settings {
     trainKey: trainKey.value,
     trainIntervalMs: Math.max(readNumber(trainInterval, 1000), 100),
     questMaxActive: Math.min(Math.max(readNumber(questMax, 5), 1), 30),
+    circuit: {
+      quests: [...circuitQuestInputs].filter(([, input]) => input.checked).map(([id]) => id),
+      keepHunting: circuitKeep.checked,
+      retreatHpPercent: Math.min(Math.max(readNumber(circuitRetreat, DEFAULT_CIRCUIT.retreatHpPercent), 5), 90),
+    },
     grind: {
       replanMinutes: Math.max(readNumber(grindReplan, DEFAULT_GRIND.replanMinutes), 1),
       maxLevelsAbove: Math.min(readNumber(grindAbove, DEFAULT_GRIND.maxLevelsAbove), 50),
@@ -358,6 +384,11 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.trainIntervalMs !== undefined) trainInterval.value = String(settings.trainIntervalMs);
   if (settings.grind?.replanMinutes !== undefined) grindReplan.value = String(settings.grind.replanMinutes);
   if (settings.questMaxActive !== undefined) questMax.value = String(settings.questMaxActive);
+  if (settings.circuit) {
+    for (const [id, input] of circuitQuestInputs) input.checked = settings.circuit.quests.includes(id);
+    circuitKeep.checked = settings.circuit.keepHunting;
+    circuitRetreat.value = String(settings.circuit.retreatHpPercent);
+  }
   if (settings.grind?.maxLevelsAbove !== undefined) grindAbove.value = String(settings.grind.maxLevelsAbove);
   if (settings.grind?.questsFirst !== undefined) grindQuestsFirst.checked = settings.grind.questsFirst;
   const hunt = settings.hunt;
@@ -600,7 +631,9 @@ function showStatus(status: Status): void {
   travelButton.disabled = running;
   grindButton.disabled = running;
   questsButton.disabled = running;
+  circuitButton.disabled = running;
   stopButton.disabled = !running;
+  if (typeof status.level === 'number') showLevel(status.level);
   modeText.textContent = MODE_LABELS[status.mode];
   document.body.classList.toggle('running', running);
   for (const tab of tabs) tab.classList.toggle('running', (tab.dataset.modes ?? '').split(' ').includes(status.mode));
@@ -618,11 +651,63 @@ function showStatus(status: Status): void {
   if (status.mode === 'gather' && status.message.startsWith('Gathering trip: ')) gatherPlan.textContent = status.message.slice('Gathering trip: '.length);
 }
 
+/** A checkbox for each of the circuit's quests. */
+function buildCircuitQuests(): void {
+  for (const quest of CIRCUIT_QUESTS) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = DEFAULT_CIRCUIT.quests.includes(quest.id);
+    label.append(input, ` ${quest.label}`);
+    label.title = `Needs level ${quest.level}`;
+    circuitQuestInputs.set(quest.id, input);
+    circuitQuests.append(label);
+  }
+}
+
+/** Greys out the circuit's quests above the character's level (remembered for next time). */
+function showLevel(level: number): void {
+  try {
+    localStorage.setItem(LEVEL_KEY, String(level));
+  } catch {
+    // Not remembered: greyed out again once the bot sees the character.
+  }
+  for (const quest of CIRCUIT_QUESTS) {
+    const input = circuitQuestInputs.get(quest.id)!;
+    input.disabled = quest.level > level;
+    input.parentElement!.title = quest.level > level ? `Needs level ${quest.level} (you're ${level})` : `Needs level ${quest.level}`;
+  }
+  circuitLevelHint.textContent = `Your character is level ${level}: quests above that are greyed out.`;
+}
+
+/** The Boss circuit's plan: each task's count, the spawns in order with when each is back, and what's skipped. */
+function showCircuit(view: CircuitView): void {
+  const done = view.tasks.reduce((n, t) => n + t.done, 0);
+  const need = view.tasks.reduce((n, t) => n + t.need, 0);
+  const stones = view.stones === null ? '' : ` · Forge Stones +${view.stones} this run`;
+  circuitSummary.textContent = view.quest ? `${view.quest}: ${done}/${need}${stones}` : `Hunting bosses (the quests are done for today)${stones}`;
+  const item = (text: string, className = '') => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (className) li.className = className;
+    return li;
+  };
+  circuitTasks.replaceChildren(...(view.quest ? view.tasks : []).map((t) => item(`${t.monster} ${t.done}/${t.need}`, t.done >= t.need ? 'done' : '')));
+  circuitStops.replaceChildren(
+    ...view.stops.map((s) => item(`${s.monster} at ${s.map}${s.backIn > 0 ? ` (back in ${s.backIn} min)` : ''}`)),
+    ...view.skipped.map((s) => item(`${s.monster} at ${s.map}: ${s.why}`, 'skipped')),
+  );
+}
+
 async function init(): Promise<void> {
   setUpTabs();
   buildKeyRows();
   buildDelayFields();
   buildPotionSelects();
+  buildCircuitQuests();
+  circuitRetreat.value = String(DEFAULT_CIRCUIT.retreatHpPercent);
+  const level = Number(localStorage.getItem(LEVEL_KEY));
+  if (level > 0) showLevel(level);
   buildStatsTables();
   windowTitle.value = 'Legend of Mir III - Xtreme Edition';
   loot.checked = true;
@@ -648,6 +733,7 @@ async function init(): Promise<void> {
   setInterval(renderStats, 1000);
   window.bot.onNames(showNames);
   window.bot.onKept(showKept);
+  window.bot.onCircuit(showCircuit);
   window.bot.onMonsters((names) => {
     monstersSeen = names;
     showMonsters();
@@ -660,6 +746,7 @@ async function init(): Promise<void> {
   gatherButton.addEventListener('click', () => void window.bot.startGather());
   grindButton.addEventListener('click', () => void window.bot.startGrind());
   questsButton.addEventListener('click', () => void window.bot.startQuests());
+  circuitButton.addEventListener('click', () => void window.bot.startCircuit());
   stopButton.addEventListener('click', () => void window.bot.stop());
   travelButton.addEventListener('click', () => {
     if (travelResults.value) {

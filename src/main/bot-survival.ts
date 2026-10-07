@@ -132,8 +132,42 @@ export class Survival {
     throw new BotError("Died, and couldn't get back on my feet.");
   }
 
+  /**
+   * Getting away from a fight going badly, without fighting on: the Town Portal
+   * scroll straight away, else Return to Arcadia once out of combat (waiting a
+   * little for that). Returns whether the character got away (onto another map).
+   */
+  async retreat(why: string): Promise<boolean> {
+    const memory = this.bot.options.memory;
+    const from = memory.latest()?.map?.index;
+    const away = () => memory.latest()?.map?.index !== from;
+    this.bot.stopRunning();
+    this.bot.releaseHold();
+    const vk = keyCode(this.bot.settings.hunt.townPortalKey ?? '3');
+    if (vk !== null) {
+      this.bot.status(`${why}: reading a Town Portal scroll`);
+      this.bot.key(vk);
+      for (const start = this.bot.clock.now(); this.bot.clock.now() - start < TOWN_PORTAL_WAIT_MS && !away(); ) await this.bot.sleep(300);
+      if (away()) return true;
+    }
+    for (const start = this.bot.clock.now(); this.bot.clock.now() - start < OUT_OF_COMBAT_GIVE_UP_MS && !away(); ) {
+      await this.bot.yieldToEvents();
+      const reading = memory.latest();
+      const button = reading?.survival?.arcadia;
+      if (button?.enabled && (reading?.user?.combatAgo ?? 0) >= OUT_OF_COMBAT_S) {
+        this.bot.status(`${why}: returning to Arcadia`);
+        await this.bot.click(boxCentre(button), this.bot.delay('menu'));
+        for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ARCADIA_WAIT_MS && !away(); ) await this.bot.sleep(300);
+      } else {
+        this.bot.statusEvery(`${why}: waiting to be out of combat to return to Arcadia`);
+        await this.bot.sleep(300);
+      }
+    }
+    return away();
+  }
+
   /** Presses Return to Arcadia (out of combat) and waits to arrive; tries a few times. */
-  private async returnToArcadia(why: string): Promise<void> {
+  async returnToArcadia(why: string): Promise<void> {
     const memory = this.bot.options.memory;
     this.bot.stopRunning();
     this.bot.releaseHold();

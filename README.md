@@ -25,7 +25,7 @@ lists the calls the window made. It isn't part of the app.
 
 ## Setup in game
 
-- With the memory reader, Hunt, Explore, Travel, Gather, Quests and Grind work with the game at any size (a bigger
+- With the memory reader, Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work with the game at any size (a bigger
   window shows more of the map), at map zoom 100%: the bot stops and asks you to set it back otherwise (other zooms
   aren't measured yet). Without the reader, and for Triple Triad, Best deck and Train, which read the screen, the
   game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. At
@@ -227,6 +227,27 @@ strongest ten cards in simulated games against random decks of the same card lev
 NPCs do), then for each slot to change clicks the slot, the card (on its level's tab) and "Replace Slot N", and
 finally "Save Deck". If the game won't take two copies of a card, it chooses again without copies.
 
+## Boss circuit
+
+**Boss circuit** (its own tab; needs the memory reader) farms Forge Stones through the daily boss quests: the
+Seasonal Supply Hunt (Grade E at level 40: three each of ten sub-bosses, for 100 Forge Stones and more; D, C and B
+further up) and the Elite Bounties from the Quest Board, ticked on the tab (those above your level are greyed out
+once the bot has seen your character). It takes the quests at their NPCs, works out from the quest log what's still to
+kill (the reader sends each task's count), and goes round the spawns of those monsters (`bossSpawns` in
+`game-data/travel.json`): `src/main/boss-planner.ts` orders them nearest-next by the route there, with Return to
+Arcadia counted as a shortcut, leaving out PvP maps and the Warped copies of maps (where there's a plain one). At
+each spawn it fights only that monster (fighting anything in the way as it goes), until the task's done or none have
+been about for a minute; a spawn cleared or found empty isn't expected back until its respawn time (15 minutes for
+the Supply Hunt's) and the circuit waits for it only when nothing else is left. Monsters further above your level
+than your fights say is safe (Grind's measurements) are skipped, and so is a spawn where the HP went below the
+"Get away below" share (35% unless set) with the monster not nearly dead: it reads a Town Portal scroll (else
+Returns to Arcadia once out of combat) and leaves that spawn for the run. A death means Return and carrying on; a
+full bag is sold as Grind sells it; five minutes with nothing happening at a spawn plans again. Once every task is
+done it hands the quest in and says what it brought (the Forge Stones counted in the bag). With the quests done for
+the day it stops ("... done for today; next one after reset"), or with "Keep hunting bosses" goes round the same
+sub-boss and boss spawns for their drops until stopped. The Circuit card shows each task's count, the spawns in order
+with when each is back, and what's skipped.
+
 ## Travel
 
 **Travel** (needs the memory reader) runs you to any map or NPC. Type part of a name in the search box on the
@@ -268,6 +289,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/map-grid.ts`, `map-explorer.ts`, `map-path.ts` – the map from memory, exploring it, walking paths
 - `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
 - `src/main/gather-planner.ts` – where to gather for the profession levels
+- `src/main/boss-planner.ts` – the Boss circuit's spawns, its quests' tasks, and the order to go round them
 - `src/main/loot-judge.ts` – whether a bag item is an upgrade for the class, or rare enough to keep
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
@@ -278,6 +300,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
   - `bot-explore.ts` – Explore, from memory or by the big map
   - `bot-survival.ts` – a full bag (Return to Arcadia, selling, going back), dying, getting out of combat, the old screen selling
   - `bot-quests.ts`, `bot-grind.ts` – Quests and Grind
+  - `bot-circuit.ts` – the Boss circuit: its quests, going round the spawns, getting away from a fight going badly
   - `bot-triad.ts` – Triple Triad and Best deck
   - `bot-gathering.ts` – Gather and Train
   - `bot-gather-trips.ts` – Gathering trips: reading the profession levels, going to the best spot, gathering there
