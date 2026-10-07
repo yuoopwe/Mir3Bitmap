@@ -858,12 +858,14 @@ export class Bot {
     }
     const dist = map && this.huntDist?.map === map.index ? this.huntDist.dist : null;
     const skip = new Set((this.settings.skipMonsters ?? []).map((n) => n.toLowerCase()));
+    const wanted = this.questWanted(memory);
     const seen = new Set<string>();
     const targets: HuntTarget[] = [];
     for (const o of memory.objects ?? []) {
       if (o.kind !== 'monster' || o.pet || !o.name) continue;
       seen.add(o.name);
       if (o.dead || skip.has(o.name.toLowerCase())) continue;
+      if (wanted && !wanted.has(o.name.toLowerCase())) continue;
       const tile = tileToScreen(user, o.x, o.y);
       const point = { x: tile.x + AIM_SPOTS[0][0], y: tile.y + AIM_SPOTS[0][1] };
       if (!clickable(point)) continue;
@@ -989,6 +991,26 @@ export class Bot {
   }
 
   /**
+   * With "Quest monsters only": the names (lower case) of the monsters an
+   * unfinished quest task still needs on this map; null when the setting is off
+   * or the quest log can't be read (then everything counts).
+   */
+  private questWanted(reading: MemoryState): Set<string> | null {
+    if (!this.settings.hunt.questOnly || !reading.questTargets) return null;
+    const mapIndex = reading.map?.index;
+    return new Set(reading.questTargets.filter((t) => t.map === null || t.map === mapIndex).map((t) => t.name.toLowerCase()));
+  }
+
+  /** What the quest log wants elsewhere, for the status line ("Skeleton on Bichon Cave Lv 3"). */
+  private questElsewhere(reading: MemoryState): string {
+    const targets = reading.questTargets ?? [];
+    if (!targets.length) return 'Quest monsters only: no unfinished quest needs monsters killed';
+    const data = loadTravelData();
+    const list = targets.slice(0, 3).map((t) => (t.map === null ? t.name : `${t.name} on ${mapName(data, t.map)}`));
+    return `Quest monsters only: none here (the quests want ${list.join(', ')}${targets.length > 3 ? '...' : ''})`;
+  }
+
+  /**
    * Hunting with nothing to fight, from the game's memory: walks (a real path
    * round the walls) to the nearest monster the game knows of, even off screen;
    * failing that, to the spot where the most monsters spawn for the walk
@@ -1008,8 +1030,18 @@ export class Bot {
     let goal = this.seek && this.seek.map === map.index ? this.seek : null;
     // A monster the game knows of comes first: one that can be walked to, and isn't being left alone.
     const dist = walkDistances(map, here);
+    const wanted = this.questWanted(reading);
+    if (wanted?.size === 0) {
+      // Quest monsters only, and none wanted on this map: say where they are.
+      this.stopRunning();
+      this.statusEvery(this.questElsewhere(reading));
+      await this.sleep(500);
+      return true;
+    }
     const monsters = (reading.objects ?? []).filter(
-      (o) => o.kind === 'monster' && !o.pet && !o.dead && o.name && !skip.has(o.name.toLowerCase()) && !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
+      (o) =>
+        o.kind === 'monster' && !o.pet && !o.dead && o.name && !skip.has(o.name.toLowerCase()) && (!wanted || wanted.has(o.name.toLowerCase())) &&
+        !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
     );
     const chased = goal?.kind === 'monster' ? monsters.find((m) => `m${m.id}` === goal!.key) : undefined;
     if (chased) goal!.target = { x: chased.x, y: chased.y };
@@ -1022,7 +1054,7 @@ export class Bot {
       if (goal.kind === 'spot') this.visitedSpots.set(goal.key, now + SPOT_REVISIT_MS);
       goal = null;
     }
-    if (!goal) goal = this.pickSpawnSpot(map, here, skip, now);
+    if (!goal) goal = this.pickSpawnSpot(map, here, skip, now, wanted);
     if (!goal) {
       // No spawn data for this map: explore instead.
       const plan = this.seekExplorer.plan(map, here, now, this.obstaclesNear(reading, here, STEER_ROUND_TILES).map((o) => ({ x: o.x, y: o.y })));
@@ -1065,7 +1097,7 @@ export class Bot {
    * The best spawn spot on this map not visited lately: near, and with plenty of
    * monsters (not all of them unticked) for the walk. Null without spawn data.
    */
-  private pickSpawnSpot(map: MapGrid, here: Point, skip: Set<string>, now: number): NonNullable<Bot['seek']> | null {
+  private pickSpawnSpot(map: MapGrid, here: Point, skip: Set<string>, now: number, wanted: Set<string> | null = null): NonNullable<Bot['seek']> | null {
     const data = loadTravelData();
     const spots = data.spawns?.[map.index];
     if (!spots?.length) return null;
@@ -1076,6 +1108,8 @@ export class Bot {
       const [x, y, n, set] = spot;
       if (this.visitedSpots.has(`${x},${y}`)) continue;
       if (names(set).every((name) => skip.has(name.toLowerCase()))) continue;
+      // Quest monsters only: spots where one of them spawns.
+      if (wanted && !names(set).some((name) => wanted.has(name.toLowerCase()))) continue;
       const near = nearestApproach(map, dist, [{ x, y }]);
       if (!near) continue;
       // Steps there, less a bonus for how many monsters to expect.
@@ -1088,7 +1122,7 @@ export class Bot {
       return null;
     }
     const [x, y, , set] = best.spot;
-    const list = names(set).filter((name) => !skip.has(name.toLowerCase()));
+    const list = names(set).filter((name) => !skip.has(name.toLowerCase()) && (!wanted || wanted.has(name.toLowerCase())));
     const label = list.slice(0, 3).join(', ') + (list.length > 3 ? '...' : '');
     return { kind: 'spot', key: `${x},${y}`, label, target: { x, y }, map: map.index, since: now, path: null, moved: { at: now, x: NaN, y: NaN } };
   }

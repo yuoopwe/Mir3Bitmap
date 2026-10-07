@@ -366,6 +366,40 @@ function Read-HasMount($scene) {
   } catch { return $null }
 }
 
+# Quest targets: the monsters (and the map, when a task names one) still needed by an unfinished task
+# of a quest in the log. A task's monsters come from QuestTask.MonsterDetails (a DBBindingList).
+function Read-BindingList($list) {
+  if ($list.IsNull) { return @() }
+  return Read-List ($list.ReadObjectField('items'))
+}
+function Read-QuestTargets($scene) {
+  $targets = @{}
+  foreach ($quest in (Read-List ($scene.ReadObjectField('QuestLog')))) {
+    if ($quest.ReadField[bool]('<Completed>k__BackingField')) { continue }
+    $info = $quest.ReadObjectField('<Quest>k__BackingField')
+    $questName = if ($info.IsNull) { '' } else { $info.ReadStringField('_QuestName') }
+    $stage = $quest.ReadField[int]('<CurrentStage>k__BackingField')
+    foreach ($progress in (Read-List ($quest.ReadObjectField('<Tasks>k__BackingField')))) {
+      if ($progress.ReadField[long]('<Amount>k__BackingField') -ge $progress.ReadField[int]('<RequiredAmount>k__BackingField')) { continue }
+      $task = $progress.ReadObjectField('<Task>k__BackingField')
+      if ($task.IsNull) { continue }
+      # Staged quests: only the current stage's tasks count (0 = not staged).
+      $taskStage = $task.ReadField[int]('_Stage')
+      if ($taskStage -gt 0 -and $stage -gt 0 -and $taskStage -ne $stage) { continue }
+      foreach ($detail in (Read-BindingList ($task.ReadObjectField('<MonsterDetails>k__BackingField')))) {
+        $monster = $detail.ReadObjectField('_Monster')
+        if ($monster.IsNull) { continue }
+        $name = $monster.ReadStringField('_MonsterName')
+        $map = $detail.ReadObjectField('_Map')
+        $mapIndex = if ($map.IsNull) { $null } else { $map.ReadField[int]('<Index>k__BackingField') }
+        $key = "$name|$mapIndex"
+        if (-not $targets.ContainsKey($key)) { $targets[$key] = @{ name = $name; map = $mapIndex; quest = $questName } }
+      }
+    }
+  }
+  return @($targets.Values)
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -429,7 +463,12 @@ while ($true) {
         try { $waypoints = Read-Waypoints $scene } catch { $waypoints = @{ error = $_.Exception.Message } }
         $windows = $null
         try { $windows = Read-Windows $scene } catch { $script:windowFields = $null }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows }
+        # The quest log changes rarely: read it once a second.
+        if (-not $script:questsAt -or $script:questsAt.ElapsedMilliseconds -gt 1000) {
+          try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null }
+          $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
+        }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

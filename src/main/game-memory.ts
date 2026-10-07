@@ -131,6 +131,8 @@ export interface MemoryState {
   waypoints?: MemoryWaypoints | null;
   /** The game's windows showing (by the scene's field name): the run button held over one doesn't run. */
   windows?: (MemoryBox & { name: string })[] | null;
+  /** Monsters still needed by unfinished quest tasks (map: only those on that map count, when the task says). */
+  questTargets?: { name: string; map: number | null; quest: string }[] | null;
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */

@@ -46,6 +46,11 @@
               <label title="Archers attack by holding the mouse down on the target: the bot holds it on the target until it dies"><input id="archer" type="checkbox"> Archer (hold on target)</label>
             </fieldset>
             <fieldset class="card">
+              <legend>Targets</legend>
+              <label title="Only attack and seek out monsters that an unfinished quest in your log still needs (where the quest says which map, only on that map). Needs the memory reader."><input id="quest-only" type="checkbox"> Quest monsters only</label>
+              <p class="hint">Reads your quest log from the game's memory.</p>
+            </fieldset>
+            <fieldset class="card">
               <legend>Nothing to fight</legend>
               <label title="Head for monsters on the minimap; wander if there are none. With the memory reader: the nearest monster the game knows of, then where many spawn, then unexplored ground."><input id="roam" type="checkbox"> Seek when idle</label>
             </fieldset>

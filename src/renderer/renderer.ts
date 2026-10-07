@@ -36,6 +36,7 @@ const capture = element<HTMLSelectElement>('capture');
 const attack = element<HTMLInputElement>('attack');
 const archer = element<HTMLInputElement>('archer');
 const roam = element<HTMLInputElement>('roam');
+const questOnly = element<HTMLInputElement>('quest-only');
 const loot = element<HTMLInputElement>('loot');
 const sellItems = element<HTMLInputElement>('sell-items');
 const pickUpKey = element<HTMLSelectElement>('pickup-key');
@@ -282,6 +283,7 @@ function readSettings(): Settings {
     trainIntervalMs: Math.max(readNumber(trainInterval, 1000), 100),
     hunt: {
       roam: roam.checked,
+      questOnly: questOnly.checked,
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
       unstuckKey: unstuckKey.value,
@@ -327,6 +329,7 @@ function applySettings(settings: Partial<Settings>): void {
   const hunt = settings.hunt;
   if (hunt) {
     roam.checked = hunt.roam;
+    questOnly.checked = hunt.questOnly ?? false;
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
     unstuckKey.value = hunt.unstuckKey ?? 'F2';

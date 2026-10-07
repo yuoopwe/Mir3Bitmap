@@ -37,6 +37,8 @@ export type BindableKey = string;
 export interface HuntSettings {
   /** When no monsters are in view, head for one on the minimap (or wander). */
   roam: boolean;
+  /** With the memory reader: only attack (and seek) monsters an unfinished quest task still needs. */
+  questOnly?: boolean;
   /** Pick up items lying nearby (after kills, and when idle). */
   loot: boolean;
   /** Extra key pressed after walking onto an item, if the client uses one. */

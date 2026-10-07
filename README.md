@@ -67,6 +67,13 @@ The reader also sends the current map: which tiles are walls (`MapControl.Cells`
 on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. To save the map you're on for
 tests, run `node scripts/save-map.js` (writes `src/test/fixture-map-<name>.json`).
 
+### Quest monsters only
+
+Tick **Quest monsters only** (Hunt tab, Targets) to attack and seek out just the monsters an unfinished quest in your
+log still needs. The reader takes them from the quest log in the game's memory (`GameScene.QuestLog`: each unfinished
+task's monsters, and the map when the task names one). On a map with none of them, Hunt stays put and says where the
+quests want you instead.
+
 ### Seeking with the memory reader
 
 With "Seek when idle" ticked and the memory reader running, Hunt with nothing to fight walks (a real path round
