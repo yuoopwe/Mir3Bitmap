@@ -85,6 +85,8 @@ const NPC_REACH_TILES = 2;
 const TRAVEL_BLOCKED_LIMIT = 8;
 /** Travelling and exploring with "Fight monsters in the way": monsters this close when blocked (or two right next to you) get fought. */
 const FIGHT_RANGE_TILES = 2;
+/** Monsters more than this many levels below the player don't count as crowding round (they're still fought if they block the way). */
+const THREAT_LEVELS = 10;
 /** Give up on one monster after this long (out of reach, say), and on fighting altogether after this long. */
 const FIGHT_TARGET_GIVE_UP_MS = 15_000;
 const FIGHT_GIVE_UP_MS = 60_000;
@@ -1446,7 +1448,7 @@ export class Bot {
       if (now - drivenAt > EXPLORE_BLOCKED_MS || this.mountBusyAt > moved.at) moved.at = now;
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       const stuck = user.x === moved.x && user.y === moved.y && now - moved.at > this.blockedAfterMs();
-      if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
+      if (this.settings.fightInTheWay && (stuck || this.threatsNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
         moved = { at: performance.now(), x: NaN, y: NaN };
         drivenAt = performance.now();
         continue;
@@ -1554,6 +1556,15 @@ export class Bot {
     return (reading.objects ?? []).filter(
       (o) => (o.kind === 'monster' || o.kind === 'player' || o.kind === 'npc') && !o.pet && !o.dead && away(o) <= range && away(o) > 0,
     );
+  }
+
+  /**
+   * Monsters near enough to matter in a fight: within `range` and no more than
+   * THREAT_LEVELS below the player (chickens round a level 24 aren't a reason to stop).
+   */
+  private threatsNear(reading: MemoryState, here: Point, range: number): MemoryObject[] {
+    const level = reading.user?.level ?? 0;
+    return this.monstersNear(reading, here, range).filter((o) => !o.level || o.level >= level - THREAT_LEVELS);
   }
 
   /** Live monsters (not pets) within `range` tiles, nearest first. */
@@ -1851,7 +1862,7 @@ export class Bot {
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       if (now - drivenAt > EXPLORE_BLOCKED_MS || this.mountBusyAt > moved.at) moved.at = now;
       const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > this.blockedAfterMs();
-      if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
+      if (this.settings.fightInTheWay && (stuck || this.threatsNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
         path = null;
         moved = { at: performance.now(), x: NaN, y: NaN };
         drivenAt = performance.now();
@@ -2389,6 +2400,16 @@ export class Bot {
    * then waits for the teleport. 'missing' when the window doesn't list it.
    */
   private async useWaypoint(stoneName: string, stone: Point, name: string, fromMap: number): Promise<'teleported' | 'missing' | 'failed'> {
+    const result = await this.pickWaypoint(stoneName, stone, name, fromMap);
+    if (result !== 'teleported' && this.options.memory.latest()?.waypoints?.open) {
+      // Close it: left open it covers the screen, and every click after lands on it.
+      this.key(win.VK.ESCAPE);
+      await this.sleep(300);
+    }
+    return result;
+  }
+
+  private async pickWaypoint(stoneName: string, stone: Point, name: string, fromMap: number): Promise<'teleported' | 'missing' | 'failed'> {
     const memory = this.options.memory;
     const user = () => memory.latest()?.user;
     // Open the window, unless it already is.
