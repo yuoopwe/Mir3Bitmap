@@ -398,26 +398,33 @@ function Read-QuestTargets($scene) {
   foreach ($quest in (Read-List ($scene.ReadObjectField('QuestLog')))) {
     $info = $quest.ReadObjectField('<Quest>k__BackingField')
     $questName = if ($info.IsNull) { '' } else { $info.ReadStringField('_QuestName') }
-    # The log: each quest, whether it's been handed in, and whether every task is done (ready to hand in).
-    $completed = $quest.ReadField[bool]('<Completed>k__BackingField')
-    $ready = -not $completed
+    # The quest's tasks (QuestInfo.Tasks), each with its progress: the character's entry for it, which the game only
+    # adds once there's been some (a quest just taken has none: nothing done yet, not everything).
+    $progressOf = @{}
     foreach ($p in (Read-List ($quest.ReadObjectField('<Tasks>k__BackingField')))) {
       $t = $p.ReadObjectField('<Task>k__BackingField')
-      $need = $p.ReadField[int]('<RequiredAmount>k__BackingField')
-      if ($need -le 0 -and -not $t.IsNull) { $need = $t.ReadField[int]('_Amount') }
-      if ($need -gt 0 -and $p.ReadField[long]('<Amount>k__BackingField') -lt $need) { $ready = $false }
+      if (-not $t.IsNull) { $progressOf["$($t.Address)"] = $p }
     }
+    $tasks = @()
+    if (-not $info.IsNull) {
+      foreach ($task in (Read-BindingList ($info.ReadObjectField('<Tasks>k__BackingField')))) {
+        if ($task.IsNull) { continue }
+        $p = $progressOf["$($task.Address)"]
+        # Some quests leave the per-character requirement at 0: the task's own amount is the target then.
+        $required = $(if ($p) { $p.ReadField[int]('<RequiredAmount>k__BackingField') } else { 0 })
+        if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
+        $have = $(if ($p) { $p.ReadField[long]('<Amount>k__BackingField') } else { 0 })
+        $tasks += ,@{ task = $task; required = $required; have = $have }
+      }
+    }
+    # The log: each quest, whether it's been handed in, and whether every task is done (ready to hand in).
+    $completed = $quest.ReadField[bool]('<Completed>k__BackingField')
+    $ready = -not $completed -and @($tasks | Where-Object { $_.required -gt 0 -and $_.have -lt $_.required }).Count -eq 0
     $script:questLog += ,@{ name = $questName; completed = $completed; ready = $ready }
     if ($completed) { continue }
-    $stage = $quest.ReadField[int]('<CurrentStage>k__BackingField')
-    foreach ($progress in (Read-List ($quest.ReadObjectField('<Tasks>k__BackingField')))) {
-      $task = $progress.ReadObjectField('<Task>k__BackingField')
-      if ($task.IsNull) { continue }
+    foreach ($entry in $tasks) {
+      $task = $entry.task; $required = $entry.required; $have = $entry.have
       $kind = $task.ReadField[int]('_Task')
-      # Some quests leave the per-character requirement at 0: the task's own amount is the target then.
-      $required = $progress.ReadField[int]('<RequiredAmount>k__BackingField')
-      if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
-      $have = $progress.ReadField[long]('<Amount>k__BackingField')
       if ($required -gt 0 -and $have -ge $required) { continue }
       if ($kind -eq 2) {
         $region = $task.ReadObjectField('_RegionParameter')
