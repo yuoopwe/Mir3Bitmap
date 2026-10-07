@@ -82,6 +82,8 @@ const BLOCKED_RUNNING_MS = 1100;
 const EXPLORE_AVOID_MS = 10_000;
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
 const NPC_REACH_TILES = 2;
+/** A waypoint stone is clicked from up to this far (the game walks the rest): monsters round it can't keep the bot from it. */
+const STONE_REACH_TILES = 4;
 const TRAVEL_BLOCKED_LIMIT = 8;
 /** Travelling and exploring with "Fight monsters in the way": monsters this close when blocked (or two right next to you) get fought. */
 const FIGHT_RANGE_TILES = 2;
@@ -1591,7 +1593,8 @@ export class Bot {
       const reading = memory.latest();
       const user = reading?.user;
       if (!reading || !user) break;
-      const monster = this.monstersNear(reading, user, FIGHT_RANGE_TILES).find((o) => !given.has(o.id));
+      // Monsters far below the player aren't worth stopping for: they're walked round instead.
+      const monster = this.threatsNear(reading, user, FIGHT_RANGE_TILES).find((o) => !given.has(o.id));
       if (!monster) break;
       const now = performance.now();
       if (current?.id !== monster.id) current = { id: monster.id, since: now };
@@ -1791,6 +1794,14 @@ export class Bot {
       const user = reading.user!;
       const here = { x: user.x, y: user.y };
       const now = performance.now();
+      // A game window open on the way (a stray click on a stone or an NPC): close it before it catches clicks.
+      const survival = reading.survival;
+      if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell) {
+        this.stopRunning();
+        this.key(win.VK.ESCAPE);
+        await this.sleep(400);
+        continue;
+      }
 
       // A new map (or the first): plan from here.
       if (!route || route.map !== map.index) {
@@ -1828,7 +1839,7 @@ export class Bot {
         const placed = tile(stone.at!);
         const seen = reading.objects?.find((o) => o.kind === 'npc' && o.name === stone.name && chebyshev(o, placed) <= 3);
         const at = seen ? { x: seen.x, y: seen.y } : placed;
-        if (chebyshev(here, at) <= NPC_REACH_TILES) {
+        if (chebyshev(here, at) <= STONE_REACH_TILES) {
           this.stopRunning();
           const result = await this.useWaypoint(stone.name, at, next.waypoint.name, map.index);
           if (result === 'missing') {
