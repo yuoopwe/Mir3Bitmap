@@ -3,7 +3,8 @@
  * window's input (GameInput), the memory reader (MemorySource) and the time
  * (Clock), all from one simulated world. It moves the player as the game does
  * (running with the right button held, a stride every STRIDE_MS in one of 8
- * directions; a step per left click), changes maps on links' exit tiles, and
+ * directions; a step per left click; the player's tile changes as a move
+ * starts, as the client has it, and the move then takes its time), changes maps on links' exit tiles, and
  * has monsters, NPCs, the waypoint window, quests, a shop, death, Return to
  * Arcadia, the mount and a bag. Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
@@ -16,7 +17,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../main/layout';
 import { isWall, type MapGrid } from '../main/map-grid';
 import { classFlagOf, loadTravelData, type TravelData, type TravelQuest } from '../main/travel';
 
-/** A run moves a stride (2 tiles, 3 mounted) this often; a click's step takes STEP_MS. Positions change when a move ends. */
+/** A run moves a stride (2 tiles, 3 mounted) this often; a click's step takes STEP_MS. Positions change when a move starts. */
 export const STRIDE_MS = 650;
 export const STEP_MS = 600;
 /** After a map change, moving waits this long (the new map loading). */
@@ -174,7 +175,7 @@ export class FakeGame {
   private rightHeld = false;
   private readonly keysDown = new Set<number>();
   /** A stride or step under way: where it ends, and when. */
-  private move: { to: { x: number; y: number }; path: { x: number; y: number }[]; at: number; run: boolean } | null = null;
+  private move: { path: { x: number; y: number }[]; at: number; run: boolean } | null = null;
   private loadedAt = 0;
   /** A monster clicked from afar: walked up to, a step at a time, until next to it (or something else is done). */
   private chasing: Monster | null = null;
@@ -381,28 +382,33 @@ export class FakeGame {
       this.loadedAt = this.t + STRIDE_MS;
       return false;
     }
-    this.move = { to: path[path.length - 1], path, at: this.t + STRIDE_MS, run: true };
+    this.beginMove(path, STRIDE_MS, true);
     return true;
   }
 
-  private finishMove(): void {
-    const move = this.move!;
-    this.move = null;
-    this.lastMoveEnd = move.at;
+  /** A move starts: the player's tile changes now (as the client has it), and the move takes `ms` to play out. */
+  private beginMove(path: { x: number; y: number }[], ms: number, run: boolean): void {
+    this.move = { path, at: this.t + ms, run };
     const from = { x: this.player.x, y: this.player.y };
     // Through an exit tile on the way: off to the other map.
-    for (const tile of move.path) {
+    for (const tile of path) {
       const link = this.data.links.find((l) => l.from === this.player.map && !l.waypoint && !l.needs && l.exit.some(([x, y]) => x === tile.x && y === tile.y));
       if (link) {
-        this.events.push({ t: this.t, type: 'move', map: this.player.map, from, to: tile, run: move.run });
+        this.events.push({ t: this.t, type: 'move', map: this.player.map, from, to: tile, run });
         this.teleport(link.to, link.land[0], link.land[1], 'link');
         return;
       }
     }
-    this.player.x = move.to.x;
-    this.player.y = move.to.y;
-    this.events.push({ t: this.t, type: 'move', map: this.player.map, from, to: move.to, run: move.run });
+    const to = path[path.length - 1];
+    this.player.x = to.x;
+    this.player.y = to.y;
+    this.events.push({ t: this.t, type: 'move', map: this.player.map, from, to, run });
     this.reveal();
+  }
+
+  private finishMove(): void {
+    this.lastMoveEnd = this.move!.at;
+    this.move = null;
   }
 
   private teleport(map: number, x: number, y: number, via: 'link' | 'waypoint' | 'arcadia' | 'revive'): void {
@@ -525,7 +531,7 @@ export class FakeGame {
     if (!dir.x && !dir.y) return;
     const to = { x: this.player.x + dir.x, y: this.player.y + dir.y };
     if (!this.floor(to.x, to.y)) return;
-    this.move = { to, path: [to], at: this.t + STEP_MS, run: false };
+    this.beginMove([to], STEP_MS, false);
   }
 
   /** The next step toward the monster being chased; false when there's no more chasing to do. */
