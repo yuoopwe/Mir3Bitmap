@@ -506,6 +506,26 @@ function Read-Survival($scene) {
   return $out
 }
 
+# Profession levels (Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
+# The client only loads them once the Professions window (Ctrl+Shift+P) has been opened: null until then.
+function Read-Professions($scene) {
+  $box = $scene.ReadObjectField('ProfessionsBox')
+  if ($box.IsNull) { return $null }
+  $snapshot = $box.ReadObjectField('_snapshot')
+  if ($snapshot.IsNull) { return $null }
+  $out = @()
+  foreach ($p in (Read-List ($snapshot.ReadObjectField('<Professions>k__BackingField')))) {
+    if ($p.IsNull) { continue }
+    $out += @{
+      id = [int]$p.ReadField[byte]('<Profession>k__BackingField'); name = $p.ReadStringField('<Name>k__BackingField')
+      level = $p.ReadField[int]('<Level>k__BackingField'); usable = $p.ReadField[int]('<UsableLevel>k__BackingField')
+      exp = $p.ReadField[long]('<LevelExperience>k__BackingField'); toNext = $p.ReadField[long]('<ExperienceToNextLevel>k__BackingField')
+      canGain = $p.ReadField[bool]('<CanGainExperience>k__BackingField'); lockReason = $p.ReadStringField('<GainExperienceLockReason>k__BackingField')
+    }
+  }
+  return ,$out
+}
+
 # Seconds since the player was last in combat (the game counts you out of combat 10 s after).
 function Read-CombatAgo($userObject, $module, $domain) {
   $mask = [uint64]0x3FFFFFFFFFFFFFFF
@@ -583,12 +603,13 @@ while ($true) {
         # The quest log changes rarely: read it once a second.
         if (-not $script:questsAt -or $script:questsAt.ElapsedMilliseconds -gt 1000) {
           try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null }
+          try { $script:professions = Read-Professions $scene } catch { $script:professions = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; professions = $script:professions; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

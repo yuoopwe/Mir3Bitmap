@@ -88,6 +88,33 @@ export interface TravelQuest {
   }[];
 }
 
+/** A plant (Harvesting, called Scavenging in game) or ore (Mining) node. */
+export interface GatherNode {
+  id: number;
+  name: string;
+  kind: 'plant' | 'ore';
+  /** The profession level it needs, and the profession experience one gives. */
+  level: number;
+  exp: number;
+  /** What it gives. */
+  item: string;
+  /** It only grows in this weather, or this light (Dark, Bright). */
+  weather?: string;
+  light?: string;
+}
+
+/** A region that grows gathering nodes. */
+export interface GatherSpot {
+  region: number;
+  map: number;
+  /** Where to look: squares of the region, busiest first, as [x, y, share of the region]. */
+  at: [number, number, number][];
+  /** Minutes a picked node takes to come back. */
+  respawn: number;
+  /** [node id, how many, profession level the region sets (0: the node's own)]. */
+  nodes: [number, number, number][];
+}
+
 export interface TravelData {
   maps: TravelMap[];
   links: TravelLink[];
@@ -104,6 +131,8 @@ export interface TravelData {
   quests?: TravelQuest[];
   /** Where each quest task's region is, by region id: [map, x, y]. */
   questRegions?: Record<string, [number, number, number]>;
+  /** Every gathering node, and every region that grows them. */
+  gathering?: { nodes: GatherNode[]; spots: GatherSpot[] };
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */

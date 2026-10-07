@@ -139,6 +139,12 @@ export interface MemoryState {
   questLog?: { name: string; completed: boolean; ready: boolean }[] | null;
   /** Unfinished quest tasks to go somewhere (a region, by index, on a map) or talk to someone (an NPC, by index). */
   questPending?: { regions: { quest: string; region: number; map: number | null }[]; talks: { quest: string; npc: number }[] } | null;
+  /**
+   * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
+   * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.
+   * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
+   */
+  professions?: { id: number; name: string; level: number; usable: number; exp: number; toNext: number; canGain: boolean; lockReason: string | null }[] | null;
   /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
   survival?: {
     arcadia?: MemoryButton | null;

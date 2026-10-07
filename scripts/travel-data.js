@@ -3,7 +3,7 @@
 // between maps (the tiles to step on and where you land), every placed NPC, and
 // how many steps it is from each landing to each exit and NPC on that map (from
 // the map files' walls), plus the waypoint stones and where each waypoint takes you, and where monsters
-// spawn on each map (for Hunt's seeking). Run: node scripts/travel-data.js [game folder]
+// spawn on each map (for Hunt's seeking), and where plants and ore grow (for gathering trips). Run: node scripts/travel-data.js [game folder]
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -240,8 +240,47 @@ for (const t of read('QuestTask')) {
   questRegions[region.Index] = [region.Map?.Index, at[0], at[1]];
 }
 
+// ---- Gathering: every plant and ore node, and every region that grows them ----
+// Nodes: kind 'plant' (Harvesting, "Scavenging" in game) or 'ore' (Mining); level is the profession level it needs, exp what one gives;
+// weather / light: it only grows then (left out when any).
+const gatherNodes = read('GatheringNodeInfo').map((n) => {
+  const node = { id: n.Index, name: n.Name, kind: n.Kind === 'Mining' ? 'ore' : 'plant', level: n.RequiredProfessionLevel, exp: n.ProfessionExperience, item: n.Ingredient?.Name ?? n.Name };
+  if (n.RequiredWeather && n.RequiredWeather !== 'None') node.weather = n.RequiredWeather;
+  if (n.RequiredLight && n.RequiredLight !== 'Any') node.light = n.RequiredLight;
+  return node;
+});
+// Spots: per region, its map, where to stand (up to GATHER_CELLS squares of SPAWN_CELL tiles as [x, y, share of the region's floor]),
+// the minutes a node takes to come back, and its nodes as [node id, how many, level] (level: the spawn's profession
+// level, which the game sets per region, above the node's own in harder places).
+const gatherByRegion = new Map();
+for (const s of read('GatheringNodeSpawnInfo')) {
+  const region = regions.get(s.Region?.Index);
+  const map = maps.get(region?.Map?.Index);
+  if (!region || !map || !s.BaselineNode?.Index) continue;
+  const spot = gatherByRegion.get(region.Index) ?? gatherByRegion.set(region.Index, { region, map, respawn: s.RespawnMinutes, nodes: new Map() }).get(region.Index);
+  const level = s.ProfessionLevelOverride || 0;
+  const key = s.BaselineNode.Index + '|' + level;
+  const node = spot.nodes.get(key) ?? spot.nodes.set(key, [s.BaselineNode.Index, 0, level]).get(key);
+  node[1] += s.Count || 0;
+  spot.respawn = Math.min(spot.respawn, s.RespawnMinutes || spot.respawn);
+}
+/** How many squares of a gathering region to keep. */
+const GATHER_CELLS = 16;
+const gatherSpots = [];
+for (const { region, map, respawn, nodes } of gatherByRegion.values()) {
+  const { cells, total } = cellsOf(region, mapFile(map));
+  if (!total) continue;
+  // The busiest squares first (a region can be a few spots scattered over the whole map): at most GATHER_CELLS of them.
+  const at = [...cells.values()].sort((a, b) => b.tiles - a.tiles).slice(0, GATHER_CELLS)
+    .map((c) => [c.at[0], c.at[1], Math.round((c.tiles / total) * 100) / 100]);
+  if (!at.length) continue;
+  const list = [...nodes.values()].filter((n) => n[1] > 0);
+  if (!list.length) continue;
+  gatherSpots.push({ region: region.Index, map: map.Index, at, respawn, nodes: list });
+}
+
 // ---- Maps ----
-const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map), ...waypoints.map((w) => w.map)]);
+const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map), ...waypoints.map((w) => w.map), ...gatherSpots.map((s) => s.map)]);
 const mapList = [...used].map((i) => maps.get(i)).map((m) => {
   const grid = mapFile(m);
   const out = { i: m.Index, name: (m.Description || m.FileName).trim(), type: m.Type };
@@ -314,5 +353,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests, questRegions }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);
