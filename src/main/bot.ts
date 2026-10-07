@@ -137,6 +137,8 @@ const REVIVE_WAIT_MS = 30_000;
 const SELL_NPC = { id: 145, name: 'Ludvik' };
 /** W opens and closes the bag window (the game's InventoryWindow key). */
 const INVENTORY_KEY = 0x57;
+/** At most this many Select All / Sell rounds (the sell panel holds only so many items at a time). */
+const SELL_ROUNDS = 20;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -2480,21 +2482,26 @@ export class Bot {
     }
     if (memory.latest()?.survival?.inventory?.section !== 0) throw new BotError("Couldn't switch the bag to its Main tab to sell from.");
 
-    const selectAll = sellPanel()?.selectAll;
-    if (!selectAll?.enabled) throw new BotError("The shop's Select All button isn't there.");
-    await this.click(boxCentre(selectAll), this.delay('menu'));
-    if (!(await waitFor(() => !!sellPanel()?.sell?.enabled, 2000))) {
-      await this.closeShop();
-      return 0;
+    // The sell panel holds only so many: Select All and Sell again until nothing more is picked, or the bag stops emptying.
+    for (let round = 0; round < SELL_ROUNDS; round++) {
+      const selectAll = sellPanel()?.selectAll;
+      if (!selectAll?.enabled) {
+        if (round === 0) throw new BotError("The shop's Select All button isn't there.");
+        break;
+      }
+      await this.click(boxCentre(selectAll), this.delay('menu'));
+      if (!(await waitFor(() => !!sellPanel()?.sell?.enabled, 2000))) break;
+      const used = memory.latest()?.survival?.bag?.used ?? before;
+      this.status(`Selling (${sellPanel()?.value ?? '?'} gold, round ${round + 1})`);
+      await this.click(boxCentre(sellPanel()!.sell!), this.delay('menu'));
+      // An "are you sure?": press its Yes / OK.
+      await this.sleep(500);
+      const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+      const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
+      if (yes) await this.click(boxCentre(yes), this.delay('menu'));
+      if (!(await waitFor(() => (memory.latest()?.survival?.bag?.used ?? used) < used, 3000))) break;
+      await this.sleep(300);
     }
-    this.status(`Selling (${sellPanel()?.value ?? '?'} gold)`);
-    await this.click(boxCentre(sellPanel()!.sell!), this.delay('menu'));
-    // An "are you sure?": press its Yes / OK.
-    await this.sleep(500);
-    const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
-    const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
-    if (yes) await this.click(boxCentre(yes), this.delay('menu'));
-    await waitFor(() => (memory.latest()?.survival?.bag?.used ?? before) < before, 3000);
     const after = memory.latest()?.survival?.bag?.used ?? before;
     await this.closeShop();
     // Put the bag away again if it was opened for this.
