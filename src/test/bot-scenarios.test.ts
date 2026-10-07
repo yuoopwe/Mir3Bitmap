@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { VK } from '../main/input';
 import { loadTravelData } from '../main/travel';
 import { play, testSettings } from './bot-harness';
-import { FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup } from './fake-game';
+import { BAG_KEY, FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup } from './fake-game';
 import { loadMapFixture } from './map-fixtures';
 
 const data = loadTravelData();
@@ -177,7 +177,8 @@ test('Grind: a full bag means back to Arcadia, selling to Ludvik, and back to gr
   const { met, statuses } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });
   assert.ok(met, `back to grinding after selling (${statuses.at(-1)?.message})`);
   assert.ok(of(game, 'mapChange').some((c) => c.to === 563 && c.via === 'arcadia'));
-  assert.equal(of(game, 'sold')[0].items, 36);
+  // The panel takes 30 a round: 36 go in two.
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 6]);
   assert.equal(game.bag.used, 2);
   assert.ok(!game.isOpen('sell'));
   checkAlways(game);
@@ -271,5 +272,166 @@ test('Hunt, seeking: heads for a monster out of sight, and says so', async () =>
   const first = lines.findIndex((m) => m.startsWith('Attacking'));
   assert.ok(lines.slice(0, first).includes('Heading for Wolf'), lines.slice(0, first).join(' | '));
   assert.ok(!lines.slice(0, first).some((m) => m.startsWith('Waiting for monsters')), lines.slice(0, first).join(' | '));
+  checkAlways(game);
+});
+
+// ---- Selling, Return to Arcadia and getting out of combat ----
+
+const ARCADIA = 563;
+const LUDVIK = data.npcs.find((n) => n.name === 'Ludvik')!;
+const keyDowns = (game: FakeGame, vk: number) => of(game, 'key').filter((k) => k.down && k.vk === vk);
+const buttons = (game: FakeGame, name: string) => of(game, 'button').filter((b) => b.name === name);
+const sold = (game: FakeGame) => of(game, 'sold').reduce((n, s) => n + s.items, 0);
+/** The chickens grindOnBichon puts about, for setups that add monsters of their own. */
+function chickensAbout(): FakeGameSetup['monsters'] {
+  const { x, y } = bichon.player;
+  return Array.from({ length: 6 }, (_, i) => ({ name: 'Chicken', x: x - 4 + (i % 3) * 4, y: y + 3 + Math.floor(i / 3) * 3, respawn: true }));
+}
+
+test('Selling: the bag opened with W on its Main tab, Select All and Sell (with Yes) in rounds until nothing is picked, the bag put away', async () => {
+  // 86 to sell, 30 a round; the bag window shut, on another tab; every sale asks "are you sure?".
+  const game = grindOnBichon({ bag: { used: 88, slots: 90 }, bagWindow: { open: false, section: 2 }, sellConfirm: true });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0 && game.player.map !== ARCADIA, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold and gone');
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 30, 26]);
+  assert.equal(game.bag.used, 2);
+  assert.equal(buttons(game, 'YesButton').length, 3);
+  // W once to open the bag (before the first Select All), once to put it away after; the Main tab picked once.
+  const w = keyDowns(game, BAG_KEY);
+  assert.equal(w.length, 2);
+  assert.ok(w[0].t < buttons(game, 'Select All')[0].t);
+  assert.ok(w[1].t > of(game, 'sold').at(-1)!.t);
+  assert.equal(buttons(game, 'Main tab').length, 1);
+  assert.ok(!game.bagWindow.open && !game.isOpen('sell'));
+  // A Select All that picks nothing ends the rounds: four in all.
+  assert.equal(buttons(game, 'Select All').length, 4);
+  checkAlways(game);
+});
+
+test('Selling: then Return to Arcadia again goes back to where it was pressed, and Grind carries on there without travelling', async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 } });
+  const left = { ...game.player };
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'mapChange', (e) => e.type === 'mapChange' && e.via === 'back'), limitMs: 10 * 60_000 });
+  assert.ok(met, 'back and grinding');
+  const changes = of(game, 'mapChange');
+  assert.deepEqual(changes.map((c) => [c.from, c.to, c.via]), [[BICHON, ARCADIA, 'arcadia'], [ARCADIA, BICHON, 'back']]);
+  // Back on the very spot: the first move after it starts from where the player left.
+  const back = changes[1];
+  const firstMove = of(game, 'move').find((m) => m.t > back.t)!;
+  assert.deepEqual(firstMove.from, { x: left.x, y: left.y });
+  assert.equal(buttons(game, 'Return to Arcadia').length, 2);
+  checkAlways(game);
+});
+
+test('Return to Arcadia: monsters close by (weak ones too) are fought off and the 10 s waited out before pressing it', async () => {
+  const { x, y } = bichon.player;
+  // Chickens come at the player and keep them in combat; the bag is full from the start.
+  const attackers = [[1, 1], [-2, 2], [3, -1]].map(([dx, dy]) => ({ name: 'Chicken', x: x + dx, y: y + dy, aggressive: true }));
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, monsters: [...chickensAbout()!, ...attackers] });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => of(game, 'mapChange').some((c) => c.to === ARCADIA), limitMs: 5 * 60_000 });
+  assert.ok(met, 'in Arcadia');
+  assert.deepEqual(of(game, 'refused'), [], 'pressed while still in combat');
+  const arrived = of(game, 'mapChange').find((c) => c.to === ARCADIA)!.t;
+  const kills = of(game, 'attack').filter((a) => a.killed && a.t < arrived);
+  assert.ok(kills.length >= 3, `${kills.length} killed first`);
+  // The last blow more than 10 s before the press (the cast takes a moment more).
+  const pressed = buttons(game, 'Return to Arcadia')[0].t;
+  assert.ok(pressed - of(game, 'attack').filter((a) => a.t < pressed).at(-1)!.t >= 10_000);
+  checkAlways(game);
+});
+
+test('Return to Arcadia: still in combat after a minute, the Town Portal scroll, then Arcadia from town', async () => {
+  const { x, y } = bichon.player;
+  // A monster that can't be beaten keeps the player in combat.
+  const golem = { name: 'Rock Golem', x: x + 1, y: y + 1, level: 1, hits: 1_000_000, aggressive: true };
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, monsters: [golem] });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold in the end');
+  const portal = keyDowns(game, 0x33);
+  assert.equal(portal.length, 1, 'the scroll read once');
+  assert.ok(portal[0].t >= 60_000, `after a minute (${Math.round(portal[0].t / 1000)} s)`);
+  assert.deepEqual(of(game, 'mapChange').slice(0, 2).map((c) => [c.from, c.to, c.via]), [[BICHON, 6, 'portal'], [6, ARCADIA, 'arcadia']]);
+  assert.deepEqual(of(game, 'refused'), []);
+  checkAlways(game);
+});
+
+test("Pickups refused: three items in a row that won't pick up count as a full bag (Hunt, standing)", async () => {
+  // The bag says 10 of 40, but takes nothing more until something is sold. Hunt without seeking stays put by the items.
+  // (In Grind and Quests seeking runs off between tries: see the pull request.)
+  const { x, y } = bichon.player;
+  const items = [[0, 1], [1, 0], [-1, -1]].map(([dx, dy], i) => ({ name: `Junk ${i}`, x: x + dx, y: y + dy }));
+  const game = onBichon({ allNpcs: true, items, bag: { used: 10, slots: 40, refuse: true } }, bichon.player, { level: 1, pickUpRadius: 1 });
+  const { met } = await play(game, (bot) => bot.startAttack(), { settings: { sellItems: true, hunt: { ...testSettings().hunt, loot: true } }, until: () => sold(game) > 0, limitMs: 5 * 60_000 });
+  assert.ok(met, 'sold');
+  assert.ok(of(game, 'pickup').filter((p) => p.refused).length >= 3);
+  assert.ok(of(game, 'mapChange').some((c) => c.to === ARCADIA && c.via === 'arcadia'));
+  assert.equal(sold(game), 8);
+  checkAlways(game);
+});
+
+test('No old selling: with Sell items ticked, Grind and Quests never run the screen routine (no W or B while hunting)', async () => {
+  const settings = { sellItems: true };
+  const grind = grindOnBichon();
+  await play(grind, (bot) => bot.startGrind(), { settings, until: () => of(grind, 'attack').filter((a) => a.killed).length >= 6, limitMs: 3 * 60_000 });
+  assert.ok(of(grind, 'attack').filter((a) => a.killed).length >= 6);
+  assert.deepEqual([...keyDowns(grind, VK.W), ...keyDowns(grind, VK.B)], []);
+  checkAlways(grind);
+
+  const wolves = Array.from({ length: 6 }, (_, i) => ({ name: 'Wolf', x: byLinda.x - 6 + (i % 3) * 4, y: byLinda.y + 6 + Math.floor(i / 3) * 3, respawn: true }));
+  const quests = onBichon({ npcs: [{ id: LINDA.id }], monsters: wolves, quests: [{ key: WOLVES, state: 'active' }], offers: [] }, byLinda, { level: 10 });
+  await play(quests, (bot) => bot.startQuests(), { settings: { ...settings, questMaxActive: 1 }, until: () => of(quests, 'attack').filter((a) => a.killed).length >= 6, limitMs: 3 * 60_000 });
+  assert.ok(of(quests, 'attack').filter((a) => a.killed).length >= 6);
+  assert.deepEqual([...keyDowns(quests, VK.W), ...keyDowns(quests, VK.B)], []);
+  checkAlways(quests);
+});
+
+test('Hunt with the memory reader and Sell items: a full bag sells the new way (Arcadia, Ludvik, back), never the screen routine', async () => {
+  // Nothing about at first; chickens turn up once the player is back.
+  const { x, y } = bichon.player;
+  const game = onBichon({ allNpcs: true, bag: { used: 38, slots: 40 } }, bichon.player, { level: 1 });
+  let added = false;
+  const { met } = await play(game, (bot) => bot.startAttack(), {
+    settings: { sellItems: true, hunt: { ...testSettings().hunt, roam: true } },
+    during: () => {
+      if (!added && of(game, 'mapChange').some((c) => c.via === 'back')) {
+        added = true;
+        for (const [dx, dy] of [[-4, 0], [0, -4], [3, -3]]) game.addMonster({ name: 'Chicken', x: x + dx, y: y + dy, map: BICHON });
+      }
+    },
+    until: backOnBichon(game, 'mapChange', (e) => e.type === 'mapChange' && e.via === 'back'),
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, 'sold, back and hunting');
+  assert.equal(sold(game), 36);
+  assert.deepEqual(keyDowns(game, VK.B), []);
+  // W only at Ludvik's, to open and put away the bag.
+  assert.equal(keyDowns(game, VK.W).length, 2);
+  checkAlways(game);
+});
+
+// ---- Arriving boxed in ----
+
+test("Travel: arriving on a tile of an exit, the way to an NPC isn't walled in by it, and the exit isn't taken", async () => {
+  // Sanctuary's way out of Arcadia is three tiles; the player stands on one of them.
+  const exit = data.links.find((l) => l.from === ARCADIA && l.to === 611)!;
+  const [x, y] = exit.exit.find(([ex, ey]) => ex === 742 && ey === 84)!;
+  const game = new FakeGame({ npcs: [{ id: LUDVIK.id }], player: { map: ARCADIA, x, y, level: 24 } });
+  const { message } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`));
+  assert.equal(message, 'Arrived at Ludvik');
+  assert.deepEqual(of(game, 'mapChange'), []);
+  checkAlways(game);
+});
+
+test('Travel: boxed in by other players and NPCs on arrival, it still finds a way to an NPC (through the people)', async () => {
+  const [lx, ly] = LUDVIK.at!;
+  const at = { x: lx - 20, y: ly + 15 };
+  // Every tile round the player taken: players (who can be walked through) and two NPCs (who can't).
+  const ring = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+  const players = ring.slice(0, 6).map(([dx, dy], i) => ({ name: `Player ${i}`, x: at.x + dx, y: at.y + dy }));
+  const npcs = [{ id: LUDVIK.id }, ...ring.slice(6).map(([dx, dy], i) => ({ id: 9001 + i, name: `Bystander ${i}`, map: ARCADIA, x: at.x + dx, y: at.y + dy }))];
+  const game = new FakeGame({ npcs, players, player: { map: ARCADIA, ...at, level: 24 } });
+  const { message } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`));
+  assert.equal(message, 'Arrived at Ludvik');
+  assert.deepEqual(of(game, 'mapChange'), []);
   checkAlways(game);
 });

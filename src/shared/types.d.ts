@@ -184,7 +184,7 @@ export interface BotApi {
   startTravel(placeId: string): Promise<void>;
   /** Levels the character up: the best map for their level, travelled to and hunted on, moving on when outgrown. */
   startGrind(): Promise<void>;
-  /** Picks up quests for your level, does them and hands them in (src/main/bot.ts questLoop). */
+  /** Picks up quests for your level, does them and hands them in (src/main/bot-quests.ts questLoop). */
   startQuests(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
