@@ -220,5 +220,15 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/names.ts` – what's been learned about each name
 - `src/main/map-grid.ts`, `map-explorer.ts`, `map-path.ts` – the map from memory, exploring it, walking paths
 - `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
-- `src/main/bot.ts` – the hunt, sell and travel loops
+- `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
+  - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
+  - `bot-shared.ts` – constants and small helpers more than one part uses
+  - `bot-movement.ts` – running and stepping along a path, the teleport key, the mount
+  - `bot-travel.ts` – Travel: routes between maps, waypoint stones, exit tiles
+  - `bot-hunting.ts` – Hunt: targets, looting, seeking, fighting what's in the way
+  - `bot-explore.ts` – Explore, from memory or by the big map
+  - `bot-survival.ts` – a full bag (Return to Arcadia, selling, going back), dying, getting out of combat, the old screen selling
+  - `bot-quests.ts`, `bot-grind.ts` – Quests and Grind
+  - `bot-triad.ts` – Triple Triad and Best deck
+  - `bot-gathering.ts` – Gather and Train
 - `src/renderer/` – the control window
