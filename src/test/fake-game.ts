@@ -28,6 +28,9 @@ const ARCADIA_CAST_MS = 1500;
 const REVIVE_MS = 500;
 /** Dead monsters lie this long, then come back (when they respawn) after RESPAWN_MS more. */
 const CORPSE_MS = 2000;
+/** Aggressive monsters come at a player this close, a tile this often. */
+const AGGRO_TILES = 8;
+const MONSTER_STEP_MS = 500;
 const RESPAWN_MS = 4000;
 /** Explored blocks are this many tiles a side; the player uncovers this far around them. */
 const BLOCK = 4;
@@ -62,6 +65,8 @@ export interface FakeMonster {
   exp?: number;
   /** Comes back after dying. */
   respawn?: boolean;
+  /** Comes at the player once within AGGRO_TILES, a tile every MONSTER_STEP_MS. */
+  aggressive?: boolean;
 }
 
 export interface FakeNpcSetup {
@@ -95,6 +100,8 @@ export interface FakeGameSetup {
 
 interface Monster extends MemoryObject {
   map: number;
+  aggressive: boolean;
+  nextStepAt: number;
   hits: number;
   taken: number;
   exp: number;
@@ -270,7 +277,7 @@ export class FakeGame {
     this.monsters.push({
       id: this.nextId++, kind: 'monster', name: m.name, x: m.x, y: m.y, dead: false, level: m.level ?? stats?.[0] ?? 1, pet: false,
       disposition: m.disposition ?? 4, map: m.map ?? this.player.map, hits: m.hits ?? 1, taken: 0, exp: m.exp ?? stats?.[1] ?? 10,
-      respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0,
+      respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0,
     });
   }
 
@@ -329,8 +336,23 @@ export class FakeGame {
       this.teleport(ARCADIA.map, ARCADIA.x, ARCADIA.y, 'revive');
     }
     for (const m of this.monsters) {
+      if (!m.dead && m.aggressive) this.closeIn(m);
       if (!m.dead) continue;
       if (m.respawn && this.t - m.deadAt >= CORPSE_MS + RESPAWN_MS && this.free(m.map, m.home)) Object.assign(m, { dead: false, taken: 0, x: m.home.x, y: m.home.y });
+    }
+  }
+
+  /** An aggressive monster near the player steps toward them (up to next to them). */
+  private closeIn(m: Monster): void {
+    for (; m.nextStepAt <= this.t; m.nextStepAt += MONSTER_STEP_MS) {
+      if (m.map !== this.player.map || this.player.dead) {
+        m.nextStepAt = this.t + MONSTER_STEP_MS;
+        return;
+      }
+      const away = chebyshev(m, this.player);
+      if (away <= 1 || away > AGGRO_TILES) continue;
+      const to = { x: m.x + Math.sign(this.player.x - m.x), y: m.y + Math.sign(this.player.y - m.y) };
+      if (this.floor(to.x, to.y) && !(this.move && this.move.path.some((t) => t.x === to.x && t.y === to.y))) Object.assign(m, to);
     }
   }
 
@@ -744,7 +766,7 @@ export class FakeGame {
         else if (task.type === 'TalkToNPC' && task.npc !== undefined) talks.push({ quest: q.quest.name, npc: task.npc });
       }
     }
-    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
+    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
     return {
       inGame: true,
       user: {
