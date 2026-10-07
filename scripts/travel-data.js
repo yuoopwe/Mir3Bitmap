@@ -123,9 +123,16 @@ const monsterInfo = byIndex(read('MonsterInfo'));
 /** Real monsters worth hunting: not guards, resource nodes or placeholders. */
 const huntable = (m) => m && m.AI >= 0 && !m.Resource && m.Level > 0 && m.Level < 900 && m.MonsterName;
 const monsterNames = [];
+/** Per monster (same order as monsterNames): [level, experience per kill, health, 1 if a boss else 0]. */
+const monsterStats = [];
+const healthOf = new Map();
+for (const st of read('MonsterInfoStat')) if (st.Stat === 'Health') healthOf.set(st.Monster?.Index, st.Amount);
 const monsterIndex = new Map();
-const nameIndex = (name) => {
-  if (!monsterIndex.has(name)) monsterIndex.set(name, monsterNames.push(name) - 1);
+const nameIndex = (name, monster) => {
+  if (!monsterIndex.has(name)) {
+    monsterIndex.set(name, monsterNames.push(name) - 1);
+    monsterStats.push([monster.Level, Number(monster.Experience) || 0, healthOf.get(monster.Index) ?? 0, monster.IsBoss || monster.IsSubBoss || monster.IsBehemoth ? 1 : 0]);
+  }
   return monsterIndex.get(name);
 };
 // Each region's tiles, counted per square, with the floor tile nearest the square's middle.
@@ -164,7 +171,7 @@ for (const r of read('RespawnInfo')) {
   for (const [key, cell] of cells) {
     const spot = spots.get(key) ?? spots.set(key, { at: cell.at, n: 0, monsters: new Set() }).get(key);
     spot.n += ((r.Count || 1) * cell.tiles) / total;
-    spot.monsters.add(nameIndex(monster.MonsterName));
+    spot.monsters.add(nameIndex(monster.MonsterName, monster));
   }
 }
 // Each spot as [x, y, monsters expected, index into spawnSets]: the same few lists of monsters repeat a lot.
@@ -255,5 +262,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, spawnSets, spawns }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

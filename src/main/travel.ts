@@ -74,6 +74,8 @@ export interface TravelData {
   /** Lists of monsters (indices into `monsters`) spawning at a spot. */
   spawnSets?: number[][];
   monsters?: string[];
+  /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
+  monsterStats?: [number, number, number, number][];
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */
