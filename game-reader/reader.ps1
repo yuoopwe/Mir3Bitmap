@@ -374,18 +374,42 @@ function Read-BindingList($list) {
 }
 function Read-QuestTargets($scene) {
   $targets = @{}
+  $script:questLog = @()
+  # Unfinished "go to" and "talk to" tasks: the region (index) and its map, or the NPC (index).
+  $script:questPending = @{ regions = @(); talks = @() }
   foreach ($quest in (Read-List ($scene.ReadObjectField('QuestLog')))) {
-    if ($quest.ReadField[bool]('<Completed>k__BackingField')) { continue }
     $info = $quest.ReadObjectField('<Quest>k__BackingField')
     $questName = if ($info.IsNull) { '' } else { $info.ReadStringField('_QuestName') }
+    # The log: each quest, whether it's been handed in, and whether every task is done (ready to hand in).
+    $completed = $quest.ReadField[bool]('<Completed>k__BackingField')
+    $ready = -not $completed
+    foreach ($p in (Read-List ($quest.ReadObjectField('<Tasks>k__BackingField')))) {
+      $t = $p.ReadObjectField('<Task>k__BackingField')
+      $need = $p.ReadField[int]('<RequiredAmount>k__BackingField')
+      if ($need -le 0 -and -not $t.IsNull) { $need = $t.ReadField[int]('_Amount') }
+      if ($need -gt 0 -and $p.ReadField[long]('<Amount>k__BackingField') -lt $need) { $ready = $false }
+    }
+    $script:questLog += ,@{ name = $questName; completed = $completed; ready = $ready }
+    if ($completed) { continue }
     $stage = $quest.ReadField[int]('<CurrentStage>k__BackingField')
     foreach ($progress in (Read-List ($quest.ReadObjectField('<Tasks>k__BackingField')))) {
       $task = $progress.ReadObjectField('<Task>k__BackingField')
       if ($task.IsNull) { continue }
+      $kind = $task.ReadField[int]('_Task')
       # Some quests leave the per-character requirement at 0: the task's own amount is the target then.
       $required = $progress.ReadField[int]('<RequiredAmount>k__BackingField')
       if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
       if ($required -gt 0 -and $progress.ReadField[long]('<Amount>k__BackingField') -ge $required) { continue }
+      if ($kind -eq 2) {
+        $region = $task.ReadObjectField('_RegionParameter')
+        if (-not $region.IsNull) {
+          $map = $region.ReadObjectField('_Map')
+          $script:questPending.regions += ,@{ quest = $questName; region = $region.ReadField[int]('<Index>k__BackingField'); map = $(if ($map.IsNull) { $null } else { $map.ReadField[int]('<Index>k__BackingField') }) }
+        }
+      } elseif ($kind -eq 10) {
+        $npc = $task.ReadObjectField('_NpcParameter')
+        if (-not $npc.IsNull) { $script:questPending.talks += ,@{ quest = $questName; npc = $npc.ReadField[int]('<Index>k__BackingField') } }
+      }
       # Every unfinished task counts, whatever the quest's stage: the game marks those monsters "(Quest)" too.
       foreach ($detail in (Read-BindingList ($task.ReadObjectField('<MonsterDetails>k__BackingField')))) {
         $monster = $detail.ReadObjectField('_Monster')
@@ -450,6 +474,21 @@ function Read-Survival($scene) {
     }
     $inventory = $scene.ReadObjectField('InventoryBox')
     if (-not $inventory.IsNull) { $out.inventory = @{ open = $inventory.ReadField[bool]('_IsVisible'); section = $inventory.ReadField[int]('_activeSection'); mainTab = (Read-Button ($inventory.ReadObjectField('MainTabButton'))) } }
+  } catch {}
+  try {
+    # Talking to an NPC: the Talk / Quests menu some show first, and the quest list (Accept All, Hand In).
+    $radial = $scene.ReadObjectField('NPCRadialMenuBox')
+    if (-not $radial.IsNull -and $radial.ReadField[bool]('_IsVisible')) { $out.npcMenu = @{ quests = (Find-Button $radial 'Quests'); talk = (Find-Button $radial 'Talk') } }
+    $list = $scene.ReadObjectField('NPCQuestListBox')
+    if (-not $list.IsNull -and $list.ReadField[bool]('_IsVisible')) {
+      $info = $list.ReadObjectField('_NPCInfo')
+      $out.questList = @{
+        npc = $(if ($info.IsNull) { $null } else { $info.ReadField[int]('<Index>k__BackingField') })
+        acceptAll = (Read-Button ($list.ReadObjectField('AcceptAllButton')))
+        handIn = (Read-Button ($list.ReadObjectField('HandInAllButton')))
+        quests = @(foreach ($q in (Read-List ($list.ReadObjectField('Quests')))) { $q.ReadStringField('_QuestName') })
+      }
+    }
   } catch {}
   try {
     $death = $scene.ReadObjectField('DeathOptionsBox')
@@ -530,13 +569,13 @@ while ($true) {
         try { $windows = Read-Windows $scene } catch { $script:windowFields = $null }
         # The quest log changes rarely: read it once a second.
         if (-not $script:questsAt -or $script:questsAt.ElapsedMilliseconds -gt 1000) {
-          try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null }
+          try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

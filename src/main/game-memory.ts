@@ -133,6 +133,10 @@ export interface MemoryState {
   windows?: (MemoryBox & { name: string })[] | null;
   /** Monsters still needed by unfinished quest tasks (map: only those on that map count, when the task says). */
   questTargets?: { name: string; map: number | null; quest: string }[] | null;
+  /** The quest log: each quest (by its internal name), handed in or not, and whether every task is done. */
+  questLog?: { name: string; completed: boolean; ready: boolean }[] | null;
+  /** Unfinished quest tasks to go somewhere (a region, by index, on a map) or talk to someone (an NPC, by index). */
+  questPending?: { regions: { quest: string; region: number; map: number | null }[]; talks: { quest: string; npc: number }[] } | null;
   /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
   survival?: {
     arcadia?: MemoryButton | null;
@@ -142,6 +146,10 @@ export interface MemoryState {
     sell?: { selectAll: MemoryButton | null; sell: MemoryButton | null; value: string | null; close?: MemoryButton | null };
     /** The bag window: whether it's showing, which tab (0 = Main) and the Main tab's button. */
     inventory?: { open: boolean; section: number; mainTab: MemoryButton | null };
+    /** The Talk / Quests menu some NPCs show when clicked. */
+    npcMenu?: { quests: MemoryButton | null; talk: MemoryButton | null };
+    /** An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists. */
+    questList?: { npc: number | null; acceptAll: MemoryButton | null; handIn: MemoryButton | null; quests: string[] };
     /** The game's message boxes showing, with their buttons (by field name, e.g. YesButton). */
     messages?: { text: string; buttons: (MemoryButton & { name: string })[] }[];
   } | null;

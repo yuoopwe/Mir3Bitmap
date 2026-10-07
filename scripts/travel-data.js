@@ -203,6 +203,8 @@ const quests = [];
 for (const q of read('QuestInfo')) {
   if (q.ActivationMode !== 'Manual' || !q.StartNPC || !q.FinishNPC || q.SeasonalOnly) continue;
   const quest = { id: q.Index, name: (q.DisplayName || q.QuestName || '').trim(), type: q.QuestType, start: q.StartNPC.Index, finish: q.FinishNPC.Index };
+  // The quest log knows a quest by its internal name.
+  if (q.QuestName && q.QuestName.trim() !== quest.name) quest.key = q.QuestName.trim();
   for (const r of questReqs.get(q.Index) ?? []) {
     if (r.Requirement === 'MinLevel') quest.level = Math.max(quest.level ?? 0, r.IntParameter1 || 0);
     else if (r.Requirement === 'HaveCompleted' && r.QuestParameter) (quest.after ??= []).push(r.QuestParameter.Index);
@@ -219,12 +221,23 @@ for (const q of read('QuestInfo')) {
     if (t.RegionParameter) {
       const region = regions.get(t.RegionParameter.Index);
       const tiles = regionTiles(region);
-      if (region && tiles.length) task.region = { map: region.Map?.Index, at: middle(tiles, mapFile(maps.get(region.Map?.Index) ?? {})) };
+      if (region && tiles.length) task.region = { id: region.Index, map: region.Map?.Index, at: middle(tiles, mapFile(maps.get(region.Map?.Index) ?? {})) };
     }
     if (t.NpcParameter) task.npc = t.NpcParameter.Index;
     return task;
   });
   quests.push(quest);
+}
+
+// Every region a quest task sends you to (automatic quests too), as id: [map, x, y], for "go to" tasks.
+const questRegions = {};
+for (const t of read('QuestTask')) {
+  const region = regions.get(t.RegionParameter?.Index);
+  if (!region || questRegions[region.Index]) continue;
+  const tiles = regionTiles(region);
+  if (!tiles.length) continue;
+  const at = middle(tiles, mapFile(maps.get(region.Map?.Index) ?? {}));
+  questRegions[region.Index] = [region.Map?.Index, at[0], at[1]];
 }
 
 // ---- Maps ----
@@ -301,5 +314,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests, questRegions }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

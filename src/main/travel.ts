@@ -67,6 +67,8 @@ export interface TravelWaypoint {
 export interface TravelQuest {
   id: number;
   name: string;
+  /** Its internal name (what the quest log shows), when different from `name`. */
+  key?: string;
   type: string;
   start: number;
   finish: number;
@@ -81,7 +83,7 @@ export interface TravelQuest {
     /** [monster name] or [monster name, map index]. */
     monsters?: ([string] | [string, number])[];
     item?: string;
-    region?: { map: number; at: [number, number] };
+    region?: { id: number; map: number; at: [number, number] };
     npc?: number;
   }[];
 }
@@ -100,6 +102,8 @@ export interface TravelData {
   monsterStats?: [number, number, number, number][];
   /** Quests picked up from an NPC: giver and taker (NPC ids), level, class mask, quests to have done first, exp reward and tasks. */
   quests?: TravelQuest[];
+  /** Where each quest task's region is, by region id: [map, x, y]. */
+  questRegions?: Record<string, [number, number, number]>;
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */
@@ -167,7 +171,18 @@ export function places(data: TravelData): Place[] {
 }
 
 export function findPlace(data: TravelData, id: string): Place | undefined {
+  // "spot:<map>:<x>:<y>": a tile to walk to (a quest's "go to"), handled like an NPC standing there.
+  const spot = /^spot:(\d+):(\d+):(\d+)$/.exec(id);
+  if (spot) {
+    const [map, x, y] = spot.slice(1).map(Number);
+    return { id, label: `a spot on ${mapName(data, map)}`, map, npc: { id: -1, name: '(spot)', map, where: '', at: [x, y] } };
+  }
   return places(data).find((p) => p.id === id);
+}
+
+/** A MirClass's Library.RequiredClass flag (for class-only links and quests). */
+export function classFlagOf(cls: number): number {
+  return cls <= 7 ? 1 << cls : cls === 8 ? 256 : cls === 9 ? 512 : 0;
 }
 
 /**

@@ -26,7 +26,7 @@ import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTil
 import { SessionStats } from './session-stats';
 import { MapExplorer, waypoint } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
-import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
+import { classFlagOf, findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink, type TravelQuest } from './travel';
 import { chooseGrindMap, describeChoice } from './grind';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
@@ -413,6 +413,8 @@ export class Bot {
   private teleportReadyAt = 0;
   /** M did nothing (no mount, or not allowed here): don't try again before this. */
   private mountRetryAt = 0;
+  /** Quests mode hunting: only quest monsters, whatever the Hunt setting. */
+  private forceQuestOnly = false;
   /** Maps where getting on the mount did nothing (on top of those the game data marks as no-mount). */
   private readonly noMountMaps = new Set<number>();
   /** When setMounted last pressed M: time standing still for it isn't time being blocked. */
@@ -514,6 +516,10 @@ export class Bot {
     void this.run('travel', () => this.travelLoop(placeId));
   }
 
+  startQuests(): void {
+    void this.run('quest', () => this.questLoop());
+  }
+
   startGrind(): void {
     void this.run('grind', () => this.grindLoop());
   }
@@ -532,7 +538,7 @@ export class Bot {
       if (size.width !== GAME_WIDTH || size.height !== GAME_HEIGHT) {
         throw new BotError(`The game is ${size.width}x${size.height}; set it to ${GAME_WIDTH}x${GAME_HEIGHT}.`);
       }
-      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding' };
+      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding', quest: 'Questing' };
       this.status(starting[mode]);
       message = await task();
     } catch (error) {
@@ -657,7 +663,15 @@ export class Bot {
    * Grind's options: `seek` overrides "Seek when idle"; once `stopWhen` gives a
    * reason, the fight going on is finished and the reason returned.
    */
-  private async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null } = {}): Promise<string> {
+  private async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; questOnly?: boolean } = {}): Promise<string> {
+    if (options.questOnly) {
+      this.forceQuestOnly = true;
+      try {
+        return await this.huntLoop({ ...options, questOnly: false });
+      } finally {
+        this.forceQuestOnly = false;
+      }
+    }
     let lastSellCheck = performance.now();
     let current: { key: string; since: number } | null = null;
     let misses = 0;
@@ -1019,7 +1033,7 @@ export class Bot {
    * or the quest log can't be read (then everything counts).
    */
   private questWanted(reading: MemoryState): Set<string> | null {
-    if (!this.settings.hunt.questOnly || !reading.questTargets) return null;
+    if (!(this.settings.hunt.questOnly || this.forceQuestOnly) || !reading.questTargets) return null;
     const mapIndex = reading.map?.index;
     return new Set(reading.questTargets.filter((t) => t.map === null || t.map === mapIndex).map((t) => t.name.toLowerCase()));
   }
@@ -2027,6 +2041,256 @@ export class Bot {
       }
     }
     throw new BotError(`${why}, but Return to Arcadia didn't take me there (in combat?).`);
+  }
+
+  // ---- Quests ----
+
+  /**
+   * Does quests: hands in the ones that are finished, picks up more for the
+   * character's level (from the NPCs that give them, while fewer than the
+   * setting are on the go), then works on what it has: places to go, people
+   * to talk to, and monsters to kill (on the map the quest names, else where
+   * they spawn). Deaths and a full bag are dealt with as in Grind.
+   */
+  private async questLoop(): Promise<string> {
+    const data = loadTravelData();
+    const memory = this.options.memory;
+    if (!memory.installed) throw new BotError('Quests needs the memory reader (run scripts/setup-game-reader.ps1).');
+    memory.start();
+    const started = performance.now();
+    const keyOf = (q: TravelQuest) => q.key ?? q.name;
+    const quests = data.quests ?? [];
+    const byKey = new Map(quests.map((q) => [keyOf(q), q]));
+    const byId = new Map(quests.map((q) => [q.id, q]));
+    const doable = new Set(['KillMonster', 'GainItem', 'Region', 'TalkToNPC']);
+    /** Things that didn't work this run (an NPC whose quests wouldn't open, a quest that wouldn't hand in, a spot out of reach). */
+    const failed = new Set<string>();
+    let handedIn = 0;
+    let accepted = 0;
+
+    while (true) {
+      await this.yieldToEvents();
+      const reading = memory.latest();
+      const log = reading?.questLog;
+      const user = reading?.user;
+      if (!reading || !log || !user || user.level === undefined || !memory.map()) {
+        this.statusEvery(!reading ? (performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`) : 'Waiting for the quest log');
+        await this.sleep(300);
+        continue;
+      }
+      if (user.dead) {
+        await this.reviveInArcadia();
+        continue;
+      }
+      if (this.bagFull(reading)) {
+        await this.emptyBag();
+        continue;
+      }
+      const inLog = new Set(log.map((q) => q.name));
+      const done = new Set(log.filter((q) => q.completed).map((q) => q.name));
+
+      // 1. Hand in what's finished.
+      const ready = log.filter((q) => q.ready && byKey.has(q.name) && !failed.has(`hand:${q.name}`)).map((q) => byKey.get(q.name)!);
+      if (ready.length) {
+        const npc = ready[0].finish;
+        const names = ready.filter((q) => q.finish === npc).map((q) => q.name);
+        const n = await this.atQuestNpc(npc, 'handIn', `Handing in ${names.join(', ')}`);
+        if (n > 0) handedIn += n;
+        else for (const q of ready.filter((r) => r.finish === npc)) failed.add(`hand:${keyOf(q)}`);
+        continue;
+      }
+
+      // 2. Pick up more, while few are on the go.
+      const active = log.filter((q) => !q.completed && !q.ready).length;
+      const available = quests.filter(
+        (q) =>
+          !inLog.has(keyOf(q)) && !failed.has(`accept:${q.start}`) && q.type !== 'Account' && (q.level ?? 0) <= user.level! &&
+          (q.cls === undefined || (user.class !== undefined && (q.cls & classFlagOf(user.class)) !== 0)) &&
+          (q.after ?? []).every((id) => { const before = byId.get(id); return !before || done.has(keyOf(before)); }) &&
+          q.tasks.length > 0 && q.tasks.every((t) => doable.has(t.type)),
+      );
+      if (active < (this.settings.questMaxActive ?? 5) && available.length) {
+        // The giver with the most to offer; one on this map first.
+        const count = new Map<number, number>();
+        for (const q of available) count.set(q.start, (count.get(q.start) ?? 0) + 1);
+        const here = memory.map()!.index;
+        const npc = [...count.keys()].sort((a, b) => Number(data.npcs.find((n) => n.id === b)?.map === here) - Number(data.npcs.find((n) => n.id === a)?.map === here) || count.get(b)! - count.get(a)!)[0];
+        const names = available.filter((q) => q.start === npc).map((q) => q.name);
+        const n = await this.atQuestNpc(npc, 'accept', `Picking up ${names.slice(0, 3).join(', ')}${names.length > 3 ? '...' : ''}`);
+        if (n > 0) accepted += n;
+        else failed.add(`accept:${npc}`);
+        continue;
+      }
+
+      // 3. Places to go, and people to talk to.
+      const pending = reading.questPending;
+      const go = pending?.regions.find((r) => !failed.has(`region:${r.region}`) && data.questRegions?.[r.region]);
+      if (go) {
+        const [map, x, y] = data.questRegions![go.region];
+        this.status(`${go.quest}: going to ${mapName(data, map)}`);
+        try {
+          this.status(await this.travelTo(`spot:${map}:${x}:${y}`));
+          await this.sleep(1500);
+        } catch (error) {
+          if (error instanceof Stopped) throw error;
+          failed.add(`region:${go.region}`);
+        }
+        // Still pending after getting there: don't keep coming back to it.
+        if (memory.latest()?.questPending?.regions.some((r) => r.region === go.region)) failed.add(`region:${go.region}`);
+        continue;
+      }
+      const talk = pending?.talks.find((t) => !failed.has(`talk:${t.npc}`) && data.npcs.some((n) => n.id === t.npc));
+      if (talk) {
+        await this.talkTo(talk.npc, `${talk.quest}: talking to ${data.npcs.find((n) => n.id === talk.npc)!.name}`);
+        if (memory.latest()?.questPending?.talks.some((t) => t.npc === talk.npc)) failed.add(`talk:${talk.npc}`);
+        continue;
+      }
+
+      // 4. Monsters to kill: on the map the quest names, else the nearest map they spawn on.
+      const target = (reading.questTargets ?? []).find((t) => !failed.has(`hunt:${t.name}:${t.map}`));
+      if (target) {
+        const map = target.map ?? this.spawnMapFor(data, target.name, memory.map()!.index, user.level);
+        if (map === null) {
+          failed.add(`hunt:${target.name}:${target.map}`);
+          continue;
+        }
+        if (memory.map()!.index !== map) this.status(await this.travelTo(`map:${map}`));
+        this.status(`${target.quest}: hunting ${target.name} on ${mapName(data, map)}`);
+        const huntStart = performance.now();
+        const why = await this.huntLoop({
+          seek: true,
+          questOnly: true,
+          stopWhen: () => {
+            const now = memory.latest();
+            if (now?.user?.dead) return 'dead';
+            if (this.bagFull(now)) return 'bag';
+            if (now?.questLog?.some((q) => q.ready && byKey.has(q.name) && !failed.has(`hand:${q.name}`))) return 'A quest is finished';
+            if (!now?.questTargets?.some((t) => t.name === target.name && (t.map === null || t.map === map))) return `Done with ${target.name}`;
+            if (now?.map && now.map.index !== map) return 'Left the map';
+            return performance.now() - huntStart > 20 * 60_000 ? `20 minutes on ${target.name}; trying something else` : null;
+          },
+        });
+        if (why.startsWith('20 minutes')) failed.add(`hunt:${target.name}:${target.map}`);
+        if (why === 'dead') await this.reviveInArcadia();
+        else if (why === 'bag') await this.emptyBag();
+        else this.status(why);
+        continue;
+      }
+
+      this.stopRunning();
+      return `Quests: handed in ${handedIn}, picked up ${accepted}; nothing more to do for now`;
+    }
+  }
+
+  /** The map nearest by route where `monster` spawns (and the level allows), or null. */
+  private spawnMapFor(data: TravelData, monster: string, here: number, level: number): number | null {
+    const index = data.monsters?.indexOf(monster) ?? -1;
+    if (index < 0 || !data.spawns) return null;
+    const maps = Object.entries(data.spawns)
+      .filter(([, spots]) => spots.some((s) => data.spawnSets?.[s[3]]?.includes(index)))
+      .map(([m]) => Number(m))
+      .filter((m) => (data.maps.find((x) => x.i === m)?.level ?? 0) <= level);
+    if (maps.includes(here)) return here;
+    let best: { map: number; steps: number } | null = null;
+    for (const m of maps) {
+      const place = findPlace(data, `map:${m}`);
+      const route = place && planRoute(data, { map: here, steps: new Map(), at: undefined }, place, { level });
+      if (route && (!best || route.steps < best.steps)) best = { map: m, steps: route.steps };
+    }
+    return best?.map ?? null;
+  }
+
+  /**
+   * Goes to a quest NPC, opens their quest list (pressing Quests if they show
+   * the Talk / Quests menu) and presses Accept All or Hand In. Returns how many
+   * quests that took (0 if the list didn't open or the button was off).
+   */
+  private async atQuestNpc(npcId: number, action: 'accept' | 'handIn', why: string): Promise<number> {
+    const memory = this.options.memory;
+    const data = loadTravelData();
+    const npc = data.npcs.find((n) => n.id === npcId);
+    if (!npc) return 0;
+    this.status(why);
+    try {
+      await this.travelTo(`npc:${npcId}`);
+    } catch (error) {
+      if (error instanceof Stopped) throw error;
+      return 0;
+    }
+    const list = await this.openQuestList(npc.name);
+    if (!list) return 0;
+    const before = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? 0;
+    const button = action === 'accept' ? list.acceptAll : list.handIn;
+    if (!button?.enabled) {
+      this.key(win.VK.ESCAPE);
+      return 0;
+    }
+    await this.click(boxCentre(button), this.delay('menu'));
+    await this.sleep(500);
+    // An "are you sure?" or a reward choice: press its Yes / OK.
+    const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+    const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
+    if (yes) await this.click(boxCentre(yes), this.delay('menu'));
+    // The quest log changes once the server has taken it.
+    let after = before;
+    for (const since = performance.now(); performance.now() - since < 4000 && after === before; ) {
+      await this.sleep(300);
+      after = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? before;
+    }
+    this.key(win.VK.ESCAPE);
+    await this.sleep(300);
+    return Math.max(0, after - before);
+  }
+
+  /** Clicks an NPC (standing next to them) and opens their quest list; null if it didn't open. */
+  private async openQuestList(npcName: string): Promise<NonNullable<NonNullable<MemoryState['survival']>['questList']> | null> {
+    const memory = this.options.memory;
+    const list = () => memory.latest()?.survival?.questList ?? null;
+    for (let attempt = 0; attempt < 3 && !list(); attempt++) {
+      if (!(await this.clickNpc(npcName))) return null;
+      for (const since = performance.now(); performance.now() - since < 3000 && !list(); ) {
+        const menu = memory.latest()?.survival?.npcMenu;
+        if (menu?.quests?.enabled) {
+          await this.click(boxCentre(menu.quests), this.delay('menu'));
+          await this.sleep(500);
+        }
+        await this.sleep(150);
+      }
+    }
+    return list();
+  }
+
+  /** Clicks an NPC in view by name (hovering until the game confirms it's under the mouse). */
+  private async clickNpc(npcName: string): Promise<boolean> {
+    const reading = this.options.memory.latest();
+    const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
+    if (!npc || !reading?.user) return false;
+    this.stopRunning();
+    const tile = tileToScreen(reading.user, npc.x, npc.y);
+    const point = (await this.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
+    await this.click(point, this.delay('menu'));
+    return true;
+  }
+
+  /** A quest's "talk to": goes to the NPC, clicks them and presses Talk if they ask. */
+  private async talkTo(npcId: number, why: string): Promise<void> {
+    const memory = this.options.memory;
+    const npc = loadTravelData().npcs.find((n) => n.id === npcId);
+    if (!npc) return;
+    this.status(why);
+    try {
+      await this.travelTo(`npc:${npcId}`);
+    } catch (error) {
+      if (error instanceof Stopped) throw error;
+      return;
+    }
+    if (!(await this.clickNpc(npc.name))) return;
+    await this.sleep(800);
+    const menu = memory.latest()?.survival?.npcMenu;
+    if (menu?.talk?.enabled) await this.click(boxCentre(menu.talk), this.delay('menu'));
+    await this.sleep(1500);
+    this.key(win.VK.ESCAPE);
+    await this.sleep(300);
   }
 
   /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */

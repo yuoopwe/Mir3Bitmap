@@ -25,7 +25,7 @@ const SETTINGS_KEY = 'settings-v2';
 const STATS_KEY = 'stats-v1';
 /** What the status bar and the activity log call each mode. */
 const MODE_LABELS: Record<Status['mode'], string> = {
-  idle: 'Idle', attack: 'Hunting', explore: 'Exploring', travel: 'Travelling', grind: 'Grinding', gather: 'Gathering', triad: 'Triple Triad', deck: 'Best deck', train: 'Training',
+  idle: 'Idle', attack: 'Hunting', explore: 'Exploring', travel: 'Travelling', grind: 'Grinding', quest: 'Questing', gather: 'Gathering', triad: 'Triple Triad', deck: 'Best deck', train: 'Training',
 };
 
 function element<T extends HTMLElement>(id: string): T {
@@ -68,6 +68,8 @@ const pauseOnMouse = element<HTMLInputElement>('pause-on-mouse');
 const exploreTeleport = element<HTMLInputElement>('explore-teleport');
 const travelButton = element<HTMLButtonElement>('travel-button');
 const grindButton = element<HTMLButtonElement>('grind-button');
+const questsButton = element<HTMLButtonElement>('quests-button');
+const questMax = element<HTMLInputElement>('quest-max');
 const grindReplan = element<HTMLInputElement>('grind-replan');
 const grindAbove = element<HTMLInputElement>('grind-above');
 const grindPlan = element<HTMLParagraphElement>('grind-plan');
@@ -286,6 +288,7 @@ function readSettings(): Settings {
     pauseOnMouse: pauseOnMouse.checked,
     trainKey: trainKey.value,
     trainIntervalMs: Math.max(readNumber(trainInterval, 1000), 100),
+    questMaxActive: Math.min(Math.max(readNumber(questMax, 5), 1), 30),
     grind: {
       replanMinutes: Math.max(readNumber(grindReplan, DEFAULT_GRIND.replanMinutes), 1),
       maxLevelsAbove: Math.min(readNumber(grindAbove, DEFAULT_GRIND.maxLevelsAbove), 50),
@@ -336,6 +339,7 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.trainKey !== undefined) trainKey.value = settings.trainKey;
   if (settings.trainIntervalMs !== undefined) trainInterval.value = String(settings.trainIntervalMs);
   if (settings.grind?.replanMinutes !== undefined) grindReplan.value = String(settings.grind.replanMinutes);
+  if (settings.questMaxActive !== undefined) questMax.value = String(settings.questMaxActive);
   if (settings.grind?.maxLevelsAbove !== undefined) grindAbove.value = String(settings.grind.maxLevelsAbove);
   const hunt = settings.hunt;
   if (hunt) {
@@ -554,6 +558,7 @@ function showStatus(status: Status): void {
   gatherButton.disabled = running;
   travelButton.disabled = running;
   grindButton.disabled = running;
+  questsButton.disabled = running;
   stopButton.disabled = !running;
   modeText.textContent = MODE_LABELS[status.mode];
   document.body.classList.toggle('running', running);
@@ -584,6 +589,7 @@ async function init(): Promise<void> {
   gatherPlants.checked = true;
   gatherOre.checked = true;
   grindReplan.value = String(DEFAULT_GRIND.replanMinutes);
+  questMax.value = '5';
   grindAbove.value = String(DEFAULT_GRIND.maxLevelsAbove);
   const saved = localStorage.getItem(SETTINGS_KEY);
   if (saved) applySettings(JSON.parse(saved));
@@ -607,6 +613,7 @@ async function init(): Promise<void> {
   deckButton.addEventListener('click', () => void window.bot.startDeck());
   gatherButton.addEventListener('click', () => void window.bot.startGather());
   grindButton.addEventListener('click', () => void window.bot.startGrind());
+  questsButton.addEventListener('click', () => void window.bot.startQuests());
   stopButton.addEventListener('click', () => void window.bot.stop());
   travelButton.addEventListener('click', () => {
     if (travelResults.value) {

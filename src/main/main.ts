@@ -32,6 +32,7 @@ const defaultSettings: Settings = {
   trainKey: 'F1',
   trainIntervalMs: 1000,
   grind: { replanMinutes: 15, maxLevelsAbove: 5 },
+  questMaxActive: 5,
   hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
@@ -116,6 +117,7 @@ ipcMain.handle('bot:deck', () => bot.startDeck());
 ipcMain.handle('bot:gather', () => bot.startGather());
 ipcMain.handle('bot:travel', (_event, placeId: string) => bot.startTravel(placeId));
 ipcMain.handle('bot:grind', () => bot.startGrind());
+ipcMain.handle('bot:quests', () => bot.startQuests());
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => bot.updateSettings({ ...defaultSettings, ...settings }));

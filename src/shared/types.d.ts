@@ -97,6 +97,8 @@ export interface Settings {
   trainKey: BindableKey;
   trainIntervalMs: number;
   grind: GrindSettings;
+  /** Quests mode: at most this many quests on the go at once (it picks up more as they're handed in). */
+  questMaxActive?: number;
 }
 
 /** Somewhere Travel can go: a map or an NPC (id "map:<index>" or "npc:<index>"). */
@@ -125,7 +127,7 @@ export interface NameEntry {
 }
 
 export interface Status {
-  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel' | 'grind';
+  mode: 'idle' | 'attack' | 'explore' | 'triad' | 'deck' | 'gather' | 'train' | 'travel' | 'grind' | 'quest';
   message: string;
   /** Time spent grabbing the last frame from the game window. */
   captureMs?: number;
@@ -178,6 +180,8 @@ export interface BotApi {
   startTravel(placeId: string): Promise<void>;
   /** Levels the character up: the best map for their level, travelled to and hunted on, moving on when outgrown. */
   startGrind(): Promise<void>;
+  /** Picks up quests for your level, does them and hands them in (src/main/bot.ts questLoop). */
+  startQuests(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;
