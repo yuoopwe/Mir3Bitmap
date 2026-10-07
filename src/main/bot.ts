@@ -26,7 +26,8 @@ import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTil
 import { SessionStats } from './session-stats';
 import { MapExplorer, waypoint } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
-import { findPlace, loadTravelData, mapName, planRoute, type TravelLink } from './travel';
+import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
+import { chooseGrindMap, describeChoice } from './grind';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
@@ -506,6 +507,10 @@ export class Bot {
     void this.run('travel', () => this.travelLoop(placeId));
   }
 
+  startGrind(): void {
+    void this.run('grind', () => this.grindLoop());
+  }
+
   private async run(mode: Status['mode'], task: () => Promise<string>): Promise<void> {
     if (this.mode !== 'idle') return;
     this.mode = mode;
@@ -520,7 +525,7 @@ export class Bot {
       if (size.width !== GAME_WIDTH || size.height !== GAME_HEIGHT) {
         throw new BotError(`The game is ${size.width}x${size.height}; set it to ${GAME_WIDTH}x${GAME_HEIGHT}.`);
       }
-      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling' };
+      const starting: Record<Status['mode'], string> = { idle: '', attack: 'Hunting', explore: 'Exploring', triad: 'Playing Triple Triad', deck: 'Building a Triple Triad deck', gather: 'Gathering', train: 'Training', travel: 'Travelling', grind: 'Grinding' };
       this.status(starting[mode]);
       message = await task();
     } catch (error) {
@@ -1761,12 +1766,7 @@ export class Bot {
           return `Arrived at ${mapName(data, map.index)}`;
         }
         const dist = walkDistances(map, here);
-        const steps = new Map<number, number>();
-        for (const l of data.links) {
-          if (l.from !== map.index) continue;
-          const near = nearestApproach(map, dist, l.exit.map(tile));
-          if (near) steps.set(l.id, near.steps);
-        }
+        const steps = this.exitSteps(data, map, dist);
         const npcSteps = new Map<number, number>();
         if (place.npc?.at && place.map === map.index) {
           const near = nearestApproach(map, dist, [tile(place.npc.at)]);
@@ -1875,6 +1875,83 @@ export class Bot {
       this.statusEvery(`Travelling to ${place.label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`);
       await this.sleep(RUN_TICK_MS);
       drivenAt = performance.now();
+    }
+  }
+
+  /** Steps from the player (`dist`, from walkDistances) to each way off this map, by link id. */
+  private exitSteps(data: TravelData, map: MapGrid, dist: Int32Array): Map<number, number> {
+    const steps = new Map<number, number>();
+    for (const l of data.links) {
+      if (l.from !== map.index) continue;
+      const near = nearestApproach(map, dist, l.exit.map(([x, y]) => ({ x, y })));
+      if (near) steps.set(l.id, near.steps);
+    }
+    return steps;
+  }
+
+  // ---- Grinding ----
+
+  /**
+   * Levels the character up: picks the best map for their level and class
+   * (grind.ts), travels there and hunts, seeking monsters, until it's time to
+   * plan again: every so many minutes, on reaching a new level, or on leaving
+   * the map (a death, say). Planning again keeps the map while it's still best.
+   */
+  private async grindLoop(): Promise<string> {
+    const data = loadTravelData();
+    const memory = this.options.memory;
+    if (!memory.installed) throw new BotError('Grind needs the memory reader (run scripts/setup-game-reader.ps1).');
+    memory.start();
+    const started = performance.now();
+    /** The map being ground on, kept unless another is clearly better. */
+    let grinding: number | undefined;
+
+    while (true) {
+      await this.yieldToEvents();
+      // Quest monsters only would leave most of them alone.
+      if (this.settings.hunt.questOnly) throw new BotError('Grind hunts every monster: untick Quest monsters only (Hunt) first.');
+      const reading = memory.latest();
+      const map = memory.map();
+      const user = reading?.user;
+      if (!reading || !map || !user || user.level === undefined) {
+        this.statusEvery(
+          !reading
+            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            : !map ? 'Waiting for the map from the game' : "Waiting for the character's level",
+        );
+        await this.sleep(300);
+        continue;
+      }
+      const level = user.level;
+      const here = { x: user.x, y: user.y };
+      const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
+      const { replanMinutes, maxLevelsAbove } = this.settings.grind;
+      const start = { map: map.index, steps: this.exitSteps(data, map, walkDistances(map, here)), at: here };
+      const choice = chooseGrindMap(data, start, { level, cls: user.class, waypoints: unlocked }, { maxLevelsAbove, current: grinding });
+      if (!choice) throw new BotError(`No map to grind on at level ${level} can be reached from ${mapName(data, map.index)}.`);
+      grinding = choice.map;
+      const plan = describeChoice(choice, level);
+      this.status(plan);
+      if (map.index !== choice.map) {
+        this.status(await this.travelTo(`map:${choice.map}`));
+        this.status(plan);
+      }
+
+      // Hunt until it's time to plan again (time paused doesn't count).
+      const huntStart = performance.now();
+      const pausedBefore = this.pausedMs;
+      const why = await this.huntLoop({
+        seek: true,
+        stopWhen: () => {
+          const now = memory.latest();
+          const newLevel = now?.user?.level;
+          if (newLevel !== undefined && newLevel !== level) return `Level ${newLevel}: planning again`;
+          if (now?.map && now.map.index !== choice.map) return `Left ${choice.name}: planning again`;
+          const minutes = (performance.now() - huntStart - (this.pausedMs - pausedBefore)) / 60_000;
+          return minutes >= replanMinutes ? `${replanMinutes} minutes on ${choice.name}: planning again` : null;
+        },
+      });
+      this.status(why);
     }
   }
 
