@@ -188,6 +188,21 @@ for (const [mapIndex, spots] of spawnsByMap) {
   if (list.length) spawns[mapIndex] = list;
 }
 
+// ---- Bosses: every sub-boss, boss and behemoth that respawns on a map, where, how many, and the minutes it takes to come back ----
+// Each as [monster (index into monsters), map, x, y, how many, respawn minutes, kind (1 sub-boss, 2 boss, 3 behemoth)].
+const bossSpawns = [];
+for (const r of read('RespawnInfo')) {
+  if (r.EventSpawn) continue;
+  const monster = monsterInfo.get(r.Monster?.Index);
+  const region = regions.get(r.Region?.Index);
+  const map = maps.get(region?.Map?.Index);
+  if (!monster || !map || !monster.MonsterName || !(monster.IsSubBoss || monster.IsBoss || monster.IsBehemoth)) continue;
+  const tiles = regionTiles(region);
+  if (!tiles.length) continue;
+  const at = middle(tiles, mapFile(map));
+  bossSpawns.push([nameIndex(monster.MonsterName, monster), map.Index, at[0], at[1], r.Count || 1, r.Delay || 0, monster.IsBehemoth ? 3 : monster.IsBoss ? 2 : 1]);
+}
+
 // ---- Quests picked up from an NPC (the rest start by themselves on entering a map) ----
 // Each: who gives and takes it, the level and class it needs, the quests to have done first, its experience
 // reward, and its tasks: kill (or collect drops from) monsters, go somewhere, or talk to someone.
@@ -199,10 +214,14 @@ const questReqs = new Map();
 for (const r of read('QuestRequirement')) (questReqs.get(r.Quest?.Index) ?? questReqs.set(r.Quest?.Index, []).get(r.Quest?.Index)).push(r);
 const questExp = new Map();
 for (const r of read('QuestReward')) if (r.Item?.Name === 'Experience') questExp.set(r.Quest?.Index, (questExp.get(r.Quest?.Index) ?? 0) + (r.Amount || 0));
+const questItems = new Map();
+for (const r of read('QuestReward')) if (r.Item?.Name) (questItems.get(r.Quest?.Index) ?? questItems.set(r.Quest?.Index, []).get(r.Quest?.Index)).push([r.Item.Name, r.Amount || 0]);
 const quests = [];
 for (const q of read('QuestInfo')) {
-  if (q.ActivationMode !== 'Manual' || !q.StartNPC || !q.FinishNPC || q.SeasonalOnly) continue;
+  if (q.ActivationMode !== 'Manual' || !q.StartNPC || !q.FinishNPC) continue;
   const quest = { id: q.Index, name: (q.DisplayName || q.QuestName || '').trim(), type: q.QuestType, start: q.StartNPC.Index, finish: q.FinishNPC.Index };
+  // Only for seasonal characters.
+  if (q.SeasonalOnly) quest.seasonal = true;
   // The quest log knows a quest by its internal name.
   if (q.QuestName && q.QuestName.trim() !== quest.name) quest.key = q.QuestName.trim();
   for (const r of questReqs.get(q.Index) ?? []) {
@@ -212,6 +231,9 @@ for (const q of read('QuestInfo')) {
   }
   const exp = questExp.get(q.Index);
   if (exp) quest.exp = exp;
+  // Items it gives besides experience, as [name, amount] (Forge Stones, say).
+  const items = (questItems.get(q.Index) ?? []).filter(([name]) => name !== 'Experience');
+  if (items.length) quest.items = items;
   quest.tasks = (questTasks.get(q.Index) ?? []).map((t) => {
     const task = { type: t.Task, amount: t.Amount || 0 };
     if (t.Stage) task.stage = t.Stage;
@@ -353,5 +375,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, bossSpawns, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

@@ -76,6 +76,10 @@ export interface TravelQuest {
   cls?: number;
   after?: number[];
   exp?: number;
+  /** Only for seasonal characters. */
+  seasonal?: boolean;
+  /** What it gives besides experience, as [item name, amount]: ["Forge Stone", 100], say. */
+  items?: [string, number][];
   tasks: {
     type: string;
     amount: number;
@@ -127,6 +131,11 @@ export interface TravelData {
   monsters?: string[];
   /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
   monsterStats?: [number, number, number, number][];
+  /**
+   * Every sub-boss, boss and behemoth that respawns on a map, as [monster (index into ), map, x, y, how many,
+   * respawn minutes (once killed), kind (1 sub-boss, 2 boss, 3 behemoth)].
+   */
+  bossSpawns?: [number, number, number, number, number, number, number][];
   /** Quests picked up from an NPC: giver and taker (NPC ids), level, class mask, quests to have done first, exp reward and tasks. */
   quests?: TravelQuest[];
   /** Where each quest task's region is, by region id: [map, x, y]. */
