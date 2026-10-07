@@ -93,8 +93,13 @@ const MOUNT_SETTLE_MS = 1500;
 /** M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS). */
 const STILL_MS = 400;
 const STILL_WAIT_MS = 2000;
-/** Running: the cursor is held this many tiles from the character, the way the path goes. */
-const RUN_AIM_TILES = 2;
+/**
+ * Running: the cursor is held this many tiles from the character, the way the path goes (tested: 2 tiles
+ * away the game doesn't run at all; 4 it does). A step is a click this many tiles off the same way (a click
+ * on the tile right next to the character can land on its own body).
+ */
+const RUN_AIM_TILES = 4;
+const STEP_AIM_TILES = 2;
 /** Seeking (Hunt with "Seek when idle"): give up on a goal after this long; a spawn spot visited is left this long. */
 const SEEK_GIVE_UP_MS = 45_000;
 const SPOT_REVISIT_MS = 5 * 60_000;
@@ -1620,20 +1625,24 @@ export class Bot {
     // A run moves a whole stride (2 tiles, 3 on a mount) or not at all: with less straight path than that
     // before a turn or a wall, it doesn't go, so step a tile at a time instead.
     const stride = this.options.memory.latest()?.user?.mounted ? 3 : 2;
-    // The run button is held just beyond the character, the way the path goes: the game runs in the cursor's
-    // direction, and a spot far off (over a wall, or one of the game's windows) can stop it.
+    // The game moves the way the cursor is from the character, so the cursor goes a few tiles off that way
+    // (not on a game window, where holding the button does nothing).
     const dir = { x: Math.sign(next.x - user.x), y: Math.sign(next.y - user.y) };
-    const near = { x: user.x + dir.x * RUN_AIM_TILES, y: user.y + dir.y * RUN_AIM_TILES };
-    const point = tileToScreen(user, near.x, near.y);
     const windows = this.options.memory.latest()?.windows ?? [];
-    const free = clickable(point) && !windows.some((w) => point.x >= w.x && point.x < w.x + w.width && point.y >= w.y && point.y < w.y + w.height);
-    const run = straight >= stride && free;
-    this.lastAim = { tile: run ? near : next, point: run ? point : tileToScreen(user, next.x, next.y), running: run };
+    const free = (p: Point) => clickable(p) && !windows.some((w) => p.x >= w.x && p.x < w.x + w.width && p.y >= w.y && p.y < w.y + w.height);
+    const toward = (tiles: number) => ({ x: user.x + dir.x * tiles, y: user.y + dir.y * tiles });
+    const runTile = toward(RUN_AIM_TILES);
+    const point = tileToScreen(user, runTile.x, runTile.y);
+    const run = straight >= stride && free(point);
     if (!run) {
       this.stopRunning();
-      await this.click(tileToScreen(user, next.x, next.y), this.delay('attackClick'));
+      const stepTile = free(tileToScreen(user, toward(STEP_AIM_TILES).x, toward(STEP_AIM_TILES).y)) ? toward(STEP_AIM_TILES) : next;
+      const stepPoint = tileToScreen(user, stepTile.x, stepTile.y);
+      this.lastAim = { tile: stepTile, point: stepPoint, running: false };
+      await this.click(stepPoint, this.delay('attackClick'));
       return;
     }
+    this.lastAim = { tile: runTile, point, running: true };
     this.holdRun(point);
     const vk = this.teleportKey();
     if (vk !== null && straight >= 6 && now >= this.teleportReadyAt) {
@@ -1965,7 +1974,11 @@ export class Bot {
 
   private holdRun(point: Point): void {
     if (this.running) win.mouseMove(this.hwnd, point.x, point.y, win.MK_RBUTTON);
-    else win.rightDown(this.hwnd, point.x, point.y);
+    else {
+      // The game takes where the cursor is from mouse moves, not from the button press itself.
+      win.mouseMove(this.hwnd, point.x, point.y);
+      win.rightDown(this.hwnd, point.x, point.y);
+    }
     this.running = point;
   }
 
