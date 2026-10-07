@@ -1695,6 +1695,11 @@ export class Bot {
    * a wrong turn, a death) plans again from wherever the player is.
    */
   private async travelLoop(placeId: string): Promise<string> {
+    return this.travelTo(placeId);
+  }
+
+  /** Travel's work, for any mode: returns on arrival (what to say about it), leaving the run going. */
+  private async travelTo(placeId: string): Promise<string> {
     const data = loadTravelData();
     const place = findPlace(data, placeId);
     if (!place) throw new BotError('Pick somewhere to travel to first.');
