@@ -970,6 +970,8 @@ export class Bot {
    */
   private async exploreLoop(): Promise<string> {
     let progress = { at: performance.now(), self: null as Point | null };
+    // When the bot last steered: time paused, or busy reopening the map, isn't time spent stuck.
+    let steeredAt = 0;
     let noRoute = 0;
     let noEdgesSince: number | null = null;
 
@@ -1062,7 +1064,7 @@ export class Bot {
       noRoute = 0;
 
       // Not getting anywhere for a while: teleport or sidestep, and skip that edge for a bit after a few tries.
-      if (!progress.self || Math.hypot(self.x - progress.self.x, self.y - progress.self.y) >= PROGRESS_PIXELS) {
+      if (!progress.self || now - steeredAt > STUCK_MS || Math.hypot(self.x - progress.self.x, self.y - progress.self.y) >= PROGRESS_PIXELS) {
         progress = { at: now, self };
       } else if (now - progress.at > STUCK_MS) {
         await this.unstick(plan.target, self, plan.waypoint, panel);
@@ -1074,6 +1076,7 @@ export class Bot {
       // Teleport only along a straight stretch: it would overshoot a corner and have to come back.
       if (plan.teleport && performance.now() >= this.teleportReadyAt) this.teleport(self, plan.waypoint, panel);
       await this.sleep(RUN_TICK_MS);
+      steeredAt = performance.now();
       this.statusEvery(`Exploring: about ${percent}% uncovered`);
     }
   }
@@ -1092,6 +1095,8 @@ export class Bot {
     let mapIndex: number | null = null;
     let share = { map: null as MapGrid | null, value: 0 };
     let moved = { at: 0, x: NaN, y: NaN };
+    // When the character was last driven: time paused, or waiting for the memory, isn't time spent blocked.
+    let drivenAt = 0;
 
     while (true) {
       await this.yieldToEvents();
@@ -1126,6 +1131,7 @@ export class Bot {
 
       const user = reading.user!;
       const now = performance.now();
+      if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
       if (user.x !== moved.x || user.y !== moved.y) moved = { at: now, x: user.x, y: user.y };
       else if (now - moved.at > EXPLORE_BLOCKED_MS) {
         // Not moving: something the map doesn't show (monsters, pets) is in the way, or the game never marks this block explored.
@@ -1164,6 +1170,7 @@ export class Bot {
       }
       this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
       await this.sleep(RUN_TICK_MS);
+      drivenAt = performance.now();
     }
   }
 
