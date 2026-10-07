@@ -21,6 +21,8 @@ export interface MemoryObject {
   level: number;
   /** Someone's pet (ours or another player's). */
   pet: boolean;
+  /** Library.CombatTargetDisposition: 4 = hostile (can be attacked); guards read 0. */
+  disposition?: number | null;
   /** Gathering nodes: which node it is (GatheringNodeInfo index), whether it's ore (else a plant), and whether it's been picked. */
   node?: number;
   mining?: boolean;
@@ -146,6 +148,8 @@ export interface MemoryState {
     sell?: { selectAll: MemoryButton | null; sell: MemoryButton | null; value: string | null; close?: MemoryButton | null };
     /** The bag window: whether it's showing, which tab (0 = Main) and the Main tab's button. */
     inventory?: { open: boolean; section: number; mainTab: MemoryButton | null };
+    /** An NPC's dialog is open. */
+    npcDialog?: boolean;
     /** The Talk / Quests menu some NPCs show when clicked. */
     npcMenu?: { quests: MemoryButton | null; talk: MemoryButton | null };
     /** An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists. */

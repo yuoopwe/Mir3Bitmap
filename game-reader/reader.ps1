@@ -464,6 +464,8 @@ function Read-MessageBoxes($module, $domain) {
 function Read-Survival($scene) {
   $out = @{}
   try { $out.arcadia = Read-Button ($scene.ReadObjectField('MainPanel').ReadObjectField('SanctuaryButton')) } catch {}
+  # An NPC's dialog (what clicking an NPC opens), so a stray one can be closed.
+  try { $npcBox = $scene.ReadObjectField('NPCBox'); $out.npcDialog = -not $npcBox.IsNull -and $npcBox.ReadField[bool]('_IsVisible') } catch {}
   try {
     # A shop's sell panel while it's open (Select All picks what can be sold from the open bag tab).
     $sell = $scene.ReadObjectField('NPCSellBox')
@@ -548,6 +550,8 @@ while ($true) {
             id = $o.ReadField[uint32]('ObjectID'); kind = $kind; name = $name; x = $x; y = $y
             dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); level = $o.ReadField[int]('<Level>k__BackingField')
             pet = [bool]$o.ReadStringField('_PetOwner')
+            # Library.CombatTargetDisposition: 4 Hostile (can be attacked); guards and the like are something else.
+            disposition = $(try { [int]$o.ReadField[byte]('<CombatDisposition>k__BackingField') } catch { $null })
           })
           if ($kind -eq 'node') {
             # Gathering nodes: which node it is (GatheringNodeInfo), plant (0) or ore (1), and whether it's been picked.

@@ -381,6 +381,11 @@ function clickable(point: Point): boolean {
   return !PANEL_MASKS.some((m) => point.x >= m.left && point.x < m.right && point.y >= m.top && point.y < m.bottom);
 }
 
+/** A monster that can be attacked (guards and the like can't: the game marks them other than hostile). */
+function hostile(o: MemoryObject): boolean {
+  return o.disposition === undefined || o.disposition === null || o.disposition === 4;
+}
+
 function mouseObjectName(title: string): string | null {
   const match = /Mouse Object: ([^,]*)/.exec(title);
   return match ? match[1].trim() : null;
@@ -908,7 +913,7 @@ export class Bot {
     const seen = new Set<string>();
     const targets: HuntTarget[] = [];
     for (const o of memory.objects ?? []) {
-      if (o.kind !== 'monster' || o.pet || !o.name) continue;
+      if (o.kind !== 'monster' || o.pet || !o.name || !hostile(o)) continue;
       seen.add(o.name);
       if (o.dead || skip.has(o.name.toLowerCase())) continue;
       if (wanted && !wanted.has(o.name.toLowerCase())) continue;
@@ -1086,7 +1091,7 @@ export class Bot {
     }
     const monsters = (reading.objects ?? []).filter(
       (o) =>
-        o.kind === 'monster' && !o.pet && !o.dead && o.name && !skip.has(o.name.toLowerCase()) && (!wanted || wanted.has(o.name.toLowerCase())) &&
+        o.kind === 'monster' && !o.pet && !o.dead && hostile(o) && o.name && !skip.has(o.name.toLowerCase()) && (!wanted || wanted.has(o.name.toLowerCase())) &&
         !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
     );
     const chased = goal?.kind === 'monster' ? monsters.find((m) => `m${m.id}` === goal!.key) : undefined;
@@ -1590,7 +1595,7 @@ export class Bot {
   private monstersNear(reading: MemoryState, here: Point, range: number): MemoryObject[] {
     const away = (o: MemoryObject) => Math.max(Math.abs(o.x - here.x), Math.abs(o.y - here.y));
     return (reading.objects ?? [])
-      .filter((o) => o.kind === 'monster' && !o.pet && !o.dead && away(o) <= range)
+      .filter((o) => o.kind === 'monster' && !o.pet && !o.dead && hostile(o) && away(o) <= range)
       .sort((a, b) => away(a) - away(b));
   }
 
@@ -1817,7 +1822,7 @@ export class Bot {
       const now = performance.now();
       // A game window open on the way (a stray click on a stone or an NPC): close it before it catches clicks.
       const survival = reading.survival;
-      if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell) {
+      if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell || survival?.npcDialog) {
         this.stopRunning();
         this.key(win.VK.ESCAPE);
         await this.sleep(400);
