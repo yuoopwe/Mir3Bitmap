@@ -75,6 +75,7 @@ export const VK = {
   N2: 0x32,
   B: 0x42,
   D: 0x44,
+  M: 0x4d,
   W: 0x57,
   F1: 0x70,
 } as const;

@@ -83,6 +83,9 @@ const FIGHT_TARGET_GIVE_UP_MS = 15_000;
 const FIGHT_GIVE_UP_MS = 60_000;
 /** Paths keep off monsters this close (they move, so not further). */
 const STEER_ROUND_TILES = 8;
+/** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
+const MOUNT_SETTLE_MS = 1500;
+const MOUNT_RETRY_MS = 30_000;
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
 const WAYPOINT_TELEPORT_MS = 10_000;
@@ -365,6 +368,8 @@ export class Bot {
   private stuckAt: { point: Point; count: number }[] = [];
   /** When the teleport key is next due. */
   private teleportReadyAt = 0;
+  /** M did nothing (no mount, or not allowed here): don't try again before this. */
+  private mountRetryAt = 0;
   /** Random teleports in a row, and when they may be used again after a pause. */
   private rerollsInRow = 0;
   private rerollPausedUntil = 0;
@@ -714,6 +719,7 @@ export class Bot {
         if (point) misses = 0;
       }
       if (target && point) {
+        if (memory) await this.setMounted(false);
         if (this.settings.archer) {
           this.hold(point, target.key);
           await this.sleep(this.delay('attackClick'));
@@ -1198,6 +1204,25 @@ export class Bot {
     }
   }
 
+  /**
+   * Gets on (or off) the mount with M when the game's memory says it isn't
+   * already. If M changes nothing (no mount, or not allowed on this map), it's
+   * left alone for a while rather than pressed over and over.
+   */
+  private async setMounted(on: boolean): Promise<void> {
+    const memory = this.options.memory;
+    const mounted = memory.latest()?.user?.mounted;
+    if (mounted === undefined || mounted === on || performance.now() < this.mountRetryAt) return;
+    this.stopRunning();
+    this.releaseHold();
+    this.key(win.VK.M);
+    this.statusEvery(on ? 'Getting on the mount' : 'Getting off the mount');
+    for (const since = performance.now(); performance.now() - since < MOUNT_SETTLE_MS; ) {
+      if ((await memory.fresh(500))?.user?.mounted === on) return;
+    }
+    this.mountRetryAt = performance.now() + MOUNT_RETRY_MS;
+  }
+
   /** Live monsters (not pets) within `range` tiles, nearest first. */
   private monstersNear(reading: MemoryState, here: Point, range: number): MemoryObject[] {
     const away = (o: MemoryObject) => Math.max(Math.abs(o.x - here.x), Math.abs(o.y - here.y));
@@ -1232,6 +1257,7 @@ export class Bot {
       }
       if (!fought) {
         this.stopRunning();
+        await this.setMounted(false);
         fought = true;
       }
       this.capture();
@@ -1262,6 +1288,7 @@ export class Bot {
    * straight stretches.
    */
   private async driveAlong(user: Point, path: Point[], now: number): Promise<void> {
+    await this.setMounted(true);
     const ahead = waypoint(path);
     const along = Math.max(0, path.findIndex((t) => t.x === ahead.x && t.y === ahead.y));
     let aim = path[along];
@@ -1942,6 +1969,7 @@ export class Bot {
       if (clickedAt === null || (!current.retried && now - clickedAt > GATHER_PICK_GIVE_UP_MS / 2)) {
         const tile = tileToScreen(user, node.x, node.y);
         // Click where the game says the node is under the mouse, else the middle of its tile.
+        await this.setMounted(false);
         const point = (await this.aimAt({ key: `n${node.id}`, point: tile, name: node.name, tile })) ?? tile;
         await this.click(point, this.delay('attackClick'));
         if (clickedAt === null) current.clickedAt = performance.now();
