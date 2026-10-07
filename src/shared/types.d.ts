@@ -48,6 +48,8 @@ export interface HuntSettings {
   pickUpKey: BindableKey;
   /** Grind and Quests: the Town Portal scroll's key, used when Return to Arcadia can't be (still in combat after a minute). */
   townPortalKey?: BindableKey;
+  /** After selling, put on bag items that beat what's worn by a clear margin (src/main/loot-judge.ts). */
+  equipUpgrades?: boolean;
   hpPotionKey: BindableKey;
   /** Drink when HP falls below this percentage. */
   hpPotionPercent: number;
@@ -158,6 +160,8 @@ export interface StatCounts {
   /** Items that were in reach and then gone from the game's memory; without the memory reader, pick-up tries after kills. */
   items: number;
   gathered: number;
+  /** Bag items the loot judge kept out of a sale (upgrades and rare finds), locked in game. */
+  kept: number;
   /** Triple Triad matches finished; won, lost or drawn only when the final board was read from the game's memory. */
   triadPlayed: number;
   triadWon: number;
@@ -167,6 +171,15 @@ export interface StatCounts {
   decks: number;
   /** Time spent running a mode, in milliseconds. */
   runningMs: number;
+}
+
+/** An item the loot judge kept out of a sale: its name, rarity and why (shown under "Kept this run"). */
+export interface KeptItem {
+  name: string;
+  rarity: string;
+  reason: string;
+  /** When, as Date.now(). */
+  at: number;
 }
 
 export interface Stats {
@@ -206,4 +219,6 @@ export interface BotApi {
   onNames(listener: (names: NameEntry[]) => void): void;
   /** Monster names seen in the game's memory while hunting. */
   onMonsters(listener: (names: string[]) => void): void;
+  /** What the loot judge has kept out of sales since the app started or the session was reset, newest first. */
+  onKept(listener: (items: KeptItem[]) => void): void;
 }

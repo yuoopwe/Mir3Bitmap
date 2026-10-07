@@ -175,7 +175,9 @@
               <label title="Back to Arcadia to sell to Ludvik once the bag has this few slots free">Sell when <input id="bag-free" type="number" min="0" max="100"> or fewer bag slots are free</label>
               <label title="Or once the bag is this heavy, as a share of what you can carry">or the bag is <input id="bag-weight" type="number" min="10" max="100"> % full by weight</label>
               <label title="If it can't get out of combat for Return to Arcadia within a minute, it reads a Town Portal scroll on this key, then returns from town">Town Portal scroll key <select id="town-portal-key"></select></label>
-              <p class="hint">Also when three items in a row won't pick up. Grind and Quests sell what Ludvik's Select All picks from the Main bag tab.</p>
+              <label title="After selling, in town: put on any bag item that beats what you wear by 15% or more for your class (it double-clicks the item, and checks it went on)"><input id="equip-upgrades" type="checkbox"> Put on clear upgrades</label>
+              <p class="hint">Also when three items in a row won't pick up. Grind and Quests sell what Ludvik's Select All picks from the Main bag tab;
+                upgrades and Legendary or rarer items are locked first and kept (see Stats &amp; log).</p>
             </fieldset>
             <fieldset class="card">
               <legend>Quests</legend>
@@ -322,6 +324,10 @@
               <span id="timing" class="hint" title="How long the last frame took to grab from the game window, and to scan"></span>
               <button type="button" id="stats-reset" title="Clear this session's counts (the all-time totals keep them)">Reset session</button>
             </div>
+          </section>
+          <section class="card kept-card">
+            <h2>Kept this run</h2>
+            <ol id="kept" title="Bag items kept out of a sale (locked in game): upgrades for your class, and Legendary or rarer finds. Unlock them in game to sell them."></ol>
           </section>
           <section class="card log-card">
             <h2>Activity</h2>

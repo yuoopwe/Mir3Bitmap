@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { KeyId, NameRule, Settings, Status } from '../shared/types';
+import type { KeptItem, KeyId, NameRule, Settings, Status } from '../shared/types';
 import { loadTravelData, places, searchPlaces } from './travel';
 import { Bot } from './bot';
 import type { Rect } from './layout';
@@ -35,7 +35,7 @@ const defaultSettings: Settings = {
   trainIntervalMs: 1000,
   grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
   questMaxActive: 5,
-  hunt: { roam: false, questOnly: false, bagFreeSlots: 15, bagWeightPercent: 95, loot: true, pickUpKey: '', townPortalKey: '3', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
+  hunt: { roam: false, questOnly: false, bagFreeSlots: 15, bagWeightPercent: 95, loot: true, pickUpKey: '', townPortalKey: '3', equipUpgrades: false, hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
 let window: BrowserWindow | null = null;
@@ -123,6 +123,7 @@ const bot = new Bot(defaultSettings, {
   grindLog,
   memory: new GameMemory(path.join(app.getAppPath(), 'game-reader')),
   monsters: (list: string[]) => window?.webContents.send('monsters', list),
+  kept: (items: KeptItem[]) => window?.webContents.send('kept', items),
   imageOf,
   report: (status: Status) => window?.webContents.send('bot:status', status),
 });

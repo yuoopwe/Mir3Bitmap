@@ -7,7 +7,7 @@ export type StatName = Exclude<keyof StatCounts, 'runningMs'>;
 const RESULT_STAT: Record<MatchResult, StatName> = { won: 'triadWon', lost: 'triadLost', drawn: 'triadDrawn' };
 
 export function noCounts(): StatCounts {
-  return { kills: 0, items: 0, gathered: 0, triadPlayed: 0, triadWon: 0, triadLost: 0, triadDrawn: 0, decks: 0, runningMs: 0 };
+  return { kills: 0, items: 0, gathered: 0, kept: 0, triadPlayed: 0, triadWon: 0, triadLost: 0, triadDrawn: 0, decks: 0, runningMs: 0 };
 }
 
 /**

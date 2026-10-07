@@ -6,13 +6,13 @@
 (() => {
   /** Every call the window made: { fn, args }, the args copied the way Electron's IPC copies them. */
   const calls = [];
-  const listeners = { status: [], names: [], monsters: [] };
+  const listeners = { status: [], names: [], monsters: [], kept: [] };
   const record = (fn, ...args) => calls.push({ fn, args: structuredClone(args) });
   const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // ---- Stats, kept as src/main/session-stats.ts keeps them ----
 
-  const noCounts = () => ({ kills: 0, items: 0, gathered: 0, triadPlayed: 0, triadWon: 0, triadLost: 0, triadDrawn: 0, decks: 0, runningMs: 0 });
+  const noCounts = () => ({ kills: 0, items: 0, gathered: 0, kept: 0, triadPlayed: 0, triadWon: 0, triadLost: 0, triadDrawn: 0, decks: 0, runningMs: 0 });
   let session = noCounts();
   const allTime = noCounts();
   let timedTo = null;
@@ -284,6 +284,9 @@
     onNames(listener) {
       listeners.names.push(listener);
     },
+    onKept(listener) {
+      listeners.kept.push(listener);
+    },
     onMonsters(listener) {
       listeners.monsters.push(listener);
     },
@@ -306,6 +309,8 @@
     },
     /** Counts something, as the bot does (e.g. uiStub.count('kills', 3)). */
     count,
+    /** Sends the kept list, as the loot judge does, e.g. uiStub.kept([{ name: 'Ironforge Blade', rarity: 'Elite', reason: '+18% over ...', at: Date.now() }]). */
+    kept: (items) => listeners.kept.forEach((listener) => listener(structuredClone(items))),
     picture,
     later,
   };

@@ -633,6 +633,37 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
+#kept {
+  max-height: 140px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 12px;
+}
+
+#kept li {
+  display: grid;
+  grid-template-columns: minmax(0, 14em) 6.5em minmax(0, 1fr);
+  gap: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+#kept li:nth-child(odd) {
+  background: var(--hover);
+}
+
+#kept .kept-rarity,
+#kept .kept-reason {
+  color: var(--muted);
+}
+
+#kept:empty::after {
+  content: "Nothing kept yet: upgrades and rare finds the bot keeps out of a sale show here.";
+  color: var(--muted);
+}
+
 .log-card {
   flex: 1 1 0;
   min-height: 200px;

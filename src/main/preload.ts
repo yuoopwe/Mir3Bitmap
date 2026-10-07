@@ -25,6 +25,9 @@ const api: BotApi = {
   onMonsters: (listener) => {
     ipcRenderer.on('monsters', (_event, names) => listener(names));
   },
+  onKept: (listener) => {
+    ipcRenderer.on('kept', (_event, items) => listener(items));
+  },
   onNames: (listener) => {
     ipcRenderer.on('names', (_event, names) => listener(names));
   },

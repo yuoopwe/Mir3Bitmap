@@ -18,6 +18,7 @@ import { Grinding } from './bot-grind';
 import { TripleTriad } from './bot-triad';
 import { Gathering } from './bot-gathering';
 import { GatherTrips } from './bot-gather-trips';
+import { Looting } from './bot-loot';
 
 export type { BotOptions } from './bot-context';
 
@@ -36,6 +37,7 @@ export class Bot {
     ctx.triad = new TripleTriad(ctx);
     ctx.gathering = new Gathering(ctx);
     ctx.gatherTrips = new GatherTrips(ctx);
+    ctx.loot = new Looting(ctx);
     this.ctx = ctx;
   }
 
@@ -58,6 +60,7 @@ export class Bot {
     this.ctx.stats.reset(this.ctx.clock.now());
     // The status line's kills too, so it agrees with the panel's "this session".
     this.ctx.kills = 0;
+    this.ctx.loot.reset();
     return this.ctx.stats.snapshot(this.ctx.clock.now());
   }
 

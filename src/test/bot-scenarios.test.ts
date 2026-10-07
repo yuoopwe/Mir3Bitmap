@@ -10,7 +10,7 @@ import { GrindLog } from '../main/grind-log';
 import { VK } from '../main/input';
 import { loadTravelData } from '../main/travel';
 import { play, testSettings } from './bot-harness';
-import { BAG_KEY, FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup } from './fake-game';
+import { BAG_KEY, FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup, type FakeItem } from './fake-game';
 import { loadMapFixture } from './map-fixtures';
 
 const data = loadTravelData();
@@ -670,5 +670,94 @@ test('Gather without trips: as before, whatever is in sight, never the Professio
   assert.deepEqual(keyDowns(game, VK.CONTROL), []);
   assert.deepEqual(of(game, 'mapChange'), []);
   assert.deepEqual(new Set(picks(game).map((g) => g.node)), new Set([SILVERLEAF, COPPER]));
+  checkAlways(game);
+});
+
+// ---- The loot judge at the shop ----
+
+const SCROLL_LOCK = 0x91;
+/** A Warrior's gear: a weak sword and a cap worn; in the bag a clear upgrade, a cap 10% better (kept, not put on), and junk. */
+const RUSTY_SWORD = { name: 'Rusty Sword', type: 2, slot: 0, base: { 8: 2, 9: 5 } };
+const LEATHER_CAP = { name: 'Leather Cap', type: 5, slot: 2, base: { 4: 10, 5: 10 } };
+const IRON_SWORD = { name: 'Iron Sword', type: 2, slot: 3, base: { 8: 4, 9: 9 } };
+const BRONZE_CAP = { name: 'Bronze Cap', type: 5, slot: 5, base: { 4: 11, 5: 11 } };
+const BENT_SWORD = { name: 'Bent Sword', type: 2, slot: 4, base: { 8: 1, 9: 2 } };
+const gearWith = (...bag: FakeItem[]) => ({ worn: [RUSTY_SWORD, LEATHER_CAP], bag });
+const locks = (game: FakeGame) => of(game, 'lock');
+
+test('Loot judge: a sell trip locks the upgrade first, sells the rest, and lists what it kept', async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(IRON_SWORD, BENT_SWORD) });
+  const { met, kept, statuses } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });
+  assert.ok(met, `back to grinding after selling (${statuses.at(-1)?.message})`);
+  // Locked before Select All; the 36 others go but for the two Select All always leaves.
+  assert.deepEqual(locks(game).map((l) => [l.name, l.locked]), [['Iron Sword', true]]);
+  assert.ok(locks(game)[0].t < buttons(game, 'Select All')[0].t);
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 5]);
+  assert.deepEqual(game.gear.bag.map((i) => [i.name, i.flags]), [['Iron Sword', 1]]);
+  assert.deepEqual(kept.map((k) => [k.name, k.rarity, k.reason]), [['Iron Sword', 'Common', '+86% over Rusty Sword (DC 2–5 → 4–9)']]);
+  assert.ok(statuses.some((s) => s.message === 'Kept Iron Sword: +86% over Rusty Sword (DC 2–5 → 4–9)'));
+  assert.equal(statuses.at(-1)!.stats!.session.kept, 1);
+  // Nothing put on unless asked.
+  assert.deepEqual(of(game, 'equip'), []);
+  checkAlways(game);
+});
+
+test("Loot judge: the lock doesn't take, so nothing is sold that trip, and hunting goes on", async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(IRON_SWORD, BENT_SWORD), lockFails: true });
+  const { met, statuses } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'mapChange', (e) => e.type === 'mapChange' && e.via === 'back'), limitMs: 10 * 60_000 });
+  assert.ok(met, `back and grinding (${statuses.at(-1)?.message})`);
+  const lines = statuses.map((s) => s.message);
+  assert.ok(lines.includes("Couldn't protect Iron Sword: not selling"), lines.join(' | '));
+  assert.deepEqual([of(game, 'sold'), buttons(game, 'Select All'), buttons(game, 'Sell')], [[], [], []]);
+  assert.ok(keyDowns(game, SCROLL_LOCK).length >= 1);
+  assert.ok(!game.isOpen('sell'));
+  assert.deepEqual(game.gear.bag.map((i) => i.name), ['Iron Sword', 'Bent Sword']);
+  // One trip only: the full bag is let be for a while.
+  assert.equal(of(game, 'mapChange').filter((c) => c.via === 'arcadia').length, 1);
+  checkAlways(game);
+});
+
+test('Loot judge: "Put on clear upgrades" puts the clear one on after selling, and leaves the borderline one in the bag', async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(IRON_SWORD, BRONZE_CAP, BENT_SWORD) });
+  const { met, kept, statuses } = await play(game, (bot) => bot.startGrind(), {
+    settings: { hunt: { ...testSettings().hunt, equipUpgrades: true } },
+    until: backOnBichon(game, 'sold', () => true),
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, `back to grinding (${statuses.at(-1)?.message})`);
+  // Both kept (the cap is 10% better: an upgrade, but not a clear one).
+  assert.deepEqual(kept.map((k) => k.name).sort(), ['Bronze Cap', 'Iron Sword']);
+  assert.deepEqual(of(game, 'equip').map((e) => [e.name, e.slot]), [['Iron Sword', 0]]);
+  // After selling, with the shop shut.
+  const equipped = of(game, 'equip')[0].t;
+  assert.ok(equipped > of(game, 'sold').at(-1)!.t);
+  assert.ok(equipped > of(game, 'window').filter((w) => w.name === 'sell' && !w.open).at(-1)!.t);
+  assert.deepEqual(game.gear.worn.map((w) => w.name).sort(), ['Iron Sword', 'Leather Cap']);
+  assert.ok(game.gear.bag.some((i) => i.name === 'Bronze Cap' && i.flags & 1));
+  assert.ok(game.gear.bag.some((i) => i.name === 'Rusty Sword'));
+  assert.ok(statuses.some((s) => s.message === 'Put on Iron Sword'));
+  checkAlways(game);
+});
+
+test("Loot judge: nothing worth keeping, so selling is as before (no lock key at all)", async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(BENT_SWORD) });
+  const { met, kept } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold and back');
+  assert.deepEqual(of(game, 'sold').map((s) => s.items), [30, 6]);
+  assert.deepEqual(keyDowns(game, SCROLL_LOCK), []);
+  assert.deepEqual([kept, game.gear.bag], [[], []]);
+  checkAlways(game);
+});
+
+test("Loot judge: a double-click that doesn't put the upgrade on is given up on, and the trip carries on", async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(IRON_SWORD, BENT_SWORD), equipFails: true });
+  const { met, statuses } = await play(game, (bot) => bot.startGrind(), {
+    settings: { hunt: { ...testSettings().hunt, equipUpgrades: true } },
+    until: backOnBichon(game, 'sold', () => true),
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, `back to grinding (${statuses.at(-1)?.message})`);
+  assert.ok(statuses.some((s) => s.message === "Couldn't put on Iron Sword (double-clicking it did nothing); leaving it in the bag"));
+  assert.deepEqual(game.gear.worn.map((w) => w.name), ['Rusty Sword', 'Leather Cap']);
   checkAlways(game);
 });
