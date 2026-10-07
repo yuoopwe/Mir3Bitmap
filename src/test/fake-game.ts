@@ -5,8 +5,10 @@
  * (running with the right button held, a stride every STRIDE_MS in one of 8
  * directions; a step per left click; the player's tile changes as a move
  * starts, as the client has it, and the move then takes its time), changes maps on links' exit tiles, and
- * has monsters, NPCs, the waypoint window, quests, a shop, death, Return to
- * Arcadia, the mount and a bag. Time is virtual: every wait jumps ahead, so a
+ * has monsters, NPCs, other players, items on the ground, the waypoint
+ * window, quests, a shop (sold in rounds, from the bag window's Main tab),
+ * death, Return to Arcadia (only out of combat, and back again from Arcadia),
+ * the Town Portal scroll, the mount and a bag. Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
  * tests to check.
  */
@@ -26,6 +28,12 @@ export const MAP_LOAD_MS = 400;
 export const RUN_DEAD_ZONE = 2;
 /** Return to Arcadia takes this long to cast; Return on the death window this long. */
 const ARCADIA_CAST_MS = 1500;
+/** Return to Arcadia only works this long after the last combat (the game's 10 s). */
+export const OUT_OF_COMBAT_MS = 10_000;
+/** The Town Portal scroll takes this long to read. */
+const PORTAL_READ_MS = 1000;
+/** The W key (the game's InventoryWindow key) opens and closes the bag. */
+export const BAG_KEY = 0x57;
 const REVIVE_MS = 500;
 /** Dead monsters lie this long, then come back (when they respawn) after RESPAWN_MS more. */
 const CORPSE_MS = 2000;
@@ -43,14 +51,19 @@ const ARCADIA = { map: 563, x: 647, y: 196 };
 export type FakeEvent =
   | { t: number; type: 'move'; map: number; from: { x: number; y: number }; to: { x: number; y: number }; run: boolean }
   | { t: number; type: 'runTooClose'; tiles: number }
-  | { t: number; type: 'mapChange'; from: number; to: number; via: 'link' | 'waypoint' | 'arcadia' | 'revive' }
+  | { t: number; type: 'mapChange'; from: number; to: number; via: Via }
   | { t: number; type: 'attack'; name: string; level: number; disposition: number | null; killed: boolean }
   | { t: number; type: 'mount'; moving: boolean; mounted: boolean; map: number }
   | { t: number; type: 'key'; vk: number; down: boolean }
   | { t: number; type: 'window'; name: string; open: boolean }
   | { t: number; type: 'button'; name: string }
   | { t: number; type: 'quest'; key: string; what: 'accepted' | 'ready' | 'handedIn' }
-  | { t: number; type: 'sold'; items: number };
+  | { t: number; type: 'sold'; items: number }
+  /** Return to Arcadia pressed while still in combat: the game says no. */
+  | { t: number; type: 'refused'; what: 'arcadia'; combatAgo: number }
+  | { t: number; type: 'pickup'; items: number; refused: boolean };
+
+export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal';
 
 export interface FakeMonster {
   name: string;
@@ -66,8 +79,10 @@ export interface FakeMonster {
   exp?: number;
   /** Comes back after dying. */
   respawn?: boolean;
-  /** Comes at the player once within AGGRO_TILES, a tile every MONSTER_STEP_MS. */
+  /** Comes at the player once within AGGRO_TILES, a tile every MONSTER_STEP_MS, and keeps them in combat while next to them. */
   aggressive?: boolean;
+  /** Leaves an item of this name where it dies. */
+  drops?: string;
 }
 
 export interface FakeNpcSetup {
@@ -85,7 +100,7 @@ export interface FakeGameSetup {
   data?: TravelData;
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
   maps?: MapGrid[];
-  player: { map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean };
+  player: { map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number };
   monsters?: FakeMonster[];
   /** NPCs to place, by travel.json id; with `allNpcs`, every NPC on a map is placed when the player gets there too. */
   npcs?: FakeNpcSetup[];
@@ -96,11 +111,25 @@ export interface FakeGameSetup {
   quests?: { key: string; state: 'completed' | 'ready' | 'active' }[];
   /** Quests the NPCs offer, by key (default: all that the level, class and done quests allow). */
   offers?: string[];
-  bag?: { used: number; slots: number };
+  /** How full the bag is; `refuse`: it won't take pickups (as when the game counts it full) until something is sold. */
+  bag?: { used: number; slots: number; refuse?: boolean };
+  /** The bag window: open at the start, and on which tab (0 = Main). */
+  bagWindow?: { open?: boolean; section?: number };
+  /** Items the sell panel takes in one round (Select All picks at most this many); default 30. */
+  sellPerRound?: number;
+  /** Selling asks "are you sure?" (a message box with Yes). */
+  sellConfirm?: boolean;
+  /** Items on the ground. */
+  items?: { name: string; x: number; y: number; map?: number }[];
+  /** Other players standing about (they don't block the way: in towns you walk through people). */
+  players?: { name: string; x: number; y: number; map?: number }[];
+  /** Where the Town Portal scroll takes you, and its key (default '3'). */
+  townPortal?: { map: number; x: number; y: number; key?: number };
 }
 
 interface Monster extends MemoryObject {
   map: number;
+  drops?: string;
   aggressive: boolean;
   nextStepAt: number;
   hits: number;
@@ -109,6 +138,10 @@ interface Monster extends MemoryObject {
   respawn: boolean;
   home: { x: number; y: number };
   deadAt: number;
+}
+
+interface Thing extends MemoryObject {
+  map: number;
 }
 
 interface Npc extends MemoryObject {
@@ -151,10 +184,23 @@ export class FakeGame {
   readonly data: TravelData;
   readonly events: FakeEvent[] = [];
   t = 0;
-  readonly player: { map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number };
-  bag: { used: number; slots: number };
-  /** Sellable items picked with Select All. */
+  readonly player: { map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number };
+  bag: { used: number; slots: number; refuse: boolean };
+  /** The bag window, and the tab showing (0 = Main). */
+  bagWindow: { open: boolean; section: number };
+  /** Sellable items picked with Select All, and "are you sure?" up for them. */
   private selected = 0;
+  private confirming = false;
+  private readonly sellPerRound: number;
+  private readonly sellConfirm: boolean;
+  /** When the player was last in combat (hitting a monster, or hit by one). */
+  private lastCombatAt = -Infinity;
+  /** Where Return to Arcadia was pressed from: pressed again in Arcadia, it takes you back there. */
+  private returnTo: { map: number; x: number; y: number } | null = null;
+  private portalAt: number | null = null;
+  private readonly townPortal: { map: number; x: number; y: number; key: number };
+  private readonly items: Thing[] = [];
+  private readonly people: Thing[] = [];
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -197,8 +243,17 @@ export class FakeGame {
     this.data = setup.data ?? loadTravelData();
     for (const map of setup.maps ?? []) this.maps.set(map.index, map.explored ? map : withBlocks(map));
     const p = setup.player;
-    this.player = { map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true, dead: false, experience: 0 };
-    this.bag = { ...(setup.bag ?? { used: 10, slots: 40 }) };
+    this.player = {
+      map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true,
+      dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0,
+    };
+    this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
+    this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
+    this.sellPerRound = setup.sellPerRound ?? 30;
+    this.sellConfirm = setup.sellConfirm ?? false;
+    this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
+    for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
+    for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
     this.npcSetups = setup.npcs ?? [];
@@ -278,8 +333,12 @@ export class FakeGame {
     this.monsters.push({
       id: this.nextId++, kind: 'monster', name: m.name, x: m.x, y: m.y, dead: false, level: m.level ?? stats?.[0] ?? 1, pet: false,
       disposition: m.disposition ?? 4, map: m.map ?? this.player.map, hits: m.hits ?? 1, taken: 0, exp: m.exp ?? stats?.[1] ?? 10,
-      respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0,
+      respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0, drops: m.drops,
     });
+  }
+
+  addItem(name: string, x: number, y: number, map = this.player.map): void {
+    this.items.push({ id: this.nextId++, kind: 'item', name, x, y, dead: false, level: 0, pet: false, map });
   }
 
   private placeNpc(setup: FakeNpcSetup): void {
@@ -329,7 +388,19 @@ export class FakeGame {
     }
     if (this.arcadiaAt !== null && this.t >= this.arcadiaAt) {
       this.arcadiaAt = null;
-      this.teleport(ARCADIA.map, ARCADIA.x, ARCADIA.y, 'arcadia');
+      // From Arcadia, back to where it was pressed; else to Arcadia, remembering where from.
+      if (this.player.map === ARCADIA.map) {
+        const back = this.returnTo;
+        this.returnTo = null;
+        if (back) this.teleport(back.map, back.x, back.y, 'back');
+      } else {
+        this.returnTo = { map: this.player.map, x: this.player.x, y: this.player.y };
+        this.teleport(ARCADIA.map, ARCADIA.x, ARCADIA.y, 'arcadia');
+      }
+    }
+    if (this.portalAt !== null && this.t >= this.portalAt) {
+      this.portalAt = null;
+      this.teleport(this.townPortal.map, this.townPortal.x, this.townPortal.y, 'portal');
     }
     if (this.reviveAt !== null && this.t >= this.reviveAt) {
       this.reviveAt = null;
@@ -351,6 +422,8 @@ export class FakeGame {
         return;
       }
       const away = chebyshev(m, this.player);
+      // Next to the player it attacks: still in combat.
+      if (away <= 1) this.lastCombatAt = m.nextStepAt;
       if (away <= 1 || away > AGGRO_TILES) continue;
       const to = { x: m.x + Math.sign(this.player.x - m.x), y: m.y + Math.sign(this.player.y - m.y) };
       if (this.floor(to.x, to.y) && !(this.move && this.move.path.some((t) => t.x === to.x && t.y === to.y))) Object.assign(m, to);
@@ -411,7 +484,7 @@ export class FakeGame {
     this.move = null;
   }
 
-  private teleport(map: number, x: number, y: number, via: 'link' | 'waypoint' | 'arcadia' | 'revive'): void {
+  private teleport(map: number, x: number, y: number, via: Via): void {
     const from = this.player.map;
     Object.assign(this.player, { map, x, y });
     // Mounts aren't allowed everywhere: off it goes.
@@ -463,6 +536,8 @@ export class FakeGame {
     if (down) {
       this.keysDown.add(vk);
       if (vk === VK.ESCAPE) this.escape();
+      if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
+      if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       return;
     }
     const wasDown = this.keysDown.delete(vk);
@@ -492,7 +567,10 @@ export class FakeGame {
     if (!this.open.delete(name)) return;
     if (name === 'npcMenu') this.menuNpc = null;
     if (name === 'questList') this.listNpc = null;
-    if (name === 'sell') this.selected = 0;
+    if (name === 'sell') {
+      this.selected = 0;
+      this.confirming = false;
+    }
     this.events.push({ t: this.t, type: 'window', name, open: false });
   }
 
@@ -521,7 +599,18 @@ export class FakeGame {
     this.chasing = null;
     if (thing?.kind === 'monster') return this.attack(thing as Monster);
     if (thing?.kind === 'npc') return this.clickNpc(thing as Npc);
+    if (tile.x === this.player.x && tile.y === this.player.y) return this.pickUp();
     this.step(tile);
+  }
+
+  /** A click at the feet: picks up what's within reach, unless the bag won't take it. */
+  private pickUp(): void {
+    const reach = this.items.filter((i) => i.map === this.player.map && chebyshev(i, this.player) <= this.player.pickUpRadius);
+    if (!reach.length) return;
+    this.events.push({ t: this.t, type: 'pickup', items: reach.length, refused: this.bag.refuse });
+    if (this.bag.refuse) return;
+    for (const i of reach) this.items.splice(this.items.indexOf(i), 1);
+    this.bag.used += reach.length;
   }
 
   /** A step toward the tile (when nothing's under way). */
@@ -553,12 +642,16 @@ export class FakeGame {
       return void this.update();
     }
     const guard = monster.disposition === 0;
-    if (!guard) monster.taken++;
+    if (!guard) {
+      monster.taken++;
+      this.lastCombatAt = this.t;
+    }
     const killed = !guard && monster.taken >= monster.hits;
     this.events.push({ t: this.t, type: 'attack', name: monster.name, level: monster.level, disposition: monster.disposition ?? null, killed });
     if (!killed) return;
     monster.dead = true;
     monster.deadAt = this.t;
+    if (monster.drops) this.addItem(monster.drops, monster.x, monster.y, monster.map);
     this.player.experience += monster.exp;
     this.credit(monster);
   }
@@ -602,24 +695,44 @@ export class FakeGame {
       out.push(['Accept All', reading.questList.acceptAll, () => this.acceptAll(this.listNpc!.npc)]);
       out.push(['Hand In', reading.questList.handIn, () => this.handIn(this.listNpc!.npc)]);
     }
+    for (const message of reading.messages ?? []) for (const b of message.buttons) out.push([b.name, b, () => this.sold()]);
     if (reading.sell) {
-      out.push(['Select All', reading.sell.selectAll, () => (this.selected = Math.max(0, this.bag.used - KEPT_ITEMS))]);
-      out.push(['Sell', reading.sell.sell, () => {
-        this.events.push({ t: this.t, type: 'sold', items: this.selected });
-        this.bag.used -= this.selected;
-        this.selected = 0;
+      // Select All picks from the bag window's open tab (nothing with the bag shut), as many as the panel holds.
+      out.push(['Select All', reading.sell.selectAll, () => {
+        const sellable = this.bagWindow.open && this.bagWindow.section === 0 ? Math.max(0, this.bag.used - KEPT_ITEMS) : 0;
+        this.selected = Math.min(this.sellPerRound, sellable);
       }]);
+      out.push(['Sell', reading.sell.sell, () => (this.sellConfirm ? (this.confirming = true) : this.sold())]);
       out.push(['Close shop', reading.sell.close ?? null, () => this.close('sell')]);
     }
-    if (reading.arcadia) out.push(['Return to Arcadia', reading.arcadia, () => (this.arcadiaAt ??= this.t + ARCADIA_CAST_MS)]);
+    if (reading.inventory?.open) out.push(['Main tab', reading.inventory.mainTab, () => (this.bagWindow.section = 0)]);
+    if (reading.arcadia) {
+      out.push(['Return to Arcadia', reading.arcadia, () => {
+        const ago = this.t - this.lastCombatAt;
+        if (ago < OUT_OF_COMBAT_MS) this.events.push({ t: this.t, type: 'refused', what: 'arcadia', combatAgo: ago / 1000 });
+        else this.arcadiaAt ??= this.t + ARCADIA_CAST_MS;
+      }]);
+    }
     return out;
+  }
+
+  /** The picked items go, for gold; the bag takes pickups again. */
+  private sold(): void {
+    this.confirming = false;
+    if (!this.selected) return;
+    this.events.push({ t: this.t, type: 'sold', items: this.selected });
+    this.bag.used -= this.selected;
+    this.bag.refuse = false;
+    this.selected = 0;
   }
 
   private windowBoxes(): { x: number; y: number; width: number; height: number; name: string }[] {
     const boxes: { x: number; y: number; width: number; height: number; name: string }[] = [];
     if (this.open.has('waypoints')) boxes.push({ name: 'WaypointDialog', ...WAYPOINT_BOX });
     if (this.open.has('questList')) boxes.push({ name: 'NPCQuestListDialog', ...QUEST_BOX });
-    if (this.open.has('sell')) boxes.push({ name: 'NPCSellDialog', ...SELL_BOX }, { name: 'InventoryDialog', ...BAG_BOX });
+    if (this.open.has('sell')) boxes.push({ name: 'NPCSellDialog', ...SELL_BOX });
+    if (this.bagWindow.open) boxes.push({ name: 'InventoryDialog', ...BAG_BOX });
+    if (this.confirming) boxes.push({ name: 'MessageBox', ...MESSAGE_BOX });
     if (this.open.has('dialog')) boxes.push({ name: 'NPCDialog', ...DIALOG_BOX });
     if (this.player.dead) boxes.push({ name: 'DeathDialog', ...DEATH_BOX });
     return boxes;
@@ -741,7 +854,7 @@ export class FakeGame {
             close: button(SELL_BOX.x + SELL_BOX.width - 30, SELL_BOX.y + 6, 'X', true, 20, 20),
           }
         : undefined,
-      inventory: { open: this.open.has('sell'), section: 0, mainTab: button(BAG_BOX.x + 10, BAG_BOX.y + 10, 'Main', true, 60, 20) },
+      inventory: { open: this.bagWindow.open, section: this.bagWindow.section, mainTab: this.bagWindow.open ? button(BAG_BOX.x + 10, BAG_BOX.y + 10, 'Main', true, 60, 20) : null },
       npcDialog: this.open.has('dialog'),
       npcMenu,
       questList: this.open.has('questList') && this.listNpc && atList
@@ -752,7 +865,7 @@ export class FakeGame {
             quests: [...atList.offered.map((q) => q.name), ...atList.ready.map((q) => q.quest.name)],
           }
         : undefined,
-      messages: [],
+      messages: this.confirming ? [{ text: 'Sell the selected items?', buttons: [{ ...button(MESSAGE_BOX.x + 40, MESSAGE_BOX.y + 90, 'Yes'), name: 'YesButton' }] }] : [],
     };
   }
 
@@ -772,14 +885,20 @@ export class FakeGame {
         else if (task.type === 'TalkToNPC' && task.npc !== undefined) talks.push({ quest: q.quest.name, npc: task.npc });
       }
     }
-    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
+    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
     return {
       inGame: true,
       user: {
-        name: p.name, x: p.x, y: p.y, pickUpRadius: 0, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
+        name: p.name, x: p.x, y: p.y, pickUpRadius: p.pickUpRadius, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
         experience: p.experience, maxExperience: 1_000_000_000,
+        combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
       },
-      objects: [...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS)), ...this.npcs.filter((n) => n.map === p.map)].map(strip),
+      objects: [
+        ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS)),
+        ...this.npcs.filter((n) => n.map === p.map),
+        ...this.people.filter((o) => o.map === p.map),
+        ...this.items.filter((i) => i.map === p.map),
+      ].map(strip),
       map: { index: map.index, name: map.name, width: map.width, height: map.height },
       waypoints: {
         unlocked: this.waypointsKnown ? (this.data.waypoints ?? []).filter((w) => this.unlocked.has(w.name)).map((w) => ({ name: w.name, map: w.map })) : [],
@@ -814,6 +933,11 @@ export class FakeGame {
   monster(name: string): MemoryObject | undefined {
     return this.monsters.find((m) => m.name === name);
   }
+
+  /** Items still on the ground. */
+  get groundItems(): number {
+    return this.items.length;
+  }
 }
 
 /** The shopkeeper Grind and Quests sell to (Ludvik, in Arcadia). */
@@ -827,3 +951,4 @@ const SELL_BOX = { x: 760, y: 120, width: 400, height: 500 };
 const BAG_BOX = { x: 1170, y: 120, width: 300, height: 500 };
 const DIALOG_BOX = { x: 300, y: 600, width: 500, height: 150 };
 const DEATH_BOX = { x: 650, y: 300, width: 300, height: 160 };
+const MESSAGE_BOX = { x: 650, y: 500, width: 300, height: 130 };
