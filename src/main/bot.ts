@@ -87,6 +87,9 @@ const FIGHT_GIVE_UP_MS = 60_000;
 const STEER_ROUND_TILES = 8;
 /** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
 const MOUNT_SETTLE_MS = 1500;
+/** M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS). */
+const STILL_MS = 400;
+const STILL_WAIT_MS = 2000;
 const MOUNT_RETRY_MS = 30_000;
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
@@ -1217,12 +1220,33 @@ export class Bot {
     if (mounted === undefined || mounted === on || performance.now() < this.mountRetryAt) return;
     this.stopRunning();
     this.releaseHold();
-    this.key(win.VK.M);
     this.statusEvery(on ? 'Getting on the mount' : 'Getting off the mount');
-    for (const since = performance.now(); performance.now() - since < MOUNT_SETTLE_MS; ) {
-      if ((await memory.fresh(500))?.user?.mounted === on) return;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      // Pressed mid-step, M is ignored: let the character come to a stop first.
+      await this.waitUntilStill();
+      // A whole key press: M only works on the key coming back up.
+      win.keyDown(this.hwnd, win.VK.M);
+      win.keyUp(this.hwnd, win.VK.M);
+      for (const since = performance.now(); performance.now() - since < MOUNT_SETTLE_MS; ) {
+        if ((await memory.fresh(500))?.user?.mounted === on) return;
+      }
     }
     this.mountRetryAt = performance.now() + MOUNT_RETRY_MS;
+  }
+
+  /** Waits (up to STILL_WAIT_MS) until the game's memory shows the character on the same tile for STILL_MS. */
+  private async waitUntilStill(): Promise<void> {
+    const memory = this.options.memory;
+    let tile = memory.latest()?.user;
+    let since = performance.now();
+    for (const started = performance.now(); performance.now() - started < STILL_WAIT_MS; ) {
+      const user = (await memory.fresh(500))?.user;
+      if (!user) continue;
+      if (!tile || user.x !== tile.x || user.y !== tile.y) {
+        tile = user;
+        since = performance.now();
+      } else if (performance.now() - since >= STILL_MS) return;
+    }
   }
 
   /**
