@@ -217,6 +217,8 @@ export interface MapView {
   width: number;
   height: number;
   zoom: number;
+  /** How much the game scales its windows and buttons (1 at 1600x900, 1.5 at 2560x1440): every box the reader sends is already scaled. */
+  uiScale?: number;
   offsetX: number;
   offsetY: number;
   pixelX: number;

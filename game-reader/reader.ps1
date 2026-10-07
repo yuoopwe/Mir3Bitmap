@@ -104,11 +104,16 @@ function Find-Card($module, $domain, [int]$image) {
   return @{ image = $image; name = '?'; up = 0; right = 0; down = 0; left = 0; element = 0 }
 }
 
-# A control's box on the game's screen.
+# How much the game scales its windows and buttons (RenderingPipelineManager._displayScale): 1 at 1600x900, 1.5 at
+# 2560x1440. Controls are laid out unscaled; the map isn't scaled. Set each round from the game.
+$script:uiScale = 1.0
+
+# A control's box on the game's screen (its layout scaled by the game's UI scale).
 function Read-Box($control) {
   $at = Read-ScreenLocation $control
   $size = $control.ReadValueTypeField('_Size')
-  return @{ x = $at[0]; y = $at[1]; width = $size.ReadField[int]('width'); height = $size.ReadField[int]('height') }
+  $k = $script:uiScale
+  return @{ x = [int][math]::Round($at[0] * $k); y = [int][math]::Round($at[1] * $k); width = [int][math]::Round($size.ReadField[int]('width') * $k); height = [int][math]::Round($size.ReadField[int]('height') * $k) }
 }
 
 # A List<int> (or int array) of picture numbers.
@@ -633,7 +638,7 @@ function Read-View($scene, $module, $domain) {
   $int = { param($name) $map.GetStaticFieldByName($name).Read[int]($domain) }
   return @{
     width = $size.ReadField[int]('width'); height = $size.ReadField[int]('height')
-    zoom = $config.GetStaticFieldByName('_MapZoom').Read[single]($domain)
+    zoom = $config.GetStaticFieldByName('_MapZoom').Read[single]($domain); uiScale = $script:uiScale
     offsetX = (& $int 'OffSetX'); offsetY = (& $int 'OffSetY'); pixelX = (& $int 'PixelOffsetX'); pixelY = (& $int 'PixelOffsetY')
   }
 }
@@ -657,10 +662,12 @@ while ($true) {
     $script:wallsSent = $null
     $script:windowFields = $null
     $sceneField = $module.GetTypeByName('Client.Scenes.GameScene').GetStaticFieldByName('Game')
+    $uiScaleField = $module.GetTypeByName('Client.Rendering.RenderingPipelineManager').GetStaticFieldByName('_displayScale')
     # Reads go straight to the game's live memory; attach afresh now and then all the same.
     $attachedAt = [Diagnostics.Stopwatch]::StartNew()
     while (-not $game.HasExited -and $attachedAt.Elapsed.TotalSeconds -lt 30) {
       $scene = $sceneField.ReadObject($domain)
+      try { $k = $uiScaleField.Read[single]($domain); $script:uiScale = $(if ($k -gt 0) { [double]$k } else { 1.0 }) } catch { $script:uiScale = 1.0 }
       if ($scene.IsNull) {
         Write-State @{ inGame = $false; reason = 'Not in game' }
       } else {
