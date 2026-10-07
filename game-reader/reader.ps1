@@ -404,9 +404,53 @@ function Read-QuestTargets($scene) {
 # Staying alive and the bag: the Return to Arcadia button, the death window (while it's up) and how full
 # the bag is (slots used of those unlocked, weight against the BagWeight stat, 73).
 $BagWeightStat = 73
+# A visible button somewhere under `control` whose label reads `text` (for buttons the game doesn't keep a field for).
+function Find-Button($control, [string]$text, [int]$depth = 0) {
+  if ($control.IsNull -or $depth -gt 6 -or -not $control.ReadField[bool]('_IsVisible')) { return $null }
+  if ($control.Type.GetFieldByName('<Label>k__BackingField')) {
+    $label = $control.ReadObjectField('<Label>k__BackingField')
+    if (-not $label.IsNull -and $label.ReadStringField('_Text') -eq $text) { return Read-Button $control }
+  }
+  $kids = $control.ReadObjectField('<Controls>k__BackingField')
+  if ($kids.IsNull) { return $null }
+  $items = $kids.ReadObjectField('_items').AsArray()
+  for ($i = 0; $i -lt $kids.ReadField[int]('_size'); $i++) {
+    $found = Find-Button ($items.GetObjectValue($i)) $text ($depth + 1)
+    if ($found) { return $found }
+  }
+  return $null
+}
+# The game's message boxes showing (a "sell these?" check, say): their text and buttons.
+function Read-MessageBoxes($module, $domain) {
+  $out = @()
+  $list = $module.GetTypeByName('Client.Controls.DXControl').GetStaticFieldByName('MessageBoxList').ReadObject($domain)
+  foreach ($box in (Read-List $list)) {
+    if (-not $box.ReadField[bool]('_IsVisible')) { continue }
+    $buttons = @()
+    foreach ($f in $box.Type.Fields) {
+      if ($f.Type.Name -ne 'Client.Controls.DXButton') { continue }
+      $b = Read-Button ($box.ReadObjectField($f.Name))
+      if ($b -and $b.enabled) { $b.name = $f.Name; $buttons += ,$b }
+    }
+    $label = $box.ReadObjectField('Label')
+    $out += ,@{ text = $(if ($label.IsNull) { '' } else { $label.ReadStringField('_Text') }); buttons = $buttons }
+  }
+  return $out
+}
 function Read-Survival($scene) {
   $out = @{}
   try { $out.arcadia = Read-Button ($scene.ReadObjectField('MainPanel').ReadObjectField('SanctuaryButton')) } catch {}
+  try {
+    # A shop's sell panel while it's open (Select All picks what can be sold from the open bag tab).
+    $sell = $scene.ReadObjectField('NPCSellBox')
+    if (-not $sell.IsNull -and $sell.ReadField[bool]('_IsVisible')) {
+      $out.sell = @{ selectAll = (Find-Button $sell 'Select All'); sell = (Read-Button ($sell.ReadObjectField('SellButton'))); value = $sell.ReadObjectField('CurrencyLabel').ReadStringField('_Text') }
+      $goods = $scene.ReadObjectField('NPCGoodsBox')
+      try { if (-not $goods.IsNull) { $out.sell.close = Read-Button ($goods.ReadObjectField('CloseButton')) } } catch {}
+    }
+    $inventory = $scene.ReadObjectField('InventoryBox')
+    if (-not $inventory.IsNull) { $out.inventory = @{ open = $inventory.ReadField[bool]('_IsVisible'); section = $inventory.ReadField[int]('_activeSection'); mainTab = (Read-Button ($inventory.ReadObjectField('MainTabButton'))) } }
+  } catch {}
   try {
     $death = $scene.ReadObjectField('DeathOptionsBox')
     if (-not $death.IsNull -and $death.ReadField[bool]('_IsVisible')) { $out.death = @{ returnButton = Read-Button ($death.ReadObjectField('_returnButton')) } }
@@ -491,6 +535,7 @@ while ($true) {
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
+        if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
         Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs

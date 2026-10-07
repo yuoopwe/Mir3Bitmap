@@ -117,6 +117,8 @@ const ARCADIA_MAP = 563;
 /** How long to wait for Return to Arcadia (it may take a moment's channelling) and for coming back to life. */
 const ARCADIA_WAIT_MS = 20_000;
 const REVIVE_WAIT_MS = 30_000;
+/** Selling in Arcadia: the shopkeeper who buys (his "Select All" picks what can be sold from the open bag tab). */
+const SELL_NPC = { id: 145, name: 'Ludvik' };
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -2027,10 +2029,79 @@ export class Bot {
     throw new BotError(`${why}, but Return to Arcadia didn't take me there (in combat?).`);
   }
 
-  /** Bag full: back to Arcadia to sell. (Selling itself is still to come.) */
+  /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */
   private async emptyBag(): Promise<void> {
     await this.returnToArcadia('Bag full');
-    throw new BotError('Bag full: back in Arcadia. Selling there is still to be set up.');
+    await this.travelTo(`npc:${SELL_NPC.id}`);
+    const sold = await this.sellAtShop(SELL_NPC.name);
+    if (this.bagFull(this.options.memory.latest())) throw new BotError(`Sold ${sold} items, but the bag is still full (the rest are kept or can't be sold).`);
+    this.status(`Sold ${sold} items; back to it`);
+  }
+
+  /**
+   * At a shopkeeper: clicks them to open the shop, makes sure the bag shows its
+   * Main tab (so Select All never picks potions), presses Select All then Sell
+   * (and Yes on any "are you sure?"), and closes the shop. Returns how many bag
+   * slots it emptied.
+   */
+  private async sellAtShop(npcName: string): Promise<number> {
+    const memory = this.options.memory;
+    const sellPanel = () => memory.latest()?.survival?.sell;
+    const waitFor = async (ok: () => boolean, ms: number) => {
+      for (const since = performance.now(); performance.now() - since < ms; ) {
+        if (ok()) return true;
+        await this.sleep(100);
+      }
+      return ok();
+    };
+    this.stopRunning();
+    for (let attempt = 0; attempt < 3 && !sellPanel(); attempt++) {
+      const reading = memory.latest();
+      const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
+      if (!npc || !reading?.user) throw new BotError(`Can't see ${npcName} to sell to.`);
+      const tile = tileToScreen(reading.user, npc.x, npc.y);
+      const point = (await this.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
+      this.status(`Opening ${npcName}'s shop`);
+      await this.click(point, this.delay('menu'));
+      await waitFor(() => !!sellPanel(), 3000);
+    }
+    if (!sellPanel()) throw new BotError(`${npcName}'s shop didn't open.`);
+    const before = memory.latest()?.survival?.bag?.used ?? 0;
+
+    // The Main tab only: Select All takes from the open tab, and potions live in Consumables.
+    const inventory = memory.latest()?.survival?.inventory;
+    if (inventory && inventory.section !== 0 && inventory.mainTab) {
+      await this.click(boxCentre(inventory.mainTab), this.delay('menu'));
+      await waitFor(() => memory.latest()?.survival?.inventory?.section === 0, 2000);
+    }
+    if (memory.latest()?.survival?.inventory?.section !== 0) throw new BotError("Couldn't switch the bag to its Main tab to sell from.");
+
+    const selectAll = sellPanel()?.selectAll;
+    if (!selectAll?.enabled) throw new BotError("The shop's Select All button isn't there.");
+    await this.click(boxCentre(selectAll), this.delay('menu'));
+    if (!(await waitFor(() => !!sellPanel()?.sell?.enabled, 2000))) {
+      await this.closeShop();
+      return 0;
+    }
+    this.status(`Selling (${sellPanel()?.value ?? '?'} gold)`);
+    await this.click(boxCentre(sellPanel()!.sell!), this.delay('menu'));
+    // An "are you sure?": press its Yes / OK.
+    await this.sleep(500);
+    const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+    const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
+    if (yes) await this.click(boxCentre(yes), this.delay('menu'));
+    await waitFor(() => (memory.latest()?.survival?.bag?.used ?? before) < before, 3000);
+    const after = memory.latest()?.survival?.bag?.used ?? before;
+    await this.closeShop();
+    return Math.max(0, before - after);
+  }
+
+  /** Closes the shop: its close button, else Escape. */
+  private async closeShop(): Promise<void> {
+    const close = this.options.memory.latest()?.survival?.sell?.close;
+    if (close?.enabled && close.width > 0) await this.click(boxCentre(close), this.delay('menu'));
+    else this.key(win.VK.ESCAPE);
+    await this.sleep(300);
   }
 
   /**

@@ -138,6 +138,12 @@ export interface MemoryState {
     arcadia?: MemoryButton | null;
     death?: { returnButton: MemoryButton | null };
     bag?: { used: number; slots: number; weight: number; maxWeight: number };
+    /** A shop's sell panel, while open: Select All (from the open bag tab), Sell, the total, and closing the shop. */
+    sell?: { selectAll: MemoryButton | null; sell: MemoryButton | null; value: string | null; close?: MemoryButton | null };
+    /** The bag window: whether it's showing, which tab (0 = Main) and the Main tab's button. */
+    inventory?: { open: boolean; section: number; mainTab: MemoryButton | null };
+    /** The game's message boxes showing, with their buttons (by field name, e.g. YesButton). */
+    messages?: { text: string; buttons: (MemoryButton & { name: string })[] }[];
   } | null;
 }
 
