@@ -69,6 +69,20 @@ test('the fight timer times a kill from the first blow to its death, with the he
   assert.deepEqual(timer.update(reading([monster(1, -450, true)]), 5500, null).kills, []);
 });
 
+test('a kill is timed from the first blow next to it, not from a click further off (the walk up), or from damage seen land (from range)', () => {
+  const timer = new FightTimer();
+  const at = (x: number, hp: number, dead = false): MemoryObject => ({ ...monster(1, hp, dead), x });
+  // Clicked four tiles off at 0 s, walked up, first blow next to it at 2 s, dead at 5 s.
+  timer.attacked(1, reading([at(4, 0)]), 0);
+  timer.update(reading([at(3, 0)]), 1000, 1);
+  timer.attacked(1, reading([at(1, 0)]), 2000);
+  assert.deepEqual(timer.update(reading([at(1, -400, true)]), 5000, 1).kills.map((k) => k.seconds), [3]);
+  // From range: clicked four tiles off, damage seen at 1 s, dead at 4 s.
+  timer.attacked(2, reading([{ ...monster(2, 0), x: 4 }]), 0);
+  timer.update(reading([{ ...monster(2, -100), x: 4 }]), 1000, 2);
+  assert.deepEqual(timer.update(reading([{ ...monster(2, -400, true), x: 4 }]), 4000, 2).kills.map((k) => k.seconds), [3]);
+});
+
 test("kills someone else helped with, too quick or too slow to time, bosses and ones gone from sight don't count", () => {
   const timer = new FightTimer((name) => name === 'Oma Chief');
   // Hurt before our first blow.

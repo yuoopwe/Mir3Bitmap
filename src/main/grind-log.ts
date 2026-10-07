@@ -104,25 +104,29 @@ export function damageDealt(kills: readonly Kill[]): { dps: number; kills: numbe
 export type FightReading = Pick<MemoryState, 'user' | 'objects'>;
 
 /**
- * Times the hunt loop's fights from the game's memory. A monster's fight starts
- * with the first blow at it (unless someone else had hurt it already: then it
- * doesn't count) and ends when it's dead; the character's health lost meanwhile
- * goes to the monster being fought (rises, from regeneration or potions, only
- * move the mark). Kills too quick or too slow to time, and bosses, don't count.
+ * Times the hunt loop's fights from the game's memory. A monster's fight is
+ * timed from the first blow struck next to it (a click from further off has the
+ * character walk up first), or from the first damage seen land on it (blows
+ * from range), until it's dead; if someone else had hurt it before our first
+ * click, it doesn't count. The character's health lost meanwhile goes to the
+ * monster being fought (rises, from regeneration or potions, only move the
+ * mark). Kills too quick or too slow to time, and bosses, don't count.
  */
 export class FightTimer {
-  /** Monsters attacked, by id: since when, whether someone else hurt it first, and the health lost fighting it. */
-  private readonly fights = new Map<number, { since: number; helped: boolean; hpLost: number }>();
+  /** Monsters attacked, by id: when first clicked, since when timed, whether someone else hurt it first, and the health lost fighting it. */
+  private readonly fights = new Map<number, { clicked: number; since: number | null; helped: boolean; hpLost: number }>();
   private lastHp: number | null = null;
   private dead = false;
 
   constructor(private readonly isBoss: (name: string) => boolean = () => false) {}
 
-  /** A blow struck at monster `id` (the first starts its fight). */
+  /** A blow struck at monster `id` (the first next to it starts the clock). */
   attacked(id: number, reading: FightReading, now: number): void {
-    if (this.fights.has(id)) return;
     const monster = reading.objects?.find((o) => o.id === id);
-    if (monster) this.fights.set(id, { since: now, helped: (monster.hp ?? 0) < 0, hpLost: 0 });
+    if (!monster) return;
+    const fight = this.fights.get(id) ?? this.fights.set(id, { clicked: now, since: null, helped: (monster.hp ?? 0) < 0, hpLost: 0 }).get(id)!;
+    const user = reading.user;
+    if (fight.since === null && user && Math.max(Math.abs(monster.x - user.x), Math.abs(monster.y - user.y)) <= 1) fight.since = now;
   }
 
   /** Takes in a reading (`engaged`: the monster being fought); returns the kills it ended, and a death. */
@@ -143,9 +147,10 @@ export class FightTimer {
     const kills: Kill[] = [];
     for (const [id, fight] of this.fights) {
       const monster = reading.objects?.find((o) => o.id === id);
-      const seconds = (now - fight.since) / 1000;
+      if (fight.since === null && (monster?.hp ?? 0) < 0) fight.since = now;
+      const seconds = fight.since === null ? 0 : (now - fight.since) / 1000;
       // Out of sight, or too long to have been one fight: forgotten.
-      if (!monster || seconds > MAX_KILL_SECONDS) {
+      if (!monster || (now - fight.clicked) / 1000 > MAX_KILL_SECONDS) {
         this.fights.delete(id);
         continue;
       }
