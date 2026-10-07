@@ -17,8 +17,8 @@ const STONE_REACH_TILES = 4;
 /** After arriving on a map, wait this long before planning (the reading of walls and position catches up). */
 const ARRIVAL_SETTLE_MS = 1500;
 
-/** With no way through, keep trying this long before giving up. */
-const NO_PATH_RETRY_MS = 5000;
+/** With no way through, keep trying this long before giving up (the reader reads a new map's walls again over its first 8 s). */
+const NO_PATH_RETRY_MS = 10_000;
 
 const TRAVEL_BLOCKED_LIMIT = 8;
 

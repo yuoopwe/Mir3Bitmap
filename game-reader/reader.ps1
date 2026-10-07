@@ -270,8 +270,10 @@ function Read-RuleList($list) {
   return $out
 }
 
-# The map: its size, its walls (sent when the map changes, and again on each attach in case
-# they were read while it was still loading) and its explored blocks (sent when they change).
+# The map: its size, its walls (sent when the map changes, and again on each attach) and its explored blocks (sent when
+# they change). Walls read just after arriving can be the map still loading (all walls): they're read again a few times
+# over the first seconds on a map, and sent again if they've changed.
+$WallsRecheckMs = @(1500, 4000, 8000)
 function Read-Map($scene) {
   $control = $scene.ReadObjectField('MapControl')
   $info = $control.ReadObjectField('_MapInfo')
@@ -283,7 +285,14 @@ function Read-Map($scene) {
   if ($script:wallsSent -ne $key) {
     $map.walls = [Convert]::ToBase64String([MapReading]::Walls($control))
     $script:wallsSent = $key
+    $script:wallsLast = $map.walls
+    $script:wallsAt = [Diagnostics.Stopwatch]::StartNew()
+    $script:wallsChecks = 0
     $script:exploredSent = $null
+  } elseif ($script:wallsAt -and $script:wallsChecks -lt $WallsRecheckMs.Count -and $script:wallsAt.ElapsedMilliseconds -ge $WallsRecheckMs[$script:wallsChecks]) {
+    $script:wallsChecks++
+    $walls = [Convert]::ToBase64String([MapReading]::Walls($control))
+    if ($walls -ne $script:wallsLast) { $map.walls = $walls; $script:wallsLast = $walls }
   }
   # Exploration is kept per map (and per instance, for dungeons visited this session).
   $states = $scene.ReadObjectField('<MapExplorationStore>k__BackingField').ReadObjectField('_states')
