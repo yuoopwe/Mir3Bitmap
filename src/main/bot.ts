@@ -937,7 +937,7 @@ export class Bot {
     const map = this.options.memory.map();
     const now = this.clock.now();
     if (map && (!this.huntDist || this.huntDist.map !== map.index || this.huntDist.x !== user.x || this.huntDist.y !== user.y || now - this.huntDist.at > HUNT_DIST_MS)) {
-      this.huntDist = { map: map.index, x: user.x, y: user.y, at: now, dist: walkDistances(map, { x: user.x, y: user.y }, this.exitTiles(map)) };
+      this.huntDist = { map: map.index, x: user.x, y: user.y, at: now, dist: walkDistances(map, { x: user.x, y: user.y }, this.exitsToAvoid(map, { x: user.x, y: user.y })) };
     }
     const dist = map && this.huntDist?.map === map.index ? this.huntDist.dist : null;
     const skip = new Set((this.settings.skipMonsters ?? []).map((n) => n.toLowerCase()));
@@ -1112,7 +1112,7 @@ export class Bot {
 
     let goal = this.seek && this.seek.map === map.index ? this.seek : null;
     // A monster the game knows of comes first: one that can be walked to, and isn't being left alone.
-    const dist = walkDistances(map, here, this.exitTiles(map));
+    const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
     const wanted = this.questWanted(reading);
     if (wanted?.size === 0) {
       // Quest monsters only, and none wanted on this map: say where they are.
@@ -1159,7 +1159,7 @@ export class Bot {
     const onPath: number = goal.path ? goal.path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
     goal.path = goal.path && onPath >= 0 ? goal.path.slice(onPath) : null;
     if (!goal.path || goal.path.length < 2) {
-      const blocked = new Set([...this.exitTiles(map), ...this.obstaclesNear(reading, here, STEER_ROUND_TILES).map((o) => o.y * map.width + o.x)]);
+      const blocked = new Set([...this.exitsToAvoid(map, here), ...this.obstaclesNear(reading, here, STEER_ROUND_TILES).map((o) => o.y * map.width + o.x)]);
       const dist = walkDistances(map, here, blocked);
       const near = nearestApproach(map, dist, [goal.target]);
       if (!near || near.steps === 0) {
@@ -1185,7 +1185,7 @@ export class Bot {
     const spots = data.spawns?.[map.index];
     if (!spots?.length) return null;
     const names = (set: number) => (data.spawnSets?.[set] ?? []).map((i) => data.monsters?.[i] ?? '?');
-    const dist = walkDistances(map, here, this.exitTiles(map));
+    const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
     let best: { spot: (typeof spots)[number]; score: number; steps: number } | null = null;
     for (const spot of spots) {
       const [x, y, n, set] = spot;
@@ -1508,7 +1508,7 @@ export class Bot {
         continue;
       }
       // Routes keep off monsters close by.
-      const exits = [...this.exitTiles(map)].map((i) => ({ x: i % map.width, y: Math.floor(i / map.width) }));
+      const exits = [...this.exitsToAvoid(map, user)].map((i) => ({ x: i % map.width, y: Math.floor(i / map.width) }));
       const plan = planner.plan(map, { x: user.x, y: user.y }, now, [...exits, ...this.obstaclesNear(reading, user, STEER_ROUND_TILES).map((m) => ({ x: m.x, y: m.y }))]);
       if (plan === null) {
         this.stopRunning();
@@ -1621,6 +1621,20 @@ export class Bot {
       this.exitTilesCache = { key, tiles };
     }
     return this.exitTilesCache.tiles;
+  }
+
+  /**
+   * exitTiles, less any exit the player is standing on (arriving can put you on one):
+   * keeping off its tiles would wall them in. Exits merely next to them still count.
+   */
+  private exitsToAvoid(map: MapGrid, here: Point): Set<number> {
+    const all = this.exitTiles(map);
+    const near = (x: number, y: number) => x === here.x && y === here.y;
+    const mine = loadTravelData().links.filter((l) => l.from === map.index && !l.waypoint && l.exit.some(([x, y]) => near(x, y)));
+    if (!mine.length) return all;
+    const out = new Set(all);
+    for (const l of mine) for (const [x, y] of l.exit) out.delete(y * map.width + x);
+    return out;
   }
 
   /** Live monsters (not pets) within `range` tiles, nearest first. */
@@ -1739,7 +1753,7 @@ export class Bot {
     const onPath: number = loot.walking.path ? loot.walking.path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
     loot.walking.path = loot.walking.path && onPath >= 0 ? loot.walking.path.slice(onPath) : null;
     if (!loot.walking.path || loot.walking.path.length < 2) {
-      const dist = walkDistances(map, here, this.exitTiles(map));
+      const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
       const near = nearestApproach(map, dist, [walk.at]);
       if (!near || near.steps === 0) {
         // Walled off, or as close as it gets.
@@ -1873,7 +1887,7 @@ export class Bot {
           this.stopRunning();
           return `Arrived at ${mapName(data, map.index)}`;
         }
-        const dist = walkDistances(map, here, this.exitTiles(map));
+        const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
         const steps = this.exitSteps(data, map, dist);
         const npcSteps = new Map<number, number>();
         if (place.npc?.at && place.map === map.index) {
@@ -1962,11 +1976,16 @@ export class Bot {
       path = path && onPath >= 0 ? path.slice(onPath) : null;
       if (path?.slice(1, 5).some((t) => monsterTiles.has(t.y * map.width + t.x))) path = null;
       if (!path || path.length < 2) {
-        let dist = walkDistances(map, here, new Set([...avoid.keys(), ...monsterTiles, ...this.exitTiles(map)]));
+        let dist = walkDistances(map, here, new Set([...avoid.keys(), ...monsterTiles, ...this.exitsToAvoid(map, here)]));
         let near = nearestApproach(map, dist, targets);
         if (!near && avoid.size) {
           avoid.clear();
-          dist = walkDistances(map, here, this.exitTiles(map));
+          dist = walkDistances(map, here, this.exitsToAvoid(map, here));
+          near = nearestApproach(map, dist, targets);
+        }
+        if (!near) {
+          // Last try: only the walls (people standing about, or exits, may have closed every way).
+          dist = walkDistances(map, here);
           near = nearestApproach(map, dist, targets);
         }
         if (!near) throw new BotError(`Can't find a way to walk to ${route.links.length ? `the way to ${mapName(data, route.links[0].to)}` : place.npc!.name} from here.`);
