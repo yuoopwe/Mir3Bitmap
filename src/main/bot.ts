@@ -543,8 +543,12 @@ export class Bot {
   private async click(point: Point, holdMs: number): Promise<void> {
     win.mouseMove(this.hwnd, point.x, point.y);
     win.leftDown(this.hwnd, point.x, point.y);
-    await this.sleep(holdMs);
-    win.leftUp(this.hwnd, point.x, point.y);
+    try {
+      await this.sleep(holdMs);
+    } finally {
+      // Let go even when Stop comes mid-click (the sleep throws): the game would keep the button held.
+      win.leftUp(this.hwnd, point.x, point.y);
+    }
   }
 
   // ---- Hunting ----
@@ -1784,8 +1788,11 @@ export class Bot {
     win.mouseMove(this.hwnd, point.x, point.y);
     await this.sleep(this.menuPause(200));
     win.leftDown(this.hwnd, point.x, point.y);
-    await this.sleep(this.menuPause(200));
-    win.leftUp(this.hwnd, point.x, point.y);
+    try {
+      await this.sleep(this.menuPause(200));
+    } finally {
+      win.leftUp(this.hwnd, point.x, point.y);
+    }
     await this.sleep(this.menuPause(200 + pauseAfter));
   }
 
