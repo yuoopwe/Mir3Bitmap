@@ -1,4 +1,3 @@
-import { performance } from 'node:perf_hooks';
 import type { Delays, KeyId, Point, Settings, Stats, Status } from '../shared/types';
 import { findBigMap, readBigMap, type BigMapReading } from './bigmap';
 import { ExplorePlanner, PlayerTracker } from './explorer';
@@ -32,7 +31,7 @@ import { ExperienceMeter, type GrindLog } from './grind-log';
 import { RouteCosts, nextQuestAction, questKey } from './quest-planner';
 import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
-import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
+import { tileToScreen, type MemorySource, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
 import { chooseDeck, deckInputs } from './triad-deck';
 import {
   createFrame,
@@ -48,7 +47,8 @@ import {
   viewSignature,
   type Frame,
 } from './vision';
-import * as win from './win32';
+import { realClock, type Clock } from './clock';
+import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 
 const SELL_CHECK_INTERVAL_SECONDS = 10;
 /** Triple Triad: how often to look while waiting, the pause between clicking a card and its square, and time for a move to play out. */
@@ -97,8 +97,11 @@ const FIGHT_GIVE_UP_MS = 60_000;
 const STEER_ROUND_TILES = 8;
 /** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
 const MOUNT_SETTLE_MS = 1500;
-/** M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS). */
-const STILL_MS = 400;
+/**
+ * M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS).
+ * Longer than a stride (about 650 ms), as the tile only changes once per stride while running.
+ */
+const STILL_MS = 700;
 const STILL_WAIT_MS = 2000;
 /**
  * Running: the cursor is held this many tiles from the character, the way the path goes (tested: 2 tiles
@@ -269,11 +272,11 @@ interface KeyAction {
 
 // Put the spammable spell on F1 and buffs on F6+.
 const KEY_ACTIONS: KeyAction[] = [
-  { id: 'F1', vk: win.VK.F1, always: true },
-  ...(['F2', 'F3', 'F4', 'F5'] as const).map((id, i): KeyAction => ({ id, vk: win.VK.F1 + 1 + i, delay: 'quickKey', delayWhen: 'after' })),
-  ...(['F6', 'F7', 'F8', 'F9', 'F10', 'F11'] as const).map((id, i): KeyAction => ({ id, vk: win.VK.F1 + 5 + i, delay: 'buffKey', delayWhen: 'before' })),
-  { id: 'F12', vk: win.VK.F1 + 11, delay: 'buffKey', delayWhen: 'after' },
-  { id: 'N1', vk: win.VK.N1, delay: 'itemKey', delayWhen: 'before' },
+  { id: 'F1', vk: VK.F1, always: true },
+  ...(['F2', 'F3', 'F4', 'F5'] as const).map((id, i): KeyAction => ({ id, vk: VK.F1 + 1 + i, delay: 'quickKey', delayWhen: 'after' })),
+  ...(['F6', 'F7', 'F8', 'F9', 'F10', 'F11'] as const).map((id, i): KeyAction => ({ id, vk: VK.F1 + 5 + i, delay: 'buffKey', delayWhen: 'before' })),
+  { id: 'F12', vk: VK.F1 + 11, delay: 'buffKey', delayWhen: 'after' },
+  { id: 'N1', vk: VK.N1, delay: 'itemKey', delayWhen: 'before' },
 ];
 
 /** Virtual-key code for a bindable key name ('1'-'9', 'A'-'Z', 'F1'-'F12', 'Tab', 'Space', '`'), or null for none. */
@@ -283,7 +286,7 @@ function keyCode(name: string): number | null {
   if (name === '`') return 0xc0;
   if (/^[1-9A-Z]$/.test(name)) return name.charCodeAt(0);
   const f = /^F([1-9]|1[0-2])$/.exec(name);
-  return f ? win.VK.F1 + Number(f[1]) - 1 : null;
+  return f ? VK.F1 + Number(f[1]) - 1 : null;
 }
 
 /** Where to point the mouse to run in each direction, keyed by "signX,signY". */
@@ -317,8 +320,8 @@ class Stopped extends Error {}
 /** A problem the user can fix; shown as the status message. */
 class BotError extends Error {}
 
-function wholeSecondsSince(time: number): number {
-  return Math.floor((performance.now() - time) / 1000);
+function wholeSecondsSince(time: number, now: number): number {
+  return Math.floor((now - time) / 1000);
 }
 
 export interface BotOptions {
@@ -328,12 +331,16 @@ export interface BotOptions {
   triad: TriadMemory;
   /** Renders part of a frame as a PNG data URL (for showing learned names). */
   imageOf: (frame: Frame, box: Rect) => string;
-  /** Reads the game's memory (exact monsters and positions) when installed. */
-  memory: GameMemory;
+  /** Reads the game's memory (exact monsters and positions) when installed: GameMemory, or a stand-in in the tests. */
+  memory: MemorySource;
   /** Monster names seen so far, for the window's kill/skip list. */
   monsters?: (names: string[]) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
+  /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */
+  input?: GameInput;
+  /** The time: real time unless a test gives a stand-in. */
+  clock?: Clock;
 }
 
 /** Something to attack: where to click, and a key to recognise it by from one look to the next. */
@@ -393,7 +400,7 @@ function mouseObjectName(title: string): string | null {
 }
 
 export class Bot {
-  private hwnd: win.Handle = null;
+  private hwnd: Handle = null;
   private readonly frame = createFrame(GAME_WIDTH, GAME_HEIGHT);
   private mode: Status['mode'] = 'idle';
   private active = false;
@@ -468,10 +475,15 @@ export class Bot {
   /** The rule flags of the last Triple Triad match read from memory: Best deck picks cards for them. */
   private triadRules = 0;
 
+  private readonly input: GameInput;
+  private readonly clock: Clock;
+
   constructor(
     private settings: Settings,
     private readonly options: BotOptions,
   ) {
+    this.input = options.input ?? windowsInput();
+    this.clock = options.clock ?? realClock;
   }
 
   updateSettings(settings: Settings): void {
@@ -485,15 +497,15 @@ export class Bot {
   /** Takes the all-time totals the window saved; returns the stats to show. */
   loadStats(saved: unknown): Stats {
     this.stats.restore(saved);
-    return this.stats.snapshot(performance.now());
+    return this.stats.snapshot(this.clock.now());
   }
 
   /** Clears this session's counts (all time keeps them); returns the stats to show. */
   resetStats(): Stats {
-    this.stats.reset(performance.now());
+    this.stats.reset(this.clock.now());
     // The status line's kills too, so it agrees with the panel's "this session".
     this.kills = 0;
-    return this.stats.snapshot(performance.now());
+    return this.stats.snapshot(this.clock.now());
   }
 
   startAttack(): void {
@@ -543,13 +555,13 @@ export class Bot {
     if (this.mode !== 'idle') return;
     this.mode = mode;
     this.active = true;
-    this.stats.start(performance.now());
+    this.stats.start(this.clock.now());
     let message = 'Stopped';
     try {
-      this.hwnd = win.findWindow(this.settings.windowTitle);
+      this.hwnd = this.input.findWindow(this.settings.windowTitle);
       if (!this.hwnd) throw new BotError(`No window titled "${this.settings.windowTitle}..." found`);
-      if (win.isMinimized(this.hwnd)) throw new BotError('The game is minimized; restore it first.');
-      const size = win.clientSize(this.hwnd);
+      if (this.input.isMinimized(this.hwnd)) throw new BotError('The game is minimized; restore it first.');
+      const size = this.input.clientSize(this.hwnd);
       if (size.width !== GAME_WIDTH || size.height !== GAME_HEIGHT) {
         throw new BotError(`The game is ${size.width}x${size.height}; set it to ${GAME_WIDTH}x${GAME_HEIGHT}.`);
       }
@@ -567,13 +579,13 @@ export class Bot {
       this.mode = 'idle';
       this.active = false;
       this.sightings.reset();
-      this.stats.stop(performance.now());
+      this.stats.stop(this.clock.now());
       this.status(message);
     }
   }
 
   private status(message: string): void {
-    this.lastStatusAt = performance.now();
+    this.lastStatusAt = this.clock.now();
     this.options.report({
       mode: this.mode,
       message,
@@ -583,12 +595,12 @@ export class Bot {
       mp: this.mp,
       kills: this.kills,
       explored: this.explored,
-      stats: this.stats.snapshot(performance.now()),
+      stats: this.stats.snapshot(this.clock.now()),
     });
   }
 
   private statusEvery(message: string): void {
-    if (performance.now() - this.lastStatusAt > STATUS_INTERVAL_MS) this.status(message);
+    if (this.clock.now() - this.lastStatusAt > STATUS_INTERVAL_MS) this.status(message);
   }
 
   private checkpoint(): void {
@@ -599,7 +611,7 @@ export class Bot {
   private async sleep(ms: number): Promise<void> {
     const fuzz = Math.min(Math.max(this.settings.fuzzPercent, 0), 100) / 100;
     const actual = Math.max(0, ms * (1 + (Math.random() * 2 - 1) * fuzz));
-    await new Promise((resolve) => setTimeout(resolve, actual));
+    await this.clock.wait(actual);
     this.checkpoint();
   }
 
@@ -621,27 +633,27 @@ export class Bot {
 
   /** With "pause while my mouse is over the game" on, waits (hands off the game) until the mouse leaves the window. */
   private async pauseWhileMouseOver(): Promise<void> {
-    if (!this.settings.pauseOnMouse || !win.cursorOverWindow(this.hwnd)) return;
+    if (!this.settings.pauseOnMouse || !this.input.cursorOverWindow(this.hwnd)) return;
     // Let go of everything so the player has full control.
     this.stopRunning();
     this.releaseHold();
     this.status('Paused: your mouse is over the game');
-    const since = performance.now();
+    const since = this.clock.now();
     try {
-      while (this.settings.pauseOnMouse && win.cursorOverWindow(this.hwnd)) {
-        await new Promise((resolve) => setTimeout(resolve, PAUSE_POLL_MS));
+      while (this.settings.pauseOnMouse && this.input.cursorOverWindow(this.hwnd)) {
+        await this.clock.wait(PAUSE_POLL_MS);
         this.checkpoint();
       }
     } finally {
-      this.pausedMs += performance.now() - since;
+      this.pausedMs += this.clock.now() - since;
     }
     this.status('Resumed');
   }
 
   private capture(): void {
-    const start = performance.now();
+    const start = this.clock.now();
     try {
-      win.captureClient(this.hwnd, this.settings.capture, GAME_WIDTH, GAME_HEIGHT, this.frame.bytes);
+      this.input.captureClient(this.hwnd, this.settings.capture, GAME_WIDTH, GAME_HEIGHT, this.frame.bytes);
       this.captureFailures = 0;
     } catch (error) {
       // The capture fails now and then; carry on with the last frame unless it keeps failing.
@@ -649,21 +661,21 @@ export class Bot {
         throw new BotError(`Can't capture the game window (${error instanceof Error ? error.message : String(error)}); is it minimized?`);
       }
     }
-    this.captureMs = performance.now() - start;
+    this.captureMs = this.clock.now() - start;
   }
 
   private key(vk: number): void {
-    win.keyDown(this.hwnd, vk);
+    this.input.keyDown(this.hwnd, vk);
   }
 
   private async click(point: Point, holdMs: number): Promise<void> {
-    win.mouseMove(this.hwnd, point.x, point.y);
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     try {
       await this.sleep(holdMs);
     } finally {
       // Let go even when Stop comes mid-click (the sleep throws): the game would keep the button held.
-      win.leftUp(this.hwnd, point.x, point.y);
+      this.input.leftUp(this.hwnd, point.x, point.y);
     }
   }
 
@@ -687,7 +699,7 @@ export class Bot {
         this.forceQuestOnly = false;
       }
     }
-    let lastSellCheck = performance.now();
+    let lastSellCheck = this.clock.now();
     let current: { key: string; since: number } | null = null;
     let misses = 0;
     const skipped = new Map<string, number>();
@@ -718,14 +730,14 @@ export class Bot {
       }
       this.capture();
 
-      const start = performance.now();
+      const start = this.clock.now();
       const targetHp = readBar(this.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
       // The target frame only hides names while it's showing.
       const labels = findLabels(this.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
       this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
       this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
-      this.scanMs = performance.now() - start;
-      const now = performance.now();
+      this.scanMs = this.clock.now() - start;
+      const now = this.clock.now();
       const sightings = this.sightings.update(labels, now);
       this.drinkPotions();
 
@@ -750,7 +762,7 @@ export class Bot {
           this.stats.count('items');
           this.releaseHold();
           await this.clickFloor(KILL_FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
-          nextFloorAt = performance.now() + FLOOR_CLICK_EVERY_MS;
+          nextFloorAt = this.clock.now() + FLOOR_CLICK_EVERY_MS;
         }
       }
       // Time to stop: once no fight is going on.
@@ -781,7 +793,7 @@ export class Bot {
           this.releaseHold();
           this.stopRunning();
           await this.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
-          nextItemClickAt = performance.now() + ITEM_CLICK_EVERY_MS;
+          nextItemClickAt = this.clock.now() + ITEM_CLICK_EVERY_MS;
           this.statusEvery(`Picking up ${inReachSince.size} item${inReachSince.size === 1 ? '' : 's'}`);
         }
         // Between monsters (or with none about), walk towards the nearest item out of reach.
@@ -864,7 +876,11 @@ export class Bot {
         this.releaseHold();
         await this.pressKeys(false);
         // With the game's memory: head for monsters it knows of, then where they spawn; else the minimap, or wander.
-        if ((options.seek ?? this.settings.hunt.roam) && !(memory && (await this.seekFromMemory(memory, skipped)))) await this.seekOrRoam();
+        // (Seeking from memory moves and reports for itself.)
+        const seek = options.seek ?? this.settings.hunt.roam;
+        if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
+          // Heading somewhere.
+        } else if (seek) await this.seekOrRoam();
         else {
           await this.sleep(150);
           this.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.options.memory.problem}`})`);
@@ -872,14 +888,14 @@ export class Bot {
       }
 
       // Without the game's memory to say where items are, click the ground at the feet now and then.
-      if (this.settings.hunt.loot && !memory && performance.now() >= nextFloorAt) {
+      if (this.settings.hunt.loot && !memory && this.clock.now() >= nextFloorAt) {
         this.releaseHold();
         await this.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
-        nextFloorAt = performance.now() + FLOOR_CLICK_EVERY_MS;
+        nextFloorAt = this.clock.now() + FLOOR_CLICK_EVERY_MS;
       }
 
-      if (this.settings.sellItems && wholeSecondsSince(lastSellCheck) > SELL_CHECK_INTERVAL_SECONDS) {
-        lastSellCheck = performance.now();
+      if (this.settings.sellItems && wholeSecondsSince(lastSellCheck, this.clock.now()) > SELL_CHECK_INTERVAL_SECONDS) {
+        lastSellCheck = this.clock.now();
         this.releaseHold();
         await this.sellItems();
         this.status('Hunting');
@@ -904,7 +920,7 @@ export class Bot {
     const user = memory.user!;
     // Walking distances from here (worked out again when the player moves, or every so often).
     const map = this.options.memory.map();
-    const now = performance.now();
+    const now = this.clock.now();
     if (map && (!this.huntDist || this.huntDist.map !== map.index || this.huntDist.x !== user.x || this.huntDist.y !== user.y || now - this.huntDist.at > HUNT_DIST_MS)) {
       this.huntDist = { map: map.index, x: user.x, y: user.y, at: now, dist: walkDistances(map, { x: user.x, y: user.y }, this.exitTiles(map)) };
     }
@@ -942,10 +958,10 @@ export class Bot {
     const remembered = this.aim?.key === target.key ? [this.aim.offset] : [];
     for (const [dx, dy] of [...remembered, ...AIM_SPOTS]) {
       const point = { x: target.tile!.x + dx, y: target.tile!.y + dy };
-      win.mouseMove(this.hwnd, point.x, point.y);
-      await new Promise((resolve) => setTimeout(resolve, HOVER_SETTLE_MS));
+      this.input.mouseMove(this.hwnd, point.x, point.y);
+      await this.clock.wait(HOVER_SETTLE_MS);
       this.checkpoint();
-      if (mouseObjectName(win.windowTitle(this.hwnd)) === target.name) {
+      if (mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
         this.aim = { key: target.key, offset: [dx, dy] };
         return point;
       }
@@ -975,26 +991,26 @@ export class Bot {
   /** Holds the left button down on a target (archers), following it as it moves; a new target gets a fresh press. */
   private hold(point: Point, id: string): void {
     if (this.holding && this.holding.id === id) {
-      win.mouseMove(this.hwnd, point.x, point.y, win.MK_LBUTTON);
+      this.input.mouseMove(this.hwnd, point.x, point.y, MK_LBUTTON);
       this.holding.point = point;
       return;
     }
     this.releaseHold();
-    win.mouseMove(this.hwnd, point.x, point.y);
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     this.holding = { id, point };
   }
 
   /** Lets go of a held target (before anything else uses the mouse). */
   private releaseHold(): void {
     if (!this.holding) return;
-    win.leftUp(this.hwnd, this.holding.point.x, this.holding.point.y);
+    this.input.leftUp(this.hwnd, this.holding.point.x, this.holding.point.y);
     this.holding = null;
   }
 
   private drinkPotions(): void {
     const { hunt } = this.settings;
-    const now = performance.now();
+    const now = this.clock.now();
     const hpKey = keyCode(hunt.hpPotionKey);
     if (hpKey !== null && this.hp !== null && this.hp * 100 < hunt.hpPotionPercent && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
       this.key(hpKey);
@@ -1016,12 +1032,12 @@ export class Bot {
       if (action.always && !fighting) continue;
 
       const last = this.lastPressed.get(action.id);
-      const due = last === undefined || wholeSecondsSince(last) > setting.seconds;
+      const due = last === undefined || wholeSecondsSince(last, this.clock.now()) > setting.seconds;
       if (!action.always && !due) continue;
 
       if (action.delay && action.delayWhen === 'before') await this.sleep(this.delay(action.delay));
       this.key(action.vk);
-      this.lastPressed.set(action.id, performance.now());
+      this.lastPressed.set(action.id, this.clock.now());
       if (action.always) cast = true;
       if (action.delay && action.delayWhen === 'after') await this.sleep(this.delay(action.delay));
     }
@@ -1074,7 +1090,7 @@ export class Bot {
     const user = reading.user;
     if (!map || !user) return false;
     const here = { x: user.x, y: user.y };
-    const now = performance.now();
+    const now = this.clock.now();
     const away = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
     const skip = new Set((this.settings.skipMonsters ?? []).map((n) => n.toLowerCase()));
     for (const [key, until] of this.visitedSpots) if (until <= now) this.visitedSpots.delete(key);
@@ -1244,7 +1260,7 @@ export class Bot {
     this.capture();
     let panel = findBigMap(this.frame);
     for (let attempt = 0; attempt < 3 && !!panel !== open; attempt++) {
-      this.key(win.VK.B);
+      this.key(VK.B);
       await this.sleep(BIG_MAP_DELAY_MS);
       this.capture();
       panel = findBigMap(this.frame);
@@ -1292,7 +1308,7 @@ export class Bot {
    * on to run.
    */
   private async exploreLoop(): Promise<string> {
-    let progress = { at: performance.now(), self: null as Point | null };
+    let progress = { at: this.clock.now(), self: null as Point | null };
     // When the bot last steered: time paused, or busy reopening the map, isn't time spent stuck.
     let steeredAt = 0;
     let noRoute = 0;
@@ -1322,7 +1338,7 @@ export class Bot {
         this.status('New map; exploring it from scratch');
       }
       this.explored = map.explored;
-      const tracked = this.tracker.update(locatePlayer(this.frame, panel, this.tracker.known), performance.now());
+      const tracked = this.tracker.update(locatePlayer(this.frame, panel, this.tracker.known), this.clock.now());
       const self = tracked.position;
       if (!self) {
         // Lost for a while: move about (and teleport) until the marker shows again.
@@ -1330,9 +1346,9 @@ export class Bot {
         const point = this.runPoint(Math.random() * 2 * Math.PI, panel);
         if (point) this.holdRun(point);
         const vk = this.teleportKey();
-        if (vk !== null && performance.now() >= this.teleportReadyAt) {
+        if (vk !== null && this.clock.now() >= this.teleportReadyAt) {
           this.key(vk);
-          this.teleportReadyAt = performance.now() + TELEPORT_PRESS_MS;
+          this.teleportReadyAt = this.clock.now() + TELEPORT_PRESS_MS;
         }
         await this.sleep(WANDER_MS);
         this.stopRunning();
@@ -1343,8 +1359,8 @@ export class Bot {
       const percent = Math.round(map.explored * 100);
       // Done when the target is reached, or when no unexplored edges have been left for a while.
       if (this.planner.openFrontiers(map).length > 0) noEdgesSince = null;
-      else noEdgesSince ??= performance.now();
-      if (noEdgesSince !== null && performance.now() - noEdgesSince > NO_EDGES_MS) {
+      else noEdgesSince ??= this.clock.now();
+      if (noEdgesSince !== null && this.clock.now() - noEdgesSince > NO_EDGES_MS) {
         this.stopRunning();
         await this.setBigMap(false);
         return `No unexplored edges left (about ${percent}% uncovered)`;
@@ -1354,9 +1370,9 @@ export class Bot {
         await this.setBigMap(false);
         return `Map explored (about ${percent}%)`;
       }
-      const now = performance.now();
+      const now = this.clock.now();
       if (await this.maybeReroll(map, self, panel)) {
-        progress = { at: performance.now(), self: null };
+        progress = { at: this.clock.now(), self: null };
         continue;
       }
       this.skipped = this.skipped.filter((s) => s.until > now);
@@ -1379,7 +1395,7 @@ export class Bot {
         const angle = Math.random() * 2 * Math.PI;
         const point = this.runPoint(angle, panel);
         if (point) this.holdRun(point);
-        if (performance.now() >= this.teleportReadyAt) this.teleport(self, { x: self.x + Math.cos(angle), y: self.y + Math.sin(angle) }, panel);
+        if (this.clock.now() >= this.teleportReadyAt) this.teleport(self, { x: self.x + Math.cos(angle), y: self.y + Math.sin(angle) }, panel);
         await this.sleep(WANDER_MS);
         this.stopRunning();
         continue;
@@ -1391,15 +1407,15 @@ export class Bot {
         progress = { at: now, self };
       } else if (now - progress.at > STUCK_MS) {
         await this.unstick(plan.target, self, plan.waypoint, panel);
-        progress = { at: performance.now(), self: null };
+        progress = { at: this.clock.now(), self: null };
         continue;
       }
 
       this.steer(self, plan.waypoint, panel);
       // Teleport only along a straight stretch: it would overshoot a corner and have to come back.
-      if (plan.teleport && performance.now() >= this.teleportReadyAt) this.teleport(self, plan.waypoint, panel);
+      if (plan.teleport && this.clock.now() >= this.teleportReadyAt) this.teleport(self, plan.waypoint, panel);
       await this.sleep(RUN_TICK_MS);
-      steeredAt = performance.now();
+      steeredAt = this.clock.now();
       this.statusEvery(`Exploring: about ${percent}% uncovered`);
     }
   }
@@ -1415,7 +1431,7 @@ export class Bot {
     memory.start();
     this.exploreLoot = { skipped: new Map(), inReachSince: new Map(), walking: null, nextClickAt: 0 };
     const planner = new MapExplorer();
-    const started = performance.now();
+    const started = this.clock.now();
     let mapIndex: number | null = null;
     let share = { map: null as MapGrid | null, value: 0 };
     let moved = { at: 0, x: NaN, y: NaN };
@@ -1434,7 +1450,7 @@ export class Bot {
         this.stopRunning();
         this.statusEvery(
           !reading
-            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            ? this.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : 'Waiting for the map from the game',
         );
         await this.sleep(300);
@@ -1454,13 +1470,13 @@ export class Bot {
       }
 
       const user = reading.user!;
-      const now = performance.now();
+      const now = this.clock.now();
       if (now - drivenAt > EXPLORE_BLOCKED_MS || this.mountBusyAt > moved.at) moved.at = now;
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       const stuck = user.x === moved.x && user.y === moved.y && now - moved.at > this.blockedAfterMs();
       if (this.settings.fightInTheWay && (stuck || this.threatsNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
-        moved = { at: performance.now(), x: NaN, y: NaN };
-        drivenAt = performance.now();
+        moved = { at: this.clock.now(), x: NaN, y: NaN };
+        drivenAt = this.clock.now();
         continue;
       }
       if (user.x !== moved.x || user.y !== moved.y) moved = { at: now, x: user.x, y: user.y };
@@ -1472,8 +1488,8 @@ export class Bot {
       }
       // "Pick up items": what's on the ground first.
       if (await this.lootFromMemory(reading, map, now)) {
-        moved = { at: performance.now(), x: NaN, y: NaN };
-        drivenAt = performance.now();
+        moved = { at: this.clock.now(), x: NaN, y: NaN };
+        drivenAt = this.clock.now();
         continue;
       }
       // Routes keep off monsters close by.
@@ -1492,7 +1508,7 @@ export class Bot {
       await this.driveAlong(user, plan.path, now);
       this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
       await this.sleep(RUN_TICK_MS);
-      drivenAt = performance.now();
+      drivenAt = this.clock.now();
     }
   }
 
@@ -1505,7 +1521,7 @@ export class Bot {
     const memory = this.options.memory;
     const reading = memory.latest();
     const mounted = reading?.user?.mounted;
-    if (mounted === undefined || mounted === on || performance.now() < this.mountRetryAt) return;
+    if (mounted === undefined || mounted === on || this.clock.now() < this.mountRetryAt) return;
     // No mount equipped (not bought yet, say): nothing to get on.
     if (on && reading?.user?.hasMount === false) return;
     // Mounts aren't allowed on this map (the game's data says so, or M did nothing here before).
@@ -1514,7 +1530,7 @@ export class Bot {
     try {
       await this.pressMount(on);
     } finally {
-      this.mountBusyAt = performance.now();
+      this.mountBusyAt = this.clock.now();
     }
     if (on && mapIndex !== undefined && memory.latest()?.user?.mounted !== true) this.noMountMaps.add(mapIndex);
   }
@@ -1529,27 +1545,27 @@ export class Bot {
       // Pressed mid-step, M is ignored: let the character come to a stop first.
       await this.waitUntilStill();
       // A whole key press: M only works on the key coming back up.
-      win.keyDown(this.hwnd, win.VK.M);
-      win.keyUp(this.hwnd, win.VK.M);
-      for (const since = performance.now(); performance.now() - since < MOUNT_SETTLE_MS; ) {
+      this.input.keyDown(this.hwnd, VK.M);
+      this.input.keyUp(this.hwnd, VK.M);
+      for (const since = this.clock.now(); this.clock.now() - since < MOUNT_SETTLE_MS; ) {
         if ((await memory.fresh(500))?.user?.mounted === on) return;
       }
     }
-    this.mountRetryAt = performance.now() + MOUNT_RETRY_MS;
+    this.mountRetryAt = this.clock.now() + MOUNT_RETRY_MS;
   }
 
   /** Waits (up to STILL_WAIT_MS) until the game's memory shows the character on the same tile for STILL_MS. */
   private async waitUntilStill(): Promise<void> {
     const memory = this.options.memory;
     let tile = memory.latest()?.user;
-    let since = performance.now();
-    for (const started = performance.now(); performance.now() - started < STILL_WAIT_MS; ) {
+    let since = this.clock.now();
+    for (const started = this.clock.now(); this.clock.now() - started < STILL_WAIT_MS; ) {
       const user = (await memory.fresh(500))?.user;
       if (!user) continue;
       if (!tile || user.x !== tile.x || user.y !== tile.y) {
         tile = user;
-        since = performance.now();
-      } else if (performance.now() - since >= STILL_MS) return;
+        since = this.clock.now();
+      } else if (this.clock.now() - since >= STILL_MS) return;
     }
   }
 
@@ -1607,11 +1623,11 @@ export class Bot {
    */
   private async clearTheWay(): Promise<boolean> {
     const memory = this.options.memory;
-    const started = performance.now();
+    const started = this.clock.now();
     const given = new Set<number>();
     let fought = false;
     let current = null as { id: number; since: number } | null;
-    while (performance.now() - started < FIGHT_GIVE_UP_MS) {
+    while (this.clock.now() - started < FIGHT_GIVE_UP_MS) {
       await this.yieldToEvents();
       const reading = memory.latest();
       const user = reading?.user;
@@ -1619,7 +1635,7 @@ export class Bot {
       // Monsters far below the player aren't worth stopping for: they're walked round instead.
       const monster = this.threatsNear(reading, user, FIGHT_RANGE_TILES).find((o) => !given.has(o.id));
       if (!monster) break;
-      const now = performance.now();
+      const now = this.clock.now();
       if (current?.id !== monster.id) current = { id: monster.id, since: now };
       else if (now - current.since > FIGHT_TARGET_GIVE_UP_MS) {
         given.add(monster.id);
@@ -1680,7 +1696,7 @@ export class Bot {
       if (now >= loot.nextClickAt) {
         this.stopRunning();
         await this.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
-        loot.nextClickAt = performance.now() + ITEM_CLICK_EVERY_MS;
+        loot.nextClickAt = this.clock.now() + ITEM_CLICK_EVERY_MS;
         this.statusEvery(`Picking up ${loot.inReachSince.size} item${loot.inReachSince.size === 1 ? '' : 's'}`);
       } else {
         await this.sleep(50);
@@ -1787,7 +1803,7 @@ export class Bot {
     const memory = this.options.memory;
     if (!memory.installed) throw new BotError('Travel needs the memory reader (run scripts/setup-game-reader.ps1).');
     memory.start();
-    const started = performance.now();
+    const started = this.clock.now();
     const tile = ([x, y]: [number, number]): Point => ({ x, y });
     const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
     let route: { map: number; links: TravelLink[]; blocked: number; blockedAt?: Point } | null = null;
@@ -1812,7 +1828,7 @@ export class Bot {
         this.stopRunning();
         this.statusEvery(
           !reading
-            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            ? this.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : 'Waiting for the map from the game',
         );
         await this.sleep(300);
@@ -1820,12 +1836,12 @@ export class Bot {
       }
       const user = reading.user!;
       const here = { x: user.x, y: user.y };
-      const now = performance.now();
+      const now = this.clock.now();
       // A game window open on the way (a stray click on a stone or an NPC): close it before it catches clicks.
       const survival = reading.survival;
       if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell || survival?.npcDialog) {
         this.stopRunning();
-        this.key(win.VK.ESCAPE);
+        this.key(VK.ESCAPE);
         await this.sleep(400);
         continue;
       }
@@ -1902,8 +1918,8 @@ export class Bot {
       const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > this.blockedAfterMs();
       if (this.settings.fightInTheWay && (stuck || this.threatsNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
         path = null;
-        moved = { at: performance.now(), x: NaN, y: NaN };
-        drivenAt = performance.now();
+        moved = { at: this.clock.now(), x: NaN, y: NaN };
+        drivenAt = this.clock.now();
         continue;
       }
       // Not moving while trying to: something the map doesn't show is in the way. Time paused doesn't count.
@@ -1947,7 +1963,7 @@ export class Bot {
       const left = route.links.length;
       this.statusEvery(`Travelling to ${place.label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`);
       await this.sleep(RUN_TICK_MS);
-      drivenAt = performance.now();
+      drivenAt = this.clock.now();
     }
   }
 
@@ -1975,7 +1991,7 @@ export class Bot {
     const memory = this.options.memory;
     if (!memory.installed) throw new BotError('Grind needs the memory reader (run scripts/setup-game-reader.ps1).');
     memory.start();
-    const started = performance.now();
+    const started = this.clock.now();
     /** The map being ground on, kept unless another is clearly better. */
     let grinding: number | undefined;
 
@@ -1989,7 +2005,7 @@ export class Bot {
       if (!reading || !map || !user || user.level === undefined) {
         this.statusEvery(
           !reading
-            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            ? this.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : !map ? 'Waiting for the map from the game' : "Waiting for the character's level",
         );
         await this.sleep(300);
@@ -2017,7 +2033,7 @@ export class Bot {
       }
 
       // Hunt until it's time to plan again (time paused doesn't count), measuring the experience it brings.
-      const huntStart = performance.now();
+      const huntStart = this.clock.now();
       const pausedBefore = this.pausedMs;
       const meter = new ExperienceMeter();
       meter.sample(memory.latest()?.user);
@@ -2031,12 +2047,12 @@ export class Bot {
           const newLevel = now?.user?.level;
           if (newLevel !== undefined && newLevel !== level) return `Level ${newLevel}: planning again`;
           if (now?.map && now.map.index !== choice.map) return `Left ${choice.name}: planning again`;
-          const minutes = (performance.now() - huntStart - (this.pausedMs - pausedBefore)) / 60_000;
+          const minutes = (this.clock.now() - huntStart - (this.pausedMs - pausedBefore)) / 60_000;
           return minutes >= replanMinutes ? `${replanMinutes} minutes on ${choice.name}: planning again` : null;
         },
       });
       meter.sample(memory.latest()?.user);
-      const ms = performance.now() - huntStart - (this.pausedMs - pausedBefore);
+      const ms = this.clock.now() - huntStart - (this.pausedMs - pausedBefore);
       this.options.grindLog.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now() });
       if (why === 'dead') {
         await this.reviveInArcadia();
@@ -2064,7 +2080,7 @@ export class Bot {
     const memory = this.options.memory;
     this.stopRunning();
     this.releaseHold();
-    for (const since = performance.now(); performance.now() - since < REVIVE_WAIT_MS; ) {
+    for (const since = this.clock.now(); this.clock.now() - since < REVIVE_WAIT_MS; ) {
       await this.yieldToEvents();
       const reading = memory.latest();
       if (reading?.user && !reading.user.dead) {
@@ -2098,7 +2114,7 @@ export class Bot {
       } else {
         this.statusEvery(`${why}: waiting for Return to Arcadia`);
       }
-      for (const since = performance.now(); performance.now() - since < ARCADIA_WAIT_MS; ) {
+      for (const since = this.clock.now(); this.clock.now() - since < ARCADIA_WAIT_MS; ) {
         await this.yieldToEvents();
         if (memory.latest()?.map?.index === ARCADIA_MAP) return;
         await this.sleep(300);
@@ -2121,7 +2137,7 @@ export class Bot {
     const memory = this.options.memory;
     if (!memory.installed) throw new BotError('Quests needs the memory reader (run scripts/setup-game-reader.ps1).');
     memory.start();
-    const started = performance.now();
+    const started = this.clock.now();
     const byKey = new Map((data.quests ?? []).map((q) => [questKey(q), q]));
     /** Route costs between maps, worked out once each this run (for the quest planner). */
     const routes = new RouteCosts(data);
@@ -2136,7 +2152,7 @@ export class Bot {
       const log = reading?.questLog;
       const user = reading?.user;
       if (!reading || !log || !user || user.level === undefined || !memory.map()) {
-        this.statusEvery(!reading ? (performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`) : 'Waiting for the quest log');
+        this.statusEvery(!reading ? (this.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`) : 'Waiting for the quest log');
         await this.sleep(300);
         continue;
       }
@@ -2209,7 +2225,7 @@ export class Bot {
         const map = action.map;
         if (memory.map()!.index !== map) this.status(await this.travelTo(`map:${map}`));
         this.status(action.reason);
-        const huntStart = performance.now();
+        const huntStart = this.clock.now();
         const why = await this.huntLoop({
           seek: true,
           questOnly: true,
@@ -2220,7 +2236,7 @@ export class Bot {
             if (now?.questLog?.some((q) => q.ready && byKey.has(q.name) && !failed.has(`hand:${q.name}`))) return 'A quest is finished';
             if (!now?.questTargets?.some((t) => t.name === target.name && (t.map === null || t.map === map))) return `Done with ${target.name}`;
             if (now?.map && now.map.index !== map) return 'Left the map';
-            return performance.now() - huntStart > 20 * 60_000 ? `20 minutes on ${target.name}; trying something else` : null;
+            return this.clock.now() - huntStart > 20 * 60_000 ? `20 minutes on ${target.name}; trying something else` : null;
           },
         });
         if (why.startsWith('20 minutes')) failed.add(`hunt:${target.name}:${target.map}`);
@@ -2257,7 +2273,7 @@ export class Bot {
     const before = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? 0;
     const button = action === 'accept' ? list.acceptAll : list.handIn;
     if (!button?.enabled) {
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       return 0;
     }
     await this.click(boxCentre(button), this.delay('menu'));
@@ -2268,11 +2284,11 @@ export class Bot {
     if (yes) await this.click(boxCentre(yes), this.delay('menu'));
     // The quest log changes once the server has taken it.
     let after = before;
-    for (const since = performance.now(); performance.now() - since < 4000 && after === before; ) {
+    for (const since = this.clock.now(); this.clock.now() - since < 4000 && after === before; ) {
       await this.sleep(300);
       after = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? before;
     }
-    this.key(win.VK.ESCAPE);
+    this.key(VK.ESCAPE);
     await this.sleep(300);
     return Math.max(0, after - before);
   }
@@ -2283,7 +2299,7 @@ export class Bot {
     const list = () => memory.latest()?.survival?.questList ?? null;
     for (let attempt = 0; attempt < 3 && !list(); attempt++) {
       if (!(await this.clickNpc(npcName))) return null;
-      for (const since = performance.now(); performance.now() - since < 3000 && !list(); ) {
+      for (const since = this.clock.now(); this.clock.now() - since < 3000 && !list(); ) {
         const menu = memory.latest()?.survival?.npcMenu;
         if (menu?.quests?.enabled) {
           await this.click(boxCentre(menu.quests), this.delay('menu'));
@@ -2324,7 +2340,7 @@ export class Bot {
     const menu = memory.latest()?.survival?.npcMenu;
     if (menu?.talk?.enabled) await this.click(boxCentre(menu.talk), this.delay('menu'));
     await this.sleep(1500);
-    this.key(win.VK.ESCAPE);
+    this.key(VK.ESCAPE);
     await this.sleep(300);
   }
 
@@ -2347,7 +2363,7 @@ export class Bot {
     const memory = this.options.memory;
     const sellPanel = () => memory.latest()?.survival?.sell;
     const waitFor = async (ok: () => boolean, ms: number) => {
-      for (const since = performance.now(); performance.now() - since < ms; ) {
+      for (const since = this.clock.now(); this.clock.now() - since < ms; ) {
         if (ok()) return true;
         await this.sleep(100);
       }
@@ -2399,7 +2415,7 @@ export class Bot {
   private async closeShop(): Promise<void> {
     const close = this.options.memory.latest()?.survival?.sell?.close;
     if (close?.enabled && close.width > 0) await this.click(boxCentre(close), this.delay('menu'));
-    else this.key(win.VK.ESCAPE);
+    else this.key(VK.ESCAPE);
     await this.sleep(300);
   }
 
@@ -2412,7 +2428,7 @@ export class Bot {
     const result = await this.pickWaypoint(stoneName, stone, name, fromMap);
     if (result !== 'teleported' && this.options.memory.latest()?.waypoints?.open) {
       // Close it: left open it covers the screen, and every click after lands on it.
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       await this.sleep(300);
     }
     return result;
@@ -2429,7 +2445,7 @@ export class Bot {
       const point = (await this.aimAt({ key: `stone${stone.x},${stone.y}`, point: tileAt, name: stoneName, tile: tileAt })) ?? tileAt;
       this.status(`Opening the waypoints at the ${stoneName}`);
       await this.click(point, this.delay('menu'));
-      for (const since = performance.now(); performance.now() - since < WAYPOINT_OPEN_MS && !memory.latest()?.waypoints?.open; ) {
+      for (const since = this.clock.now(); this.clock.now() - since < WAYPOINT_OPEN_MS && !memory.latest()?.waypoints?.open; ) {
         // Some stones ask first (Waypoints / Quests): take Waypoints.
         const menu = memory.latest()?.survival?.npcMenu;
         if (menu?.waypoints?.enabled) {
@@ -2452,7 +2468,7 @@ export class Bot {
         if (!row.activate.enabled) return 'missing';
         this.status(`Waypoint to ${name}`);
         await this.click(boxCentre(row.activate), this.delay('menu'));
-        for (const since = performance.now(); performance.now() - since < WAYPOINT_TELEPORT_MS; ) {
+        for (const since = this.clock.now(); this.clock.now() - since < WAYPOINT_TELEPORT_MS; ) {
           await this.sleep(200);
           const map = memory.latest()?.map;
           if (map && map.index !== fromMap) return 'teleported';
@@ -2463,11 +2479,11 @@ export class Bot {
       const first = window.rows[0].activate;
       const before = window.scroll?.value ?? 0;
       if (!scrolledToTop) {
-        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, -50);
+        this.input.mouseWheel(this.hwnd, first.x - 200, first.y + 60, -50);
         scrolledToTop = true;
       } else {
         if (window.scroll && window.scroll.value >= window.scroll.max - window.rows.length) return 'missing';
-        win.mouseWheel(this.hwnd, first.x - 200, first.y + 60, 2);
+        this.input.mouseWheel(this.hwnd, first.x - 200, first.y + 60, 2);
       }
       await this.sleep(150);
       if (scrolledToTop && tries > 0 && (await memory.fresh())?.waypoints?.scroll?.value === before) return 'missing';
@@ -2482,7 +2498,7 @@ export class Bot {
    */
   private async maybeReroll(map: BigMapReading, self: Point, panel: Rect): Promise<boolean> {
     const vk = keyCode(this.settings.hunt.randomTeleportKey);
-    const now = performance.now();
+    const now = this.clock.now();
     if (vk === null || map.explored < RANDOM_TELEPORT_FROM || now < this.rerollPausedUntil) return false;
     if (!this.planner.shouldReroll(map, self)) {
       this.rerollsInRow = 0;
@@ -2503,13 +2519,13 @@ export class Bot {
     const landed = locatePlayer(this.frame, panel, null);
     if (landed && Math.hypot(landed.x - self.x, landed.y - self.y) >= REROLL_JUMP) {
       this.tracker.reset();
-      this.tracker.update(landed, performance.now());
+      this.tracker.update(landed, this.clock.now());
       this.planner.teleported();
       this.rerollsInRow++;
       this.status('Random teleport: far from unexplored ground, trying another spot');
     } else {
       // Nothing happened: probably not unlocked yet (my estimate can run a little ahead of the game's).
-      this.rerollPausedUntil = performance.now() + REROLL_LOCKED_MS;
+      this.rerollPausedUntil = this.clock.now() + REROLL_LOCKED_MS;
       this.status('Random teleport did nothing (not unlocked yet?); trying again later');
     }
     return true;
@@ -2553,11 +2569,11 @@ export class Bot {
     const point = this.runPoint(angle, panel);
     if (point) {
       if (this.running) this.holdRun(point);
-      else win.mouseMove(this.hwnd, point.x, point.y);
+      else this.input.mouseMove(this.hwnd, point.x, point.y);
     }
     this.key(vk);
     // A little random extra, so presses don't land on an exact rhythm.
-    this.teleportReadyAt = performance.now() + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
+    this.teleportReadyAt = this.clock.now() + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
   }
 
   /** The teleport key, unless it's turned off (not every character has a teleport) or set to none. */
@@ -2566,18 +2582,18 @@ export class Bot {
   }
 
   private holdRun(point: Point): void {
-    if (this.running) win.mouseMove(this.hwnd, point.x, point.y, win.MK_RBUTTON);
+    if (this.running) this.input.mouseMove(this.hwnd, point.x, point.y, MK_RBUTTON);
     else {
       // The game takes where the cursor is from mouse moves, not from the button press itself.
-      win.mouseMove(this.hwnd, point.x, point.y);
-      win.rightDown(this.hwnd, point.x, point.y);
+      this.input.mouseMove(this.hwnd, point.x, point.y);
+      this.input.rightDown(this.hwnd, point.x, point.y);
     }
     this.running = point;
   }
 
   private stopRunning(): void {
     if (!this.running) return;
-    win.rightUp(this.hwnd, this.running.x, this.running.y);
+    this.input.rightUp(this.hwnd, this.running.x, this.running.y);
     this.running = null;
   }
 
@@ -2589,7 +2605,7 @@ export class Bot {
     const tries = key?.count ?? 1;
     if (tries >= STUCK_TRIES) {
       // Usually monsters in the way; the pets will deal with them, so try again later.
-      this.skipped.push({ point: target, until: performance.now() + SKIP_EDGE_MS });
+      this.skipped.push({ point: target, until: this.clock.now() + SKIP_EDGE_MS });
       this.stuckAt = this.stuckAt.filter((s) => s !== key);
       this.status('Blocked; trying another edge for now');
       return;
@@ -2624,7 +2640,7 @@ export class Bot {
     let match: TriadMatch | null = null;
     // The game's memory has every card's numbers and whose turn it is; the screen is the fallback.
     this.options.memory.start();
-    const started = performance.now();
+    const started = this.clock.now();
     // When the reader last gave a reading: a moment's gap mid-match is waited out, not played from the screen.
     let heardAt = started;
     let okPressed = false;
@@ -2633,7 +2649,7 @@ export class Bot {
     let lastBoard: MemoryTriad | null = null;
     while (true) {
       await this.yieldToEvents();
-      if (this.options.memory.latest()) heardAt = performance.now();
+      if (this.options.memory.latest()) heardAt = this.clock.now();
       const live = this.options.memory.latest()?.triad;
       if (live?.ok) {
         if (!okPressed) matches++;
@@ -2659,7 +2675,7 @@ export class Bot {
         await this.sleep(TRIAD_POLL_MS);
         continue;
       }
-      if (this.options.memory.installed && performance.now() - heardAt < MEMORY_START_MS) {
+      if (this.options.memory.installed && this.clock.now() - heardAt < MEMORY_START_MS) {
         this.statusEvery(heardAt === started ? 'Starting the memory reader' : "Waiting for the game's memory");
         await this.sleep(TRIAD_POLL_MS);
         continue;
@@ -2699,7 +2715,7 @@ export class Bot {
       }
       if (!screen.myTurn) {
         // Keep the mouse off the cards: a card's tooltip can cover the "Your turn" text.
-        win.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
+        this.input.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
         this.statusEvery("Opponent's turn");
         await this.sleep(TRIAD_POLL_MS);
         continue;
@@ -2724,7 +2740,7 @@ export class Bot {
       await this.sleep(TRIAD_CLICK_GAP_MS);
       await this.click(cellCentre(decision.cell), this.delay('menu'));
       // Move off the card just played, or its tooltip covers the board and the turn text.
-      win.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
+      this.input.mouseMove(this.hwnd, TRIAD_PARK.x, TRIAD_PARK.y);
       await this.sleep(TRIAD_SETTLE_MS);
 
       // Check the card went down before counting it as played.
@@ -2739,7 +2755,7 @@ export class Bot {
   private parkOffCards(live: MemoryTriad): void {
     const bottom = live.squares?.[7];
     const at = bottom ? { x: bottom.x + Math.round(bottom.width / 2), y: bottom.y + bottom.height + 30 } : TRIAD_PARK;
-    win.mouseMove(this.hwnd, at.x, at.y);
+    this.input.mouseMove(this.hwnd, at.x, at.y);
   }
 
   /** One look at a match through the game's memory: plays my move if it's my turn. */
@@ -2807,7 +2823,7 @@ export class Bot {
     const skipped = new Map<number, number>();
     let current: { id: number; since: number; clickedAt: number | null; retried: boolean } | null = null;
     let gathered = 0;
-    const started = performance.now();
+    const started = this.clock.now();
     // Running about while looking for nodes: which way, until when, and where the character last moved.
     let wander = { direction: 0, until: 0, tile: { x: NaN, y: NaN }, movedAt: 0 };
     let paused = this.pausedMs;
@@ -2829,13 +2845,13 @@ export class Bot {
       this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
       this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
       this.drinkPotions();
-      const now = performance.now();
+      const now = this.clock.now();
       for (const [id, until] of skipped) if (until <= now) skipped.delete(id);
 
       const reading = memory.latest();
       if (!reading) {
         this.stopRunning();
-        this.statusEvery(performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`);
+        this.statusEvery(this.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`);
         await this.sleep(300);
         continue;
       }
@@ -2915,7 +2931,7 @@ export class Bot {
         await this.setMounted(false);
         const point = (await this.aimAt({ key: `n${node.id}`, point: tile, name: node.name, tile })) ?? tile;
         await this.click(point, this.delay('attackClick'));
-        if (clickedAt === null) current.clickedAt = performance.now();
+        if (clickedAt === null) current.clickedAt = this.clock.now();
         else current.retried = true;
       }
       this.statusEvery(`Gathering a ${node.name} (${gathered} gathered)`);
@@ -2935,18 +2951,18 @@ export class Bot {
     if (!memory.installed) throw new BotError('Building a deck needs the memory reader (run scripts/setup-game-reader.ps1).');
     memory.start();
     let collection: MemoryCollection | null | undefined = null;
-    for (const since = performance.now(); !collection; ) {
+    for (const since = this.clock.now(); !collection; ) {
       await this.sleep(300);
       collection = memory.latest()?.collection;
       if (collection?.error) throw new BotError(`Couldn't read the card collection: ${collection.error}`);
       if (!collection) this.statusEvery(memory.latest() ? 'Open the Triple Triad card collection window' : 'Starting the memory reader');
-      if (!collection && performance.now() - since > 120_000) throw new BotError('The card collection window never opened.');
+      if (!collection && this.clock.now() - since > 120_000) throw new BotError('The card collection window never opened.');
     }
 
     let allowCopies = true;
     for (let attempt = 0; attempt < 2; attempt++) {
       this.status('Working out the best deck (trying combinations against random decks)...');
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await this.clock.wait(50);
       const { owned, pool } = deckInputs(collection, allowCopies);
       const choice = chooseDeck(owned, pool, 1, rulesFromFlags(this.triadRules));
       if (!choice) throw new BotError('Not enough cards owned to make a deck of five.');
@@ -3051,7 +3067,7 @@ export class Bot {
       this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
       this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
       this.drinkPotions();
-      win.mouseMove(this.hwnd, SELF.x, SELF.y);
+      this.input.mouseMove(this.hwnd, SELF.x, SELF.y);
       this.key(vk);
       casts++;
       this.statusEvery(`Training: ${casts} casts`);
@@ -3063,27 +3079,27 @@ export class Bot {
 
   private async sellItems(): Promise<void> {
     // Open the bag, look at it, and close it again.
-    this.key(win.VK.W);
+    this.key(VK.W);
     await this.sleep(this.menuPause(200));
     this.capture();
     const full = isBagFull(this.frame);
-    this.key(win.VK.W);
+    this.key(VK.W);
     await this.sleep(this.menuPause(200));
     if (!full) return;
 
     this.status('Selling items');
     // Teleport to town, open the map and walk to the shop.
-    this.key(win.VK.N2);
+    this.key(VK.N2);
     await this.sleep(this.menuPause(200));
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(500));
     const start = this.locate();
     if (start) {
-      await this.walk(new Journey(start), start, SHOP_LOCATION, { click: true, stopAtTarget: true, repeatKey: win.VK.N2 });
+      await this.walk(new Journey(start), start, SHOP_LOCATION, { click: true, stopAtTarget: true, repeatKey: VK.N2 });
     }
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(200));
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(200));
 
     // Talk to the shopkeeper and sell.
@@ -3094,32 +3110,32 @@ export class Bot {
       await this.shopClick({ x: 457, y: 526 }, 200);
     }
     for (let i = 0; i < 4; i++) {
-      this.key(win.VK.ESCAPE);
+      this.key(VK.ESCAPE);
       await this.sleep(this.menuPause(100));
     }
     await this.shopClick({ x: 695, y: 152 }, 100);
     await this.shopClick({ x: 65, y: 130 }, 100);
     await this.shopClick({ x: 1319, y: 314 }, 100);
     await this.shopClick({ x: 135, y: 103 }, 100);
-    this.key(win.VK.B);
+    this.key(VK.B);
     await this.sleep(this.menuPause(100));
 
     // Autorun back out of town; leaving the map means we've arrived.
-    this.key(win.VK.D);
+    this.key(VK.D);
     await this.walkUntilMapChanges(TOWN_EXIT);
-    this.key(win.VK.D);
-    this.key(win.VK.B);
-    this.key(win.VK.B);
+    this.key(VK.D);
+    this.key(VK.B);
+    this.key(VK.B);
   }
 
   private async shopClick(point: Point, pauseAfter: number): Promise<void> {
-    win.mouseMove(this.hwnd, point.x, point.y);
+    this.input.mouseMove(this.hwnd, point.x, point.y);
     await this.sleep(this.menuPause(200));
-    win.leftDown(this.hwnd, point.x, point.y);
+    this.input.leftDown(this.hwnd, point.x, point.y);
     try {
       await this.sleep(this.menuPause(200));
     } finally {
-      win.leftUp(this.hwnd, point.x, point.y);
+      this.input.leftUp(this.hwnd, point.x, point.y);
     }
     await this.sleep(this.menuPause(200 + pauseAfter));
   }
@@ -3143,14 +3159,14 @@ export class Bot {
   /** Captures the window and finds the character on the big map; null once it's no longer shown. */
   private locate(): Point | null {
     this.capture();
-    const start = performance.now();
+    const start = this.clock.now();
     this.mapTopLeft = findMapTopLeft(this.frame) ?? this.mapTopLeft;
     this.mapBottomRight = findMapBottomRight(this.frame) ?? this.mapBottomRight;
     if (!this.mapTopLeft || !this.mapBottomRight) {
       throw new BotError('Could not find the map on screen. Open the big map and try again.');
     }
     const position = findCharacterOnMap(this.frame, this.mapTopLeft, this.mapBottomRight);
-    this.scanMs = performance.now() - start;
+    this.scanMs = this.clock.now() - start;
     return position;
   }
 
@@ -3195,7 +3211,7 @@ export class Bot {
         await this.sleep(this.menuPause(200));
       }
       step++;
-      if (performance.now() - this.lastStatusAt > STATUS_INTERVAL_MS) this.status(this.mode === 'travel' ? 'Travelling' : 'Selling items');
+      if (this.clock.now() - this.lastStatusAt > STATUS_INTERVAL_MS) this.status(this.mode === 'travel' ? 'Travelling' : 'Selling items');
     }
     return 'noPath';
   }
@@ -3211,7 +3227,7 @@ export class Bot {
       await this.click(point, step / 2);
       await this.sleep(step * 1.25);
     } else {
-      win.mouseMove(this.hwnd, point.x, point.y);
+      this.input.mouseMove(this.hwnd, point.x, point.y);
       await this.sleep(step);
     }
   }
