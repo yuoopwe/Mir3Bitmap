@@ -60,6 +60,8 @@ const deckButton = element<HTMLButtonElement>('deck-button');
 const gatherButton = element<HTMLButtonElement>('gather-button');
 const gatherPlants = element<HTMLInputElement>('gather-plants');
 const gatherOre = element<HTMLInputElement>('gather-ore');
+const gatherTrips = element<HTMLInputElement>('gather-trips');
+const gatherPlan = element<HTMLParagraphElement>('gather-plan');
 const fightInTheWay = element<HTMLInputElement>('fight-in-the-way');
 const trainKey = element<HTMLSelectElement>('train-key');
 const trainInterval = element<HTMLInputElement>('train-interval');
@@ -289,6 +291,7 @@ function readSettings(): Settings {
     exploreTeleport: exploreTeleport.checked,
     gatherPlants: gatherPlants.checked,
     gatherOre: gatherOre.checked,
+    gatherTrips: gatherTrips.checked,
     fightInTheWay: fightInTheWay.checked,
     skipMonsters,
     pauseOnMouse: pauseOnMouse.checked,
@@ -341,6 +344,7 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.exploreTeleport !== undefined) exploreTeleport.checked = settings.exploreTeleport;
   if (settings.gatherPlants !== undefined) gatherPlants.checked = settings.gatherPlants;
   if (settings.gatherOre !== undefined) gatherOre.checked = settings.gatherOre;
+  if (settings.gatherTrips !== undefined) gatherTrips.checked = settings.gatherTrips;
   if (settings.fightInTheWay !== undefined) fightInTheWay.checked = settings.fightInTheWay;
   if (Array.isArray(settings.skipMonsters)) {
     skipMonsters = settings.skipMonsters;
@@ -587,6 +591,8 @@ function showStatus(status: Status): void {
   // Hunt's seeking says "Heading for ..." too: only Travel's count.
   if (status.mode === 'travel' && /^(Route: |Heading for )/.test(status.message)) showRoute(status.message);
   if (status.mode === 'grind' && status.message.startsWith('Grinding at ')) grindPlan.textContent = status.message;
+  // "Gathering trip: Plants 23 · Bichon Province: 118 plants, ~2,250 exp/h (the best)": the levels and the spot.
+  if (status.mode === 'gather' && status.message.startsWith('Gathering trip: ')) gatherPlan.textContent = status.message.slice('Gathering trip: '.length);
 }
 
 async function init(): Promise<void> {

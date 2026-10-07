@@ -29,6 +29,7 @@ const defaultSettings: Settings = {
   exploreTeleport: true,
   gatherPlants: true,
   gatherOre: true,
+  gatherTrips: false,
   fightInTheWay: false,
   trainKey: 'F1',
   trainIntervalMs: 1000,

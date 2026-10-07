@@ -172,6 +172,24 @@ tick "Gather plants" / "Gather ore". A node it can't reach in 15 seconds, or tha
 too low, or the wrong tool), is left alone for 5 minutes. Potions are drunk as when hunting. Where to go for your
 profession level: game-data/gathering.md.
 
+**Gathering trips** (Gather tab) turns Gather into levelling the professions. It reads your Scavenging (plants) and
+Mining (ore) levels from the game's memory; the game only loads them once its Professions window has been opened, so
+the bot opens it (Ctrl+Shift+P) and shuts it again if need be. A profession that isn't earning experience is shown
+with the game's reason and left out. `src/main/gather-planner.ts` then rates every region that grows nodes (from
+`game-data/travel.json`) by the profession experience an hour it should bring: each node gives at most
+count x 60 / respawn picks an hour, nodes that only grow in some weather or light count a fifth, and one character
+makes at most a pick every 8 s (the walking included), the best-paying first. The trip there is spread over half an
+hour, spots within 5% of the best go to the one with the most nodes, and maps your level or class can't reach are left
+out. Some regions set a profession level of their own (30 in Desert Tunnel, say); whether that keeps lower levels out
+isn't known, so it's taken as a requirement (one rule, `neededLevel`, to loosen). The bot travels there, gathers only
+the nodes your levels allow, and walks from square to square of the region (busiest first) when nothing is in sight.
+A full bag is sold as Grind sells it (Return to Arcadia, Ludvik, and the button again to go back); a death means
+Return and back. It plans again after each new profession level and every 20 minutes, moving only to a spot 20%
+better. A spot is left out for 30 minutes when there's no way there, nothing to gather is seen for 3 minutes, or the
+game refuses a node there that only the region's level allowed (the node then counts as too high at that level).
+Picks refused on nodes your level surely allows, three in a row, stop it: the tool is missing. The status line and the
+Gather tab show the levels and the spot chosen.
+
 ### Best deck
 
 **Best deck** (needs the memory reader) picks the strongest five cards you own and puts them in your deck. Open the
@@ -220,6 +238,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/names.ts` – what's been learned about each name
 - `src/main/map-grid.ts`, `map-explorer.ts`, `map-path.ts` – the map from memory, exploring it, walking paths
 - `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
+- `src/main/gather-planner.ts` – where to gather for the profession levels
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses
@@ -231,4 +250,5 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
   - `bot-quests.ts`, `bot-grind.ts` – Quests and Grind
   - `bot-triad.ts` – Triple Triad and Best deck
   - `bot-gathering.ts` – Gather and Train
+  - `bot-gather-trips.ts` – Gathering trips: reading the profession levels, going to the best spot, gathering there
 - `src/renderer/` – the control window

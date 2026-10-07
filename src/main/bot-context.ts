@@ -28,6 +28,7 @@ import type { Questing } from './bot-quests';
 import type { Grinding } from './bot-grind';
 import type { TripleTriad } from './bot-triad';
 import type { Gathering } from './bot-gathering';
+import type { GatherTrips } from './bot-gather-trips';
 
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
@@ -125,6 +126,7 @@ export class BotContext {
   grind!: Grinding;
   triad!: TripleTriad;
   gathering!: Gathering;
+  gatherTrips!: GatherTrips;
 
   constructor(
     public settings: Settings,

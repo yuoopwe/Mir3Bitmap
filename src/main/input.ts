@@ -20,6 +20,8 @@ export interface GameInput {
   captureClient(hwnd: Handle, method: 'print' | 'blt', width: number, height: number, out: Uint8Array): void;
   keyDown(hwnd: Handle, vk: number): void;
   keyUp(hwnd: Handle, vk: number): void;
+  /** A key pressed and let go with `modifiers` (VK.CONTROL, VK.SHIFT) held, as the game reads them: Ctrl+Shift+P, say. */
+  keyChord(hwnd: Handle, modifiers: number[], vk: number): void;
   /** `flags`: the MK_* buttons held while moving. */
   mouseMove(hwnd: Handle, x: number, y: number, flags?: number): void;
   rightDown(hwnd: Handle, x: number, y: number): void;
@@ -33,12 +35,14 @@ export interface GameInput {
 /** The key codes the bot presses, as win32.ts has them (repeated here so tests needn't load the Windows libraries). */
 export const VK = {
   SHIFT: 0x10,
+  CONTROL: 0x11,
   ESCAPE: 0x1b,
   N1: 0x31,
   N2: 0x32,
   B: 0x42,
   D: 0x44,
   M: 0x4d,
+  P: 0x50,
   W: 0x57,
   F1: 0x70,
 } as const;

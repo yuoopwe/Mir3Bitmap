@@ -516,3 +516,159 @@ test('Grind: a strong character (quick kills above their level, hardly scratched
   assert.equal(chooseGrindMap(data, start, { level: 24, cls: 0 }, { maxLevelsAbove: 5, current: FARAWAY })!.map, FARAWAY);
   checkAlways(game);
 });
+
+// ---- Gathering trips ----
+
+const MINING = 2;
+const HARVESTING = 3;
+const DEAD_PIT = 136;
+const QUARTZ_MINE = 593;
+const COPPER = 21;
+const IRON = 22;
+const SILVERLEAF = 1;
+const GEODE = 17;
+/** Gather with trips: ore only unless said. */
+const tripSettings = (changes: Partial<ReturnType<typeof testSettings>> = {}) => ({ gatherTrips: true, gatherPlants: false, gatherOre: true, ...changes });
+const picks = (game: FakeGame, map?: number) => of(game, 'gather').filter((g) => !g.refused && (map === undefined || g.map === map));
+/** The plans made (each said once more on arriving). */
+const plans = (statuses: { message: string }[]) => [...new Set(statuses.map((s) => s.message).filter((m) => m.startsWith('Gathering trip: ')))];
+/** Nodes round a tile, one every few tiles. */
+const nodesAround = (node: number, map: number, x: number, y: number, n: number, level?: number) =>
+  Array.from({ length: n }, (_, i) => ({ node, map, x: x - 4 + (i % 3) * 4, y: y - 3 + Math.floor(i / 3) * 4, level }));
+
+test('Gathering trips: the profession levels unknown, Ctrl+Shift+P opens the Professions window, and it is shut again once they show', async () => {
+  const game = onBichon({ professions: { levels: { [MINING]: 5 } } }, bichon.player, { level: 10 });
+  // Planned, and off on the trip.
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), until: () => of(game, 'move').length > 0, limitMs: 60_000 });
+  assert.ok(met, 'planned and moving');
+  const opened = of(game, 'window').filter((w) => w.name === 'professions');
+  assert.deepEqual(opened.map((w) => w.open), [true, false]);
+  assert.ok(!game.isOpen('professions'));
+  // P pressed twice, each time with Ctrl and Shift down.
+  const p = keyDowns(game, VK.P);
+  assert.equal(p.length, 2);
+  assert.equal(keyDowns(game, VK.CONTROL).length, 2);
+  assert.equal(keyDowns(game, VK.SHIFT).length, 2);
+  assert.match(plans(statuses)[0], /^Gathering trip: Ore 5 · Dead Pit Lv 1: 4 ore, ~1,200 exp\/h \(the best\)$/);
+  checkAlways(game);
+});
+
+test('Gathering trips: no levels even with the window open is a clear stop', async () => {
+  // The window opens, but the game shows no levels (it never loads them).
+  const game = onBichon({ professions: { levels: { [MINING]: 5 }, neverLoads: true } }, bichon.player, { level: 10 });
+  const { message } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), limitMs: 60_000 });
+  assert.match(message, /^Couldn't read the profession levels/);
+  assert.ok(!game.isOpen('professions'));
+});
+
+test('Gathering trips: travels to the best spot for the level and gathers there, only what the level allows', async () => {
+  // Ore at 5, level 10: Dead Pit Lv 1's copper, a map away. Iron (level 30) and plants (not ticked) lie among it.
+  const nodes = [...nodesAround(COPPER, DEAD_PIT, 228, 204, 3), { node: IRON, map: DEAD_PIT, x: 229, y: 206 }, { node: SILVERLEAF, map: DEAD_PIT, x: 227, y: 202 }];
+  const game = onBichon({ nodes, allNpcs: true, professions: { levels: { [MINING]: 5 }, loaded: true } }, bichon.player, { level: 10 });
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), until: () => picks(game, DEAD_PIT).length >= 3, limitMs: 10 * 60_000 });
+  assert.ok(met, `gathered at Dead Pit (${statuses.at(-1)?.message})`);
+  // By the Hexa Holy Stone to Dead Pit Lv 2, and on down.
+  assert.deepEqual(of(game, 'mapChange').map((c) => [c.from, c.to, c.via]), [[BICHON, 137, 'waypoint'], [137, DEAD_PIT, 'link']]);
+  assert.deepEqual(new Set(picks(game).map((g) => g.node)), new Set([COPPER]));
+  assert.deepEqual(of(game, 'gather').filter((g) => g.refused), []);
+  checkAlways(game);
+});
+
+test("Gathering trips: nothing at the spot's busiest square, so on to the next, running there", async () => {
+  // Dead Pit Lv 1's squares, busiest first: 228,204 then 108,300. The copper is all at the second.
+  const nodes = nodesAround(COPPER, DEAD_PIT, 108, 300, 3);
+  const game = new FakeGame({ nodes, professions: { levels: { [MINING]: 5 }, loaded: true }, player: { map: DEAD_PIT, x: 228, y: 204, level: 10 } });
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), until: () => picks(game).length >= 3, limitMs: 5 * 60_000 });
+  assert.ok(met, `gathered at the next square (${statuses.at(-1)?.message})`);
+  assert.ok(statuses.some((s) => s.message === 'Nothing to gather in sight: heading for another patch of Dead Pit Lv 1 (108,300)'));
+  assert.deepEqual(of(game, 'mapChange'), []);
+  // Ran there (about 130 tiles), stepping only round the nodes.
+  const strides = of(game, 'move').filter((m) => m.run).length;
+  assert.ok(strides > 30, `${strides} strides`);
+  checkAlways(game);
+});
+
+test('Gathering trips: a full bag means Arcadia, selling to Ludvik, and back to the spot to gather', async () => {
+  const nodes = nodesAround(COPPER, DEAD_PIT, 228, 204, 4);
+  const game = new FakeGame({ nodes, allNpcs: true, bag: { used: 33, slots: 40 }, professions: { levels: { [MINING]: 5 }, loaded: true }, player: { map: DEAD_PIT, x: 228, y: 204, level: 10 } });
+  const backAndPicking = () => {
+    const back = of(game, 'mapChange').find((c) => c.via === 'back');
+    return !!back && picks(game, DEAD_PIT).some((g) => g.t > back.t);
+  };
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), until: backAndPicking, limitMs: 10 * 60_000 });
+  assert.ok(met, `sold and back gathering (${statuses.at(-1)?.message})`);
+  assert.deepEqual(of(game, 'mapChange').map((c) => [c.from, c.to, c.via]), [[DEAD_PIT, ARCADIA, 'arcadia'], [ARCADIA, DEAD_PIT, 'back']]);
+  // Two picks filled it (35 used: 5 free); all but the two kept sold.
+  assert.equal(picks(game).filter((g) => g.t < of(game, 'mapChange')[0].t).length, 2);
+  assert.equal(sold(game), 33);
+  checkAlways(game);
+});
+
+test('Gathering trips: a new profession level opens a better spot, and it moves there', async () => {
+  // Level 60, Mining 29: Quartz Mine Lv 1's geodes. At 30 the iron of Dead Pit Lv 1 is worth twice as much.
+  const nodes = [...nodesAround(GEODE, QUARTZ_MINE, 36, 36, 6), ...nodesAround(IRON, DEAD_PIT, 228, 204, 3), ...nodesAround(COPPER, DEAD_PIT, 230, 210, 3)];
+  const game = new FakeGame({ nodes, allNpcs: true, professions: { levels: { [MINING]: 29 }, loaded: true }, player: { map: QUARTZ_MINE, x: 36, y: 38, level: 60 } });
+  let raised = false;
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), {
+    settings: tripSettings(),
+    during: () => {
+      if (!raised && picks(game, QUARTZ_MINE).length >= 2) {
+        raised = true;
+        game.setProfession(MINING, 30);
+      }
+    },
+    until: () => picks(game, DEAD_PIT).some((g) => g.node === IRON),
+    limitMs: 15 * 60_000,
+  });
+  assert.ok(met, `iron picked at Dead Pit (${statuses.at(-1)?.message})`);
+  const lines = statuses.map((s) => s.message);
+  assert.ok(lines.includes('Mining level 30: planning again'), lines.join(' | '));
+  assert.deepEqual(plans(statuses).map((m) => m.split(' · ')[1].split(':')[0]), ['Quartz Mine Lv 1', 'Dead Pit Lv 1']);
+  assert.match(plans(statuses)[1], /\(\d+% better than Quartz Mine Lv 1\)$/);
+  assert.equal(of(game, 'mapChange').at(-1)!.to, DEAD_PIT);
+  checkAlways(game);
+});
+
+test("Gathering trips: picks refused where only the region's level said yes: the spot is left and another planned", async () => {
+  // Plants at 23 in Arcadia Castle, whose Silverleaf counts as level 20: the game wants 30 of it here.
+  const [x, y] = [348, 393];
+  const game = new FakeGame({
+    nodes: nodesAround(SILVERLEAF, ARCADIA, x, y, 3, 30), allNpcs: true, professions: { levels: { [HARVESTING]: 23 }, loaded: true }, player: { map: ARCADIA, x, y: y + 2, level: 30 },
+  });
+  const { met, statuses } = await play(game, (bot) => bot.startGather(), {
+    settings: tripSettings({ gatherPlants: true, gatherOre: false }),
+    until: () => of(game, 'mapChange').some((c) => c.from === ARCADIA),
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, `left Arcadia (${statuses.at(-1)?.message})`);
+  // Clicked, and once more when nothing came of it.
+  assert.deepEqual(of(game, 'gather').map((g) => [g.node, g.refused]), [[SILVERLEAF, true], [SILVERLEAF, true]]);
+  const lines = statuses.map((s) => s.message);
+  assert.ok(lines.some((m) => m.startsWith("The Silverleaf won't gather at Arcadia Castle")), lines.join(' | '));
+  assert.deepEqual(plans(statuses).map((m) => m.split(' · ')[1].split(':')[0]), ['Arcadia Castle', 'Bichon Province']);
+  assert.equal(of(game, 'mapChange').at(-1)!.to, BICHON);
+  checkAlways(game);
+});
+
+test('Gathering trips: with no tool, picks keep failing on nodes the level allows, and it stops saying so', async () => {
+  const game = new FakeGame({ nodes: nodesAround(COPPER, DEAD_PIT, 228, 204, 4), noTool: true, professions: { levels: { [MINING]: 5 }, loaded: true }, player: { map: DEAD_PIT, x: 228, y: 204, level: 10 } });
+  const { message, statuses } = await play(game, (bot) => bot.startGather(), { settings: tripSettings(), limitMs: 10 * 60_000 });
+  assert.equal(message, 'Picking ore keeps failing on nodes your level allows: put a Pick Axe in your Toolbelt.');
+  // Three nodes tried (each clicked twice): the first two passed over, the third the last straw.
+  assert.equal(statuses.filter((s) => s.message === "The Copper Vein won't gather (the wrong tool?); trying another").length, 2);
+  assert.equal(of(game, 'gather').filter((g) => g.refused).length, 6);
+  assert.deepEqual(of(game, 'mapChange'), []);
+});
+
+test('Gather without trips: as before, whatever is in sight, never the Professions window nor a trip', async () => {
+  // A plant and an ore node beside the player; the iron needs more than Mining 1, and is still tried.
+  const { x, y } = bichon.player;
+  const nodes = [{ node: SILVERLEAF, x: x + 2, y }, { node: COPPER, x: x - 2, y: y + 1 }, { node: IRON, x, y: y - 3 }];
+  const game = onBichon({ nodes }, bichon.player, { level: 10 });
+  const { met } = await play(game, (bot) => bot.startGather(), { until: () => picks(game).length >= 2 && of(game, 'gather').some((g) => g.refused), limitMs: 3 * 60_000 });
+  assert.ok(met, 'both picked, the iron tried');
+  assert.deepEqual(keyDowns(game, VK.CONTROL), []);
+  assert.deepEqual(of(game, 'mapChange'), []);
+  assert.deepEqual(new Set(picks(game).map((g) => g.node)), new Set([SILVERLEAF, COPPER]));
+  checkAlways(game);
+});
