@@ -110,3 +110,12 @@ export function clickable(point: Point): boolean {
 export function hostile(o: MemoryObject): boolean {
   return o.disposition === undefined || o.disposition === null || o.disposition === 4;
 }
+
+/** How long to let the game update its title after moving the mouse, before reading what's under it. */
+export const HOVER_SETTLE_MS = 100;
+
+/** What the game's title says is under the mouse ("Mouse Object: name"), or null. */
+export function mouseObjectName(title: string): string | null {
+  const match = /Mouse Object: ([^,]*)/.exec(title);
+  return match ? match[1].trim() : null;
+}

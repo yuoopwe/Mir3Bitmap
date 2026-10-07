@@ -5,7 +5,7 @@ import { waypoint } from './map-explorer';
 import { loadTravelData } from './travel';
 import { tileToScreen } from './game-memory';
 import { VK } from './input';
-import { EXPLORE_BLOCKED_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, clickable, keyCode } from './bot-shared';
+import { EXPLORE_BLOCKED_MS, HOVER_SETTLE_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, clickable, keyCode, mouseObjectName } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /**
@@ -33,6 +33,9 @@ const STILL_WAIT_MS = 2000;
 const RUN_AIM_TILES = 4;
 
 const STEP_AIM_TILES = 2;
+
+/** How far out a run or step may be aimed to get clear of the character's own sprite. */
+const AIM_OUT_TILES = 6;
 
 const MOUNT_RETRY_MS = 30_000;
 
@@ -143,22 +146,50 @@ export class Movement {
     const map = this.bot.options.memory.map();
     const exits = map ? this.bot.travel.exitTiles(map) : null;
     const exitAhead = !!map && !!exits?.size && Array.from({ length: stride * 2 }, (_, k) => toward(k + 1)).some((t) => exits.has(t.y * map.width + t.x));
-    const run = straight >= stride && free(point) && !exitAhead;
+    let run = straight >= stride && free(point) && !exitAhead;
+    // Starting a run: not with the cursor on the character itself (tall when mounted), or nothing happens.
+    let runAt = { tile: runTile, point };
+    if (run && !this.bot.running) {
+      const clear = await this.clearOfMe(user, toward, RUN_AIM_TILES, free);
+      if (clear) runAt = clear;
+      else run = false;
+    }
     if (!run) {
       this.bot.stopRunning();
-      const stepTile = free(tileToScreen(user, toward(STEP_AIM_TILES).x, toward(STEP_AIM_TILES).y)) ? toward(STEP_AIM_TILES) : next;
-      const stepPoint = tileToScreen(user, stepTile.x, stepTile.y);
+      // A step: a click a little way off the way the path goes, pushed further out if it would land on the character.
+      const clear = await this.clearOfMe(user, toward, STEP_AIM_TILES, free);
+      const stepTile = clear?.tile ?? next;
+      const stepPoint = clear?.point ?? tileToScreen(user, next.x, next.y);
       this.lastAim = { tile: stepTile, point: stepPoint, running: false };
       await this.bot.click(stepPoint, this.bot.delay('attackClick'));
       return;
     }
-    this.lastAim = { tile: runTile, point, running: true };
-    this.bot.holdRun(point);
+    this.lastAim = { tile: runAt.tile, point: runAt.point, running: true };
+    this.bot.holdRun(runAt.point);
     const vk = this.teleportKey();
     if (vk !== null && straight >= 6 && now >= this.teleportReadyAt) {
       this.bot.key(vk);
       this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
     }
+  }
+
+  /**
+   * The first spot from `first` tiles out (up to AIM_OUT_TILES) along the way `toward`
+   * goes that's on the game world and not on the character itself: the game's title says
+   * what's under the mouse, and a mounted character's sprite reaches a couple of tiles up.
+   */
+  private async clearOfMe(user: Point, toward: (tiles: number) => Point, first: number, free: (p: Point) => boolean): Promise<{ tile: Point; point: Point } | null> {
+    const me = this.bot.options.memory.latest()?.user?.name;
+    for (let tiles = first; tiles <= AIM_OUT_TILES; tiles++) {
+      const tile = toward(tiles);
+      const point = tileToScreen(user, tile.x, tile.y);
+      if (!free(point)) continue;
+      if (!me) return { tile, point };
+      this.bot.input.mouseMove(this.bot.hwnd, point.x, point.y);
+      await this.bot.clock.wait(HOVER_SETTLE_MS);
+      if (mouseObjectName(this.bot.input.windowTitle(this.bot.hwnd)) !== me) return { tile, point };
+    }
+    return null;
   }
 
   /** The teleport key, unless it's turned off (not every character has a teleport) or set to none. */

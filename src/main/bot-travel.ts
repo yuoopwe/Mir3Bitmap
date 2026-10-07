@@ -17,6 +17,12 @@ const NPC_REACH_TILES = 2;
 /** A waypoint stone is clicked from up to this far (the game walks the rest): monsters round it can't keep the bot from it. */
 const STONE_REACH_TILES = 4;
 
+/** After arriving on a map, wait this long before planning (the reading of walls and position catches up). */
+const ARRIVAL_SETTLE_MS = 1500;
+
+/** With no way through, keep trying this long before giving up. */
+const NO_PATH_RETRY_MS = 5000;
+
 const TRAVEL_BLOCKED_LIMIT = 8;
 
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
@@ -84,6 +90,9 @@ export class Travel {
     const tile = ([x, y]: [number, number]): Point => ({ x, y });
     const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
     let route: { map: number; links: TravelLink[]; blocked: number; blockedAt?: Point } | null = null;
+    /** The map last seen, when it was first seen, and since when no path has been found. */
+    let seen = { map: -1, at: 0 };
+    let noPathSince: number | null = null;
     let path: Point[] | null = null;
     /** Tiles to keep off for now (y * width + x), until when: where something the map doesn't show was in the way. */
     const avoid = new Map<number, number>();
@@ -120,6 +129,15 @@ export class Travel {
         this.bot.stopRunning();
         this.bot.key(VK.ESCAPE);
         await this.bot.sleep(400);
+        continue;
+      }
+
+      // Just arrived on a map: let the game's memory settle (walls, position) before planning a path.
+      if (map.index !== seen.map) seen = { map: map.index, at: this.bot.clock.now() };
+      if (this.bot.clock.now() - seen.at < ARRIVAL_SETTLE_MS) {
+        this.bot.stopRunning();
+        this.bot.statusEvery(`Arrived on ${mapName(data, map.index)}`);
+        await this.bot.sleep(200);
         continue;
       }
 
@@ -232,7 +250,19 @@ export class Travel {
           dist = walkDistances(map, here);
           near = nearestApproach(map, dist, targets);
         }
-        if (!near) throw new BotError(`Can't find a way to walk to ${route.links.length ? `the way to ${mapName(data, route.links[0].to)}` : place.npc!.name} from here.`);
+        if (!near) {
+          // Give it a few seconds (people moving off, the reading catching up) before giving up.
+          noPathSince ??= this.bot.clock.now();
+          if (this.bot.clock.now() - noPathSince < NO_PATH_RETRY_MS) {
+            this.bot.stopRunning();
+            this.bot.statusEvery('No way through yet; trying again');
+            path = null;
+            await this.bot.sleep(500);
+            continue;
+          }
+          throw new BotError(`Can't find a way to walk to ${route.links.length ? `the way to ${mapName(data, route.links[0].to)}` : place.npc!.name} from here.`);
+        }
+        noPathSince = null;
         path = pathBack(map, dist, near.tile);
         // Next to the exit already: step onto it.
         if (path.length < 2) {

@@ -18,6 +18,7 @@ import { createFrame, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, keyCode, wholeSecondsSince } from './bot-shared';
+import { HOVER_SETTLE_MS, mouseObjectName } from './bot-shared';
 import type { Movement } from './bot-movement';
 import type { Travel } from './bot-travel';
 import type { Hunting } from './bot-hunting';
@@ -45,14 +46,8 @@ const POTION_COOLDOWN_MS = 1500;
  */
 const FEET: Point = { x: PLAYER.x, y: PLAYER.y + 50 };
 
-/** Time for the game to notice the mouse moved (it updates its title each frame). */
-const HOVER_SETTLE_MS = 100;
 
 /** The name of what the game says is under the mouse, from its title ("Mouse Object: <name>, ..."). */
-function mouseObjectName(title: string): string | null {
-  const match = /Mouse Object: ([^,]*)/.exec(title);
-  return match ? match[1].trim() : null;
-}
 
 interface KeyAction {
   id: KeyId;
