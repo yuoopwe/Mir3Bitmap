@@ -16,7 +16,7 @@ const DELAY_FIELDS: { id: DelayId; label: string; defaultMs: number }[] = [
   { id: 'menu', label: 'Selling clicks', defaultMs: 200 },
 ];
 const DEFAULT_FUZZ_PERCENT = 20;
-const DEFAULT_GRIND: Settings['grind'] = { replanMinutes: 15, maxLevelsAbove: 5, questsFirst: false };
+const DEFAULT_GRIND: Settings['grind'] = { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false };
 const PICK_UP_KEYS = ['', 'Tab', 'Space', '`', 'Z', 'X', 'C', 'V', 'G', 'F'];
 const POTION_KEYS = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
 const RULE_LABELS: Record<NameRule, string> = { auto: 'Auto', attack: 'Always attack', ignore: 'Never attack' };

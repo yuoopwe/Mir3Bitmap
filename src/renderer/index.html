@@ -167,8 +167,8 @@
             <fieldset class="card">
               <legend>Planning</legend>
               <label title="After this long hunting on a map, look again for a better one (it stays unless another is clearly better). Reaching a new level looks again straight away.">Plan again every <input id="grind-replan" type="number" min="1"> minutes</label>
-              <label title="Monsters more than this many levels above you count as too strong: maps mostly of them are left out, and the rest count for less">Monsters up to <input id="grind-above" type="number" min="0" max="50"> levels above mine</label>
-              <p class="hint">A new level, or leaving the map (a death, say), plans again straight away.</p>
+              <label title="Grind picks how far above your level to fight by itself, from how much health kills there cost and from deaths, and never goes past this. Monsters further above count as too strong: maps mostly of them are left out.">Most levels above (cap) <input id="grind-above" type="number" min="0" max="50"></label>
+              <p class="hint">A new level, or leaving the map (a death, say), plans again straight away. How hard you hit and how far above your level is safe are measured as you fight, and the last plan says how far it goes.</p>
             </fieldset>
             <fieldset class="card">
               <legend>Selling</legend>

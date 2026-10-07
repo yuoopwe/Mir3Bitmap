@@ -74,6 +74,8 @@ export const GRIND = {
   /** ...trusted fully (over dangerPerLevel) after this many kills that many levels above. */
   dangerFullTrustKills: 10,
   // ---- How far above the level to fight, by itself (autoLevelsAbove) ----
+  /** Until a gap is seen to be too costly, at least this many levels above (as the old fixed setting had it). */
+  startLevelsAbove: 5,
   /** A level gap counts as seen after this many kills there... */
   dangerMinKills: 5,
   /** ...and as safe while kills there cost under this share of health on average and deaths are rarer than this per fight... */
@@ -360,26 +362,30 @@ export function dangerByGap(fights: Fights): Map<number, number> {
  * How many levels above the character to fight, from their fights, at most
  * `cap`: up to the highest gap seen (dangerMinKills) that's safe, with every
  * gap seen below it safe too (safeHpShare, safeDeathRate); one more when that
- * top gap is clearly safe (clearHpShare), so it can climb (with nothing seen
- * yet: 1). One less for deathCooldownMinutes after a death. `capped`: the cap
- * held it back.
+ * top gap is clearly safe (clearHpShare), so it can climb. Until a gap is seen
+ * to be too costly, never under startLevelsAbove. One less for
+ * deathCooldownMinutes after a death fighting above the level, or to who knows
+ * what (dying at the level is the death rate's to judge: fighting less far
+ * above wouldn't help). `capped`: the cap held it back.
  */
 export function autoLevelsAbove(fights: Fights, cap: number, now: number): { levels: number; capped: boolean } {
   const byGap = fightsByGap(fights);
   let top = 0;
   let clear = true;
+  let costly = false;
   for (const gap of [...byGap.keys()].sort((a, b) => a - b)) {
     const f = byGap.get(gap)!;
     if (f.kills < GRIND.dangerMinKills) continue;
     if (f.hpLost >= GRIND.safeHpShare || f.deathRate >= GRIND.safeDeathRate) {
-      clear = false;
+      costly = true;
       break;
     }
     top = gap;
     clear = f.hpLost < GRIND.clearHpShare;
   }
-  let levels = top + (clear ? 1 : 0);
-  if (fights.deaths.some((d) => now - d.at < GRIND.deathCooldownMinutes * 60_000)) levels = Math.max(0, levels - 1);
+  let levels = costly ? top : Math.max(GRIND.startLevelsAbove, top + (clear ? 1 : 0));
+  const above = (d: Fights['deaths'][number]) => d.monsterLevel === null || d.monsterLevel > d.level;
+  if (fights.deaths.some((d) => above(d) && now - d.at < GRIND.deathCooldownMinutes * 60_000)) levels = Math.max(0, levels - 1);
   return { levels: Math.min(levels, Math.max(cap, 0)), capped: levels > cap };
 }
 

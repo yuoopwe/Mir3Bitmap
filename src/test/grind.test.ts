@@ -330,26 +330,32 @@ test('learned danger: what kills above the level cost replaces dangerPerLevel, a
 test('how far above the level to fight: up to the highest safe gap, one more when clearly safe, at most the cap, one less after a death', () => {
   const now = 10_000_000;
   const band = (kills: Kill[], cap = 10, deaths: Fights['deaths'] = []) => autoLevelsAbove(fightsOf(kills, deaths), cap, now);
-  // Nothing seen: the level itself counts as clearly safe, so one above is tried.
-  assert.deepEqual(band([]), { levels: 1, capped: false });
-  // Clearly safe up to +3: +4 tried. Safe but not clearly (20%) at +3: +3.
   const upTo = (top: number, hpLost: (gap: number) => number) => [...Array(top + 1).keys()].flatMap((gap) => killsOf(6, () => kill(30, gap, hpLost(gap))));
-  assert.equal(band(upTo(3, () => 0.05)).levels, 4);
-  assert.equal(band(upTo(3, (gap) => (gap === 3 ? 0.2 : 0.05))).levels, 3);
-  // Too costly at +2 (half the health a kill): back to +1, not tried higher.
+  // Nothing seen, or nothing seen too costly: startLevelsAbove at least.
+  assert.deepEqual(band([]), { levels: GRIND.startLevelsAbove, capped: false });
+  assert.equal(band(upTo(2, () => 0.05)).levels, GRIND.startLevelsAbove);
+  // Clearly safe up to +6: +7 tried (so it climbs). Safe but not clearly (20%) at +6: +6.
+  assert.equal(band(upTo(6, () => 0.05)).levels, 7);
+  assert.equal(band(upTo(6, (gap) => (gap === 6 ? 0.2 : 0.05))).levels, 6);
+  // Too costly at +2 (half the health a kill): back to +1, under the start.
   assert.equal(band(upTo(4, (gap) => (gap >= 2 ? 0.5 : 0.05))).levels, 1);
-  // Gaps with too few kills to say are passed over; a dangerous one stops the climb even with safe ones above.
-  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(2, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 3, 0.05))]).levels, 4);
-  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(6, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 3, 0.05))]).levels, 1);
-  // Deaths: often (a death in five fights at +2) means unsafe there.
+  // Gaps with too few kills to say are passed over; a costly one stops the climb even with safe ones above.
+  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(2, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 7, 0.05))]).levels, 8);
+  assert.equal(band([...upTo(1, () => 0.05), ...killsOf(6, () => kill(30, 2, 0.9)), ...killsOf(6, () => kill(30, 7, 0.05))]).levels, 1);
+  // Deaths: often (a death in five fights at +2) means too costly there.
   assert.equal(band(upTo(2, () => 0.05), 10, [{ level: 30, monsterLevel: 32, at: 0 }]).levels, 1);
   // The cap.
-  assert.deepEqual(band(upTo(6, () => 0.05), 4), { levels: 4, capped: true });
-  assert.deepEqual(band(upTo(6, () => 0.05), 0), { levels: 0, capped: true });
-  // A death (to something too weak to count as unsafe: it was at the level) drops one level for half an hour.
+  assert.deepEqual(band(upTo(7, () => 0.05), 4), { levels: 4, capped: true });
+  assert.deepEqual(band([], 0), { levels: 0, capped: true });
+  // A death (one in many fights: not costly yet) to who knows what, or above the level, drops one level for half an hour.
   const recent = [{ level: 30, monsterLevel: null, at: now - 10 * MINUTE }];
-  assert.equal(band(upTo(3, () => 0.05), 10, recent).levels, 3);
-  assert.equal(band(upTo(3, () => 0.05), 10, [{ ...recent[0], at: now - 40 * MINUTE }]).levels, 4);
+  assert.equal(band(upTo(6, () => 0.05), 10, recent).levels, 6);
+  assert.equal(band(upTo(6, () => 0.05), 10, [{ ...recent[0], monsterLevel: 38 }]).levels, 6);
+  assert.equal(band(upTo(6, () => 0.05), 10, [{ ...recent[0], at: now - 40 * MINUTE }]).levels, 7);
+  // Dying at the level isn't helped by fighting less far above: the death rate there judges it (one in a hundred: still safe).
+  const atLevel = killsOf(100, (i) => kill(30, 0, 0.05, 1, 4, now - 5 * MINUTE + i));
+  assert.equal(band([...upTo(6, () => 0.05), ...atLevel], 10, [{ ...recent[0], monsterLevel: 30 }]).levels, 7);
+  assert.equal(band(upTo(6, () => 0.05), 10, [{ ...recent[0], monsterLevel: 30 }]).levels, 0);
 });
 
 test('measured elsewhere: maps with none of their own go by the others, at half their trust; their own come first', () => {

@@ -63,7 +63,10 @@ export interface HuntSettings {
 export interface GrindSettings {
   /** Plan again (and maybe move on) after hunting this many minutes on a map; a new level plans again too. */
   replanMinutes: number;
-  /** Monsters more than this many levels above the character count as too strong. */
+  /**
+   * The most levels above the character Grind fights (monsters further above count as too strong): a cap. Within it,
+   * Grind picks how far by itself, from what kills above the level cost in health and from deaths (grind.ts autoLevelsAbove).
+   */
   maxLevelsAbove: number;
   /** While unfinished quests need monsters killed, grind only where they spawn (when one can be reached). */
   questsFirst?: boolean;

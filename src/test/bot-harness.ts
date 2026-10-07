@@ -34,7 +34,7 @@ export function testSettings(changes: Partial<Settings> = {}): Settings {
     trainKey: 'F1',
     trainIntervalMs: 1000,
     questMaxActive: 5,
-    grind: { replanMinutes: 15, maxLevelsAbove: 5, questsFirst: false },
+    grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
     hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: false, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: '', randomTeleportKey: '' },
     ...changes,
   };
