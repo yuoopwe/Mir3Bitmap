@@ -913,11 +913,21 @@ export class Bot {
         nextFloorAt = this.clock.now() + FLOOR_CLICK_EVERY_MS;
       }
 
-      if (this.settings.sellItems && wholeSecondsSince(lastSellCheck, this.clock.now()) > SELL_CHECK_INTERVAL_SECONDS) {
-        lastSellCheck = this.clock.now();
-        this.releaseHold();
-        await this.sellItems();
-        this.status('Hunting');
+      // Selling. Grind and Quests (which pass stopWhen) sell their own way when the bag fills; Hunt with the
+      // memory reader does the same (Arcadia, Ludvik, back); only Hunt without it uses the old screen routine.
+      if (this.settings.sellItems && !options.stopWhen) {
+        if (memory) {
+          if (!current && this.bagFull(memory)) {
+            this.releaseHold();
+            await this.emptyBag();
+            this.status('Hunting');
+          }
+        } else if (wholeSecondsSince(lastSellCheck, this.clock.now()) > SELL_CHECK_INTERVAL_SECONDS) {
+          lastSellCheck = this.clock.now();
+          this.releaseHold();
+          await this.sellItems();
+          this.status('Hunting');
+        }
       }
     }
   }
