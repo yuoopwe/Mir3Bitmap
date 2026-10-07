@@ -153,6 +153,8 @@ const LOOT_DETOUR_TILES = 6;
 const LOOT_GIVE_UP_MS = 5000;
 const LOOT_WALK_GIVE_UP_MS = 8000;
 const LOOT_SKIP_MS = 120_000;
+/** Exploring with "Pick up items": walk to items up to this many tiles beyond pick-up reach. */
+const EXPLORE_LOOT_TILES = 8;
 /** Clicking one target this long without it going means it can't be reached (or isn't a monster): skip it for a while. */
 const TARGET_GIVE_UP_MS = 20_000;
 const TARGET_SKIP_MS = 30_000;
@@ -320,6 +322,8 @@ interface LootTarget {
   distance: number;
   /** The middle of its tile on screen. */
   point: Point;
+  /** Its map tile. */
+  at: Point;
 }
 
 interface HuntTarget {
@@ -404,6 +408,13 @@ export class Bot {
   private seek: { kind: 'monster' | 'spot'; key: string; label: string; target: Point; map: number; since: number; path: Point[] | null; moved: { at: number; x: number; y: number } } | null = null;
   private readonly visitedSpots = new Map<string, number>();
   private readonly seekExplorer = new MapExplorer();
+  /** Explore's looting: items given up on, items in reach and since when, the item being walked to, and the next feet click. */
+  private exploreLoot = {
+    skipped: new Map<string, number>(),
+    inReachSince: new Map<string, number>(),
+    walking: null as { key: string; since: number; path: Point[] | null } | null,
+    nextClickAt: 0,
+  };
   /** Walking distances from the player, for telling which monsters can be reached. */
   private huntDist: { map: number; x: number; y: number; at: number; dist: Int32Array } | null = null;
   /** Where driveAlong last aimed: the tile and the spot on screen, for telling what a blockage was. */
@@ -826,7 +837,7 @@ export class Bot {
     for (const o of memory.objects ?? []) {
       if (o.kind !== 'item' || skipped.has(`i${o.id}`)) continue;
       const point = tileToScreen(user, o.x, o.y);
-      items.push({ key: `i${o.id}`, distance: Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)), point });
+      items.push({ key: `i${o.id}`, distance: Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)), point, at: { x: o.x, y: o.y } });
     }
     return items;
   }
@@ -1311,6 +1322,7 @@ export class Bot {
   private async memoryExploreLoop(): Promise<string> {
     const memory = this.options.memory;
     memory.start();
+    this.exploreLoot = { skipped: new Map(), inReachSince: new Map(), walking: null, nextClickAt: 0 };
     const planner = new MapExplorer();
     const started = performance.now();
     let mapIndex: number | null = null;
@@ -1366,6 +1378,12 @@ export class Bot {
         planner.blocked(now + EXPLORE_AVOID_MS);
         moved.at = now;
         this.statusEvery('Blocked; going round');
+      }
+      // "Pick up items": what's on the ground first.
+      if (await this.lootFromMemory(reading, map, now)) {
+        moved = { at: performance.now(), x: NaN, y: NaN };
+        drivenAt = performance.now();
+        continue;
       }
       // Routes keep off monsters close by.
       const plan = planner.plan(map, { x: user.x, y: user.y }, now, this.obstaclesNear(reading, user, STEER_ROUND_TILES).map((m) => ({ x: m.x, y: m.y })));
@@ -1515,6 +1533,75 @@ export class Bot {
     }
     this.releaseHold();
     return fought;
+  }
+
+  /**
+   * With "Pick up items" on: clicks at the feet while items are within pick-up
+   * reach (giving up on any still there after LOOT_GIVE_UP_MS), and walks round
+   * the walls to the nearest one up to EXPLORE_LOOT_TILES further off. Returns
+   * whether it did anything this tick (so exploring waits).
+   */
+  private async lootFromMemory(reading: MemoryState, map: MapGrid, now: number): Promise<boolean> {
+    if (!this.settings.hunt.loot || !reading.user) return false;
+    const loot = this.exploreLoot;
+    for (const [key, until] of loot.skipped) if (until <= now) loot.skipped.delete(key);
+    const here = { x: reading.user.x, y: reading.user.y };
+    const reach = reading.user.pickUpRadius ?? 0;
+    const items = this.groundItems(reading, loot.skipped);
+    const inReach = items.filter((i) => i.distance <= reach);
+    for (const [key, since] of loot.inReachSince) {
+      if (!inReach.some((i) => i.key === key)) {
+        // Gone from the ground (not just out of reach): picked up, most likely.
+        if (!items.some((i) => i.key === key)) this.stats.count('items');
+        loot.inReachSince.delete(key);
+      } else if (now - since > LOOT_GIVE_UP_MS) {
+        loot.skipped.set(key, now + LOOT_SKIP_MS);
+        loot.inReachSince.delete(key);
+      }
+    }
+    for (const i of inReach) if (!loot.inReachSince.has(i.key)) loot.inReachSince.set(i.key, now);
+    if (loot.inReachSince.size > 0) {
+      if (now >= loot.nextClickAt) {
+        this.stopRunning();
+        await this.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
+        loot.nextClickAt = performance.now() + ITEM_CLICK_EVERY_MS;
+        this.statusEvery(`Picking up ${loot.inReachSince.size} item${loot.inReachSince.size === 1 ? '' : 's'}`);
+      } else {
+        await this.sleep(50);
+      }
+      return true;
+    }
+
+    // The nearest item a little way off: walk to it (the same one until it's reached or given up on).
+    const far = items.filter((i) => i.distance > reach && i.distance <= reach + EXPLORE_LOOT_TILES).sort((a, b) => a.distance - b.distance);
+    const walk = far.find((i) => i.key === loot.walking?.key) ?? far[0];
+    if (!walk) {
+      loot.walking = null;
+      return false;
+    }
+    if (loot.walking?.key !== walk.key) loot.walking = { key: walk.key, since: now, path: null };
+    if (now - loot.walking.since > LOOT_WALK_GIVE_UP_MS) {
+      loot.skipped.set(walk.key, now + LOOT_SKIP_MS);
+      loot.walking = null;
+      return false;
+    }
+    const onPath: number = loot.walking.path ? loot.walking.path.findIndex((t) => t.x === here.x && t.y === here.y) : -1;
+    loot.walking.path = loot.walking.path && onPath >= 0 ? loot.walking.path.slice(onPath) : null;
+    if (!loot.walking.path || loot.walking.path.length < 2) {
+      const dist = walkDistances(map, here);
+      const near = nearestApproach(map, dist, [walk.at]);
+      if (!near || near.steps === 0) {
+        // Walled off, or as close as it gets.
+        loot.skipped.set(walk.key, now + LOOT_SKIP_MS);
+        loot.walking = null;
+        return false;
+      }
+      loot.walking.path = pathBack(map, dist, near.tile);
+    }
+    await this.driveAlong(here, loot.walking.path, now);
+    this.statusEvery(`Walking to an item ${walk.distance} tiles away`);
+    await this.sleep(RUN_TICK_MS);
+    return true;
   }
 
   /**
