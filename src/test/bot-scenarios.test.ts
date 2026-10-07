@@ -85,8 +85,9 @@ test('Travel: by a waypoint stone, also one that asks Waypoints / Quests first',
 
 test("Travel: chickens by the stone don't start a fight, and the window is shut after a waypoint that isn't unlocked", async () => {
   const [sx, sy] = STONE.at!;
-  const chickens = [[1, 1], [-1, 1], [2, 0], [0, 2], [1, -1]].map(([dx, dy]) => ({ name: 'Chicken', x: sx + dx, y: sy + dy, level: 1 }));
-  const game = onBichon({ npcs: [{ id: STONE.id }], monsters: chickens, waypoints: ['Prajna Village'] }, { x: sx + 4, y: sy + 4 });
+  // Chickens round the stone come at the player on the way there.
+  const chickens = [[1, 1], [-1, 1], [2, 0], [0, 2], [1, -1], [3, 3]].map(([dx, dy]) => ({ name: 'Chicken', x: sx + dx, y: sy + dy, level: 1, aggressive: true }));
+  const game = onBichon({ npcs: [{ id: STONE.id }], monsters: chickens, waypoints: ['Prajna Village'] }, { x: sx + 9, y: sy + 7 });
   const closedAfterTry = () => of(game, 'window').some((w) => w.name === 'waypoints' && !w.open);
   // Bichon Castle by waypoint is quickest, but it isn't unlocked.
   const { met } = await play(game, (bot) => bot.startTravel('map:259'), { settings: { fightInTheWay: true }, until: closedAfterTry, limitMs: 60_000 });
