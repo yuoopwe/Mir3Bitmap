@@ -1,7 +1,8 @@
 # Reads what's around the player straight from the running game's memory (read-only, using Microsoft's
 # ClrMD) and prints it as one JSON line every ~150 ms, for the bot to use instead of reading the screen.
-# Needs the libraries in .\lib (scripts/setup-game-reader.ps1 downloads them). Runs until stdin closes.
-param([int]$IntervalMs = 150)
+# Needs the libraries in .\lib (scripts/setup-game-reader.ps1 downloads them). Runs until the bot (-ParentPid)
+# is gone, so a bot that was closed or killed never leaves it reading the game in the background.
+param([int]$IntervalMs = 150, [int]$ParentPid = 0)
 $ErrorActionPreference = 'Stop'
 $lib = Join-Path $PSScriptRoot 'lib'
 # ClrMD's helpers (Azure.Core is only used for symbol downloads, but has to load).
@@ -9,7 +10,16 @@ Get-ChildItem $lib -Filter *.dll | Where-Object { $_.Name -ne 'Microsoft.Diagnos
 Add-Type -Path (Join-Path $lib 'Microsoft.Diagnostics.Runtime.dll')
 Add-Type -Path (Join-Path $PSScriptRoot 'MapReading.cs') -ReferencedAssemblies (Join-Path $lib 'Microsoft.Diagnostics.Runtime.dll')
 
+# Ends the reader once the bot that started it has gone (checked about once a second).
+$parentCheck = [Diagnostics.Stopwatch]::StartNew()
+function Exit-IfOrphaned {
+  if ($ParentPid -le 0 -or $parentCheck.ElapsedMilliseconds -lt 1000) { return }
+  $parentCheck.Restart()
+  if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { exit 0 }
+}
+
 function Write-State($state) {
+  Exit-IfOrphaned
   [Console]::Out.WriteLine(($state | ConvertTo-Json -Compress -Depth 6))
   [Console]::Out.Flush()
 }
@@ -391,5 +401,7 @@ while ($true) {
     Start-Sleep -Seconds 2
   } finally {
     if ($target) { $target.Dispose() }
+    # Hand back what the last attach used: hours of re-attaching otherwise let the reader grow to a gigabyte or more.
+    [System.GC]::Collect()
   }
 }

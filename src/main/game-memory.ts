@@ -158,7 +158,8 @@ export class GameMemory {
 
   start(): void {
     if (this.child || !this.installed) return;
-    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, 'reader.ps1')], { windowsHide: true });
+    // With our process id, so the reader ends itself if this app is closed or killed without stopping it.
+    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, 'reader.ps1'), '-ParentPid', String(process.pid)], { windowsHide: true });
     this.child = child;
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
