@@ -13,7 +13,7 @@ import { RouteCosts } from './quest-planner';
 import { autoLevelsAbove, levelAllows } from './grind';
 import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks, summonFor, type CircuitPlan, type CircuitStop, type Summon } from './boss-planner';
 import type { MemoryState } from './game-memory';
-import { BotError, MEMORY_START_MS, Stopped } from './bot-shared';
+import { BotError, MEMORY_START_MS, Stopped, sameName } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /** A quest the NPC didn't give (done today, or not for this character) isn't asked for again for this long. */
@@ -243,12 +243,12 @@ export class BossCircuit {
           kills = this.bot.kills;
           progressAt = now;
         }
-        const seen = (reading?.objects ?? []).filter((o) => o.kind === 'monster' && o.name.toLowerCase() === name).reduce((sum, o) => sum + (o.hp ?? 0), 0);
+        const seen = (reading?.objects ?? []).filter((o) => o.kind === 'monster' && sameName(o.name, name)).reduce((sum, o) => sum + (o.hp ?? 0), 0);
         if (seen !== damage) {
           damage = seen;
           progressAt = now;
         }
-        if ((reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && o.name.toLowerCase() === name)) seenAt = Math.max(seenAt, now);
+        if ((reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name))) seenAt = Math.max(seenAt, now);
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;
       },
@@ -312,7 +312,7 @@ export class BossCircuit {
   private losing(reading: MemoryState, name: string): boolean {
     const user = reading.user!;
     const close = (reading.objects ?? []).filter(
-      (o) => o.kind === 'monster' && !o.dead && o.name.toLowerCase() === name && Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)) <= 2,
+      (o) => o.kind === 'monster' && !o.dead && sameName(o.name, name) && Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)) <= 2,
     );
     const nearlyDead = (o: (typeof close)[number]) => !!o.maxHp && o.hp !== null && o.hp !== undefined && (o.maxHp + o.hp) / o.maxHp < NEARLY_DEAD_SHARE;
     return close.length > 0 && !close.some(nearlyDead);

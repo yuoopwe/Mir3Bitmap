@@ -3,6 +3,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { Point } from '../shared/types';
 import { LEADS_ON, findBigMap, readBigMap } from '../main/bigmap';
+import { nameIn, sameName } from '../main/bot-shared';
 import { ExplorePlanner, PLANNER_DEFAULTS, PLANNER_NAIVE, PlayerTracker } from '../main/explorer';
 import { Hunter, type Decision, type TargetFrame } from '../main/hunter';
 import { findItems, findLabels, type Label } from '../main/labels';
@@ -637,4 +638,14 @@ test("a map tile's place on screen, as measured in game (Co Ords under the mouse
   assert.ok(Math.abs(right.x - 848) < 24 && Math.abs(right.y - 415) < 16, JSON.stringify(right));
   const below = tileToScreen(user, 146, 203);
   assert.ok(Math.abs(below.x - 800) < 24 && Math.abs(below.y - 447) < 16, JSON.stringify(below));
+});
+
+test('nameIn: a monster with a tag the game puts in front ("[Afflicted]") is still the monster; names with their own tag match as they are', () => {
+  const wanted = new Set(['redkektal', '[behemoth] demonic kektal']);
+  assert.ok(nameIn('RedKektal', wanted));
+  assert.ok(nameIn('[Afflicted] RedKektal', wanted));
+  assert.ok(nameIn('[Behemoth] Demonic Kektal', wanted));
+  assert.ok(!nameIn('Demonic Kektal', wanted));
+  assert.ok(!nameIn('[Afflicted] Kektal', wanted));
+  assert.ok(sameName('[Afflicted] Zuma Keeper', 'zuma keeper'));
 });

@@ -12,7 +12,7 @@ import { LabelTracker, isFloating, type Sighting } from './sightings';
 import type { MemoryObject, MemoryState } from './game-memory';
 import { FightTimer } from './grind-log';
 import { readBar, signatureDifference, targetHpFill, viewSignature } from './vision';
-import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, hostile, wholeSecondsSince } from './bot-shared';
+import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, hostile, nameIn, wholeSecondsSince } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 const SELL_CHECK_INTERVAL_SECONDS = 10;
@@ -95,7 +95,7 @@ function isBoss(name: string): boolean {
     const data = loadTravelData();
     bossNames = new Set((data.monsters ?? []).filter((_, i) => data.monsterStats?.[i]?.[3]).map((n) => n.toLowerCase()));
   }
-  return bossNames.has(name.toLowerCase());
+  return nameIn(name, bossNames);
 }
 
 /** The game id of a target from the game's memory ("m123"), else null. */
@@ -432,10 +432,10 @@ export class Hunting {
     for (const o of memory.objects ?? []) {
       if (o.kind !== 'monster' || o.pet || !o.name || !hostile(o)) continue;
       seen.add(o.name);
-      if (o.dead || skip.has(o.name.toLowerCase())) continue;
+      if (o.dead || nameIn(o.name, skip)) continue;
       // Only certain monsters (quest ones, the circuit's boss): others too once right next to the character (hitting it, or in the way).
       const nextToMe = Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)) <= 1;
-      if (wanted && !wanted.has(o.name.toLowerCase()) && !nextToMe) continue;
+      if (wanted && !nameIn(o.name, wanted) && !nextToMe) continue;
       const tile = this.bot.toScreen(user, o.x, o.y);
       const point = { x: tile.x + AIM_SPOTS[0][0], y: tile.y + AIM_SPOTS[0][1] };
       if (!this.bot.clickable(point)) continue;
@@ -522,7 +522,7 @@ export class Hunting {
     }
     const monsters = (reading.objects ?? []).filter(
       (o) =>
-        o.kind === 'monster' && !o.pet && !o.dead && hostile(o) && o.name && !skip.has(o.name.toLowerCase()) && (!wanted || wanted.has(o.name.toLowerCase())) &&
+        o.kind === 'monster' && !o.pet && !o.dead && hostile(o) && o.name && !nameIn(o.name, skip) && (!wanted || nameIn(o.name, wanted)) &&
         !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
     );
     const chased = goal?.kind === 'monster' ? monsters.find((m) => `m${m.id}` === goal!.key) : undefined;

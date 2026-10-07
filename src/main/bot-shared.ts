@@ -125,3 +125,18 @@ export function mouseObjectName(title: string): string | null {
   const match = /Mouse Object: ([^,]*)/.exec(title);
   return match ? match[1].trim() : null;
 }
+
+/**
+ * Whether a monster's name as the game shows it is one of `names` (lower case): itself, or without a tag in front
+ * that the game adds to some ("[Afflicted] RedKektal" is a RedKektal). Names that start with a tag of their own
+ * ("[Behemoth] Demonic Kektal") match as they are.
+ */
+export function nameIn(name: string, names: ReadonlySet<string>): boolean {
+  const lower = name.toLowerCase();
+  if (names.has(lower)) return true;
+  const untagged = /^\[[^\]]+\]\s*(.+)$/.exec(lower);
+  return !!untagged && names.has(untagged[1]);
+}
+
+/** Whether a monster's name as the game shows it is `name` (lower case), a tag in front or not (see nameIn). */
+export const sameName = (seen: string, name: string): boolean => nameIn(seen, new Set([name]));
