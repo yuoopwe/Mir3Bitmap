@@ -381,7 +381,7 @@ export class Exploring {
       } else if (now - since > LOOT_GIVE_UP_MS) {
         loot.skipped.set(key, now + LOOT_SKIP_MS);
         loot.inReachSince.delete(key);
-        this.bot.survival.lootRefused++;
+        this.bot.survival.lootGivenUp(inReach.find((i) => i.key === key)!.distance);
       }
     }
     for (const i of inReach) if (!loot.inReachSince.has(i.key)) loot.inReachSince.set(i.key, now);

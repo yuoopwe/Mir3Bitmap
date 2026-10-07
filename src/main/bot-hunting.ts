@@ -233,7 +233,7 @@ export class Hunting {
           } else if (now - since > LOOT_GIVE_UP_MS) {
             skipped.set(key, now + LOOT_SKIP_MS);
             inReachSince.delete(key);
-            this.bot.survival.lootRefused++;
+            this.bot.survival.lootGivenUp(inReach.find((i) => i.key === key)!.distance);
           }
         }
         for (const i of inReach) if (!skipped.has(i.key) && !inReachSince.has(i.key)) inReachSince.set(i.key, now);

@@ -358,16 +358,27 @@ test('Return to Arcadia: still in combat after a minute, the Town Portal scroll,
 });
 
 test("Pickups refused: three items in a row that won't pick up count as a full bag (Hunt, standing)", async () => {
-  // The bag says 10 of 40, but takes nothing more until something is sold. Hunt without seeking stays put by the items.
+  // The bag says 20 of 40, but takes nothing more until something is sold. Hunt without seeking stays put by the items.
   // (In Grind and Quests seeking runs off between tries: see the pull request.)
   const { x, y } = bichon.player;
   const items = [[0, 1], [1, 0], [-1, -1]].map(([dx, dy], i) => ({ name: `Junk ${i}`, x: x + dx, y: y + dy }));
-  const game = onBichon({ allNpcs: true, items, bag: { used: 10, slots: 40, refuse: true } }, bichon.player, { level: 1, pickUpRadius: 1 });
+  const game = onBichon({ allNpcs: true, items, bag: { used: 20, slots: 40, refuse: true } }, bichon.player, { level: 1, pickUpRadius: 1 });
   const { met } = await play(game, (bot) => bot.startAttack(), { settings: { sellItems: true, hunt: { ...testSettings().hunt, loot: true } }, until: () => sold(game) > 0, limitMs: 5 * 60_000 });
   assert.ok(met, 'sold');
   assert.ok(of(game, 'pickup').filter((p) => p.refused).length >= 3);
   assert.ok(of(game, 'mapChange').some((c) => c.to === ARCADIA && c.via === 'arcadia'));
-  assert.equal(sold(game), 8);
+  assert.equal(sold(game), 18);
+  checkAlways(game);
+});
+
+test("Pickups refused with a near-empty bag: someone else's drops, most likely; no trip to sell", async () => {
+  const { x, y } = bichon.player;
+  const items = [[0, 1], [1, 0], [-1, -1]].map(([dx, dy], i) => ({ name: `Junk ${i}`, x: x + dx, y: y + dy }));
+  const game = onBichon({ allNpcs: true, items, bag: { used: 5, slots: 40, refuse: true } }, bichon.player, { level: 1, pickUpRadius: 1 });
+  await play(game, (bot) => bot.startAttack(), { settings: { sellItems: true, hunt: { ...testSettings().hunt, loot: true } }, until: () => false, limitMs: 60_000 });
+  assert.ok(of(game, 'pickup').filter((p) => p.refused).length >= 3);
+  assert.ok(!of(game, 'mapChange').some((c) => c.to === ARCADIA));
+  assert.equal(sold(game), 0);
   checkAlways(game);
 });
 

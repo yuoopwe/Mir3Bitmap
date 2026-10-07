@@ -40,8 +40,12 @@ const INVENTORY_KEY = 0x57;
 /** At most this many Select All / Sell rounds (the sell panel holds only so many items at a time). */
 const SELL_ROUNDS = 20;
 
-/** This many items in a row that wouldn't pick up count as a full bag. */
+/** This many items in a row that wouldn't pick up count as a full bag... */
 const LOOT_REFUSED_FULL = 3;
+/** ...counting only items this close (further off, it may just be out of reach)... */
+const LOOT_REFUSED_TILES = 1;
+/** ...and only once the bag is at least this full by its count (else they're someone else's drops, most likely). */
+const LOOT_REFUSED_MIN_USED = 0.5;
 
 /** Where to point the mouse to run in each direction, keyed by "signX,signY". */
 const RUN_POINTS: Record<string, Point> = {
@@ -80,14 +84,19 @@ export class Survival {
 
   constructor(private readonly bot: BotContext) {}
 
+  /** An item given up on (still on the ground after LOOT_GIVE_UP_MS), `distance` tiles away: only those at the feet count towards a full bag. */
+  lootGivenUp(distance: number): void {
+    if (distance <= LOOT_REFUSED_TILES) this.lootRefused++;
+  }
+
   /** The bag has too few slots free, or is too near its weight limit (the Hunt settings). */
   bagFull(reading: MemoryState | null | undefined): boolean {
     const bag = reading?.survival?.bag;
     if (!bag || bag.slots <= 0) return false;
     const freeSlots = bag.slots - bag.used;
     const weightPercent = bag.maxWeight > 0 ? (bag.weight / bag.maxWeight) * 100 : 0;
-    // Items that won't pick up, one after another, mean the game thinks the bag is full whatever the count says.
-    if (this.lootRefused >= LOOT_REFUSED_FULL) return true;
+    // Items at the feet that won't pick up, one after another, in a bag already well filled: the game thinks it's full whatever the count says.
+    if (this.lootRefused >= LOOT_REFUSED_FULL && bag.used >= bag.slots * LOOT_REFUSED_MIN_USED) return true;
     return freeSlots <= (this.bot.settings.hunt.bagFreeSlots ?? 15) || weightPercent >= (this.bot.settings.hunt.bagWeightPercent ?? 95);
   }
 
