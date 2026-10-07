@@ -419,7 +419,9 @@ export class Hunting {
       if (o.kind !== 'monster' || o.pet || !o.name || !hostile(o)) continue;
       seen.add(o.name);
       if (o.dead || skip.has(o.name.toLowerCase())) continue;
-      if (wanted && !wanted.has(o.name.toLowerCase())) continue;
+      // Only certain monsters (quest ones, the circuit's boss): others too once right next to the character (hitting it, or in the way).
+      const nextToMe = Math.max(Math.abs(o.x - user.x), Math.abs(o.y - user.y)) <= 1;
+      if (wanted && !wanted.has(o.name.toLowerCase()) && !nextToMe) continue;
       const tile = this.bot.toScreen(user, o.x, o.y);
       const point = { x: tile.x + AIM_SPOTS[0][0], y: tile.y + AIM_SPOTS[0][1] };
       if (!this.bot.clickable(point)) continue;

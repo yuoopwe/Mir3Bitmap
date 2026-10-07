@@ -166,6 +166,16 @@ test('Quests: hunts the quest monster until the quest is done, then hands it in'
   checkAlways(game);
 });
 
+test("Quests: a monster the quest doesn't want, right next to the character, is fought too (it's hitting it, or in the way)", async () => {
+  const wolves = Array.from({ length: 4 }, (_, i) => ({ name: 'Wolf', x: byLinda.x - 6 + i * 3, y: byLinda.y + 6 }));
+  // A chicken pressed up against the character, biting.
+  const chicken = { name: 'Chicken', x: byLinda.x + 1, y: byLinda.y, damage: 5 };
+  const game = onBichon({ npcs: [{ id: LINDA.id }], monsters: [...wolves, chicken], quests: [{ key: WOLVES, state: 'active' }], offers: [] }, byLinda, { level: 10 });
+  const { met } = await play(game, (bot) => bot.startQuests(), { settings: { questMaxActive: 1 }, until: () => of(game, 'attack').some((a) => a.killed && a.name === 'Chicken'), limitMs: 2 * 60_000 });
+  assert.ok(met, 'the chicken next to it was fought');
+  checkAlways(game);
+});
+
 /** Chickens about the player on Bichon Province, for a level 1 to grind on. */
 function grindOnBichon(setup: Partial<FakeGameSetup> = {}): FakeGame {
   const { x, y } = bichon.player;
