@@ -78,6 +78,8 @@ export interface Settings {
   /** Gather mode: pick plants (Scavenging Dagger) and/or mine ore (Pick Axe). */
   gatherPlants: boolean;
   gatherOre: boolean;
+  /** Travel and Explore: fight monsters that block the way (or crowd round) instead of only walking round them. */
+  fightInTheWay: boolean;
   /** Train mode: the spell key cast on the character over and over, and how often. */
   trainKey: BindableKey;
   trainIntervalMs: number;

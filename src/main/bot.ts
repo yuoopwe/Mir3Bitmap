@@ -76,7 +76,7 @@ const EXPLORE_AVOID_MS = 10_000;
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
 const NPC_REACH_TILES = 2;
 const TRAVEL_BLOCKED_LIMIT = 8;
-/** Travelling and exploring: monsters this close when blocked (or two right next to you) get fought, not walked into. */
+/** Travelling and exploring with "Fight monsters in the way": monsters this close when blocked (or two right next to you) get fought. */
 const FIGHT_RANGE_TILES = 2;
 /** Give up on one monster after this long (out of reach, say), and on fighting altogether after this long. */
 const FIGHT_TARGET_GIVE_UP_MS = 15_000;
@@ -1167,7 +1167,7 @@ export class Bot {
       if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       const stuck = user.x === moved.x && user.y === moved.y && now - moved.at > EXPLORE_BLOCKED_MS;
-      if ((stuck || this.monstersNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
+      if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, user, 1).length >= 2) && (await this.clearTheWay())) {
         moved = { at: performance.now(), x: NaN, y: NaN };
         drivenAt = performance.now();
         continue;
@@ -1408,7 +1408,7 @@ export class Bot {
       // Surrounded, or blocked with monsters about: fight them rather than keep walking into them.
       if (now - drivenAt > EXPLORE_BLOCKED_MS) moved.at = now;
       const stuck = here.x === moved.x && here.y === moved.y && now - moved.at > EXPLORE_BLOCKED_MS;
-      if ((stuck || this.monstersNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
+      if (this.settings.fightInTheWay && (stuck || this.monstersNear(reading, here, 1).length >= 2) && (await this.clearTheWay())) {
         path = null;
         moved = { at: performance.now(), x: NaN, y: NaN };
         drivenAt = performance.now();

@@ -51,6 +51,7 @@ const deckButton = element<HTMLButtonElement>('deck-button');
 const gatherButton = element<HTMLButtonElement>('gather-button');
 const gatherPlants = element<HTMLInputElement>('gather-plants');
 const gatherOre = element<HTMLInputElement>('gather-ore');
+const fightInTheWay = element<HTMLInputElement>('fight-in-the-way');
 const trainKey = element<HTMLSelectElement>('train-key');
 const trainInterval = element<HTMLInputElement>('train-interval');
 const explorePercent = element<HTMLInputElement>('explore-percent');
@@ -206,6 +207,7 @@ function readSettings(): Settings {
     exploreTeleport: exploreTeleport.checked,
     gatherPlants: gatherPlants.checked,
     gatherOre: gatherOre.checked,
+    fightInTheWay: fightInTheWay.checked,
     skipMonsters,
     pauseOnMouse: pauseOnMouse.checked,
     trainKey: trainKey.value,
@@ -247,6 +249,7 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.exploreTeleport !== undefined) exploreTeleport.checked = settings.exploreTeleport;
   if (settings.gatherPlants !== undefined) gatherPlants.checked = settings.gatherPlants;
   if (settings.gatherOre !== undefined) gatherOre.checked = settings.gatherOre;
+  if (settings.fightInTheWay !== undefined) fightInTheWay.checked = settings.fightInTheWay;
   if (Array.isArray(settings.skipMonsters)) {
     skipMonsters = settings.skipMonsters;
     showMonsters();

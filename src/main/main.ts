@@ -28,6 +28,7 @@ const defaultSettings: Settings = {
   exploreTeleport: true,
   gatherPlants: true,
   gatherOre: true,
+  fightInTheWay: false,
   trainKey: 'F1',
   trainIntervalMs: 1000,
   hunt: { roam: false, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
