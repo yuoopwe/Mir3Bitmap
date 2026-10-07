@@ -1345,11 +1345,14 @@ export class Bot {
     for (let i = along; i > 0 && !free(tileToScreen(user, aim.x, aim.y)); i--) aim = path[i - 1];
     const point = tileToScreen(user, aim.x, aim.y);
     const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
-    this.lastAim = { tile: aim, point, running: steps > 1 };
-    if (steps <= 1) {
-      // The path turns here: a run would carry past the turn, so step.
+    // A run moves a whole stride (2 tiles, 3 on a mount) or not at all: with less straight path than that
+    // before a turn or a wall, it doesn't go, so step a tile at a time instead.
+    const stride = this.options.memory.latest()?.user?.mounted ? 3 : 2;
+    this.lastAim = { tile: aim, point, running: steps >= stride };
+    if (steps < stride) {
       this.stopRunning();
-      if (steps === 1) await this.click(point, this.delay('attackClick'));
+      const next = path[1];
+      if (next) await this.click(tileToScreen(user, next.x, next.y), this.delay('attackClick'));
       return;
     }
     this.holdRun(point);
