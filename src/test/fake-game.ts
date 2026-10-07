@@ -5,7 +5,8 @@
  * (running with the right button held, a stride every STRIDE_MS in one of 8
  * directions; a step per left click; the player's tile changes as a move
  * starts, as the client has it, and the move then takes its time), changes maps on links' exit tiles, and
- * has monsters, NPCs, other players, items on the ground, the waypoint
+ * has monsters (with health, taking damage from the player's blows and hitting
+ * back), NPCs, other players, items on the ground, the waypoint
  * window, quests, a shop (sold in rounds, from the bag window's Main tab),
  * death, Return to Arcadia (only out of combat, and back again from Arcadia),
  * the Town Portal scroll, the mount and a bag. Time is virtual: every wait jumps ahead, so a
@@ -40,6 +41,8 @@ const CORPSE_MS = 2000;
 /** Aggressive monsters come at a player this close, a tile this often. */
 const AGGRO_TILES = 8;
 const MONSTER_STEP_MS = 500;
+/** Monsters that hit back (FakeMonster.damage) do it this often, next to the player. */
+const MONSTER_HIT_MS = 1000;
 const RESPAWN_MS = 4000;
 /** Explored blocks are this many tiles a side; the player uncovers this far around them. */
 const BLOCK = 4;
@@ -61,7 +64,9 @@ export type FakeEvent =
   | { t: number; type: 'sold'; items: number }
   /** Return to Arcadia pressed while still in combat: the game says no. */
   | { t: number; type: 'refused'; what: 'arcadia'; combatAgo: number }
-  | { t: number; type: 'pickup'; items: number; refused: boolean };
+  | { t: number; type: 'pickup'; items: number; refused: boolean }
+  /** A monster hit the player. */
+  | { t: number; type: 'hurt'; name: string; damage: number; hp: number };
 
 export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal';
 
@@ -74,8 +79,12 @@ export interface FakeMonster {
   level?: number;
   /** Library.CombatTargetDisposition: 4 hostile (default), 0 a guard that can't be attacked. */
   disposition?: number;
-  /** Clicks to kill (default 1). */
+  /** Clicks to kill (default 1), unless the player's blows have a damage (FakeGameSetup.player.damage): then its health decides. */
   hits?: number;
+  /** Its health (default: its Health stat in travel.json, else 100). */
+  health?: number;
+  /** Health it takes off the player each hit, hitting back once attacked (or when aggressive), every MONSTER_HIT_MS next to them. */
+  damage?: number;
   exp?: number;
   /** Comes back after dying. */
   respawn?: boolean;
@@ -100,7 +109,8 @@ export interface FakeGameSetup {
   data?: TravelData;
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
   maps?: MapGrid[];
-  player: { map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number };
+  /** damage: what each blow takes off a monster (else monsters die in their `hits`); hp: the player's health (default 1000, all of it). */
+  player: { map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number };
   monsters?: FakeMonster[];
   /** NPCs to place, by travel.json id; with `allNpcs`, every NPC on a map is placed when the player gets there too. */
   npcs?: FakeNpcSetup[];
@@ -132,6 +142,8 @@ interface Monster extends MemoryObject {
   drops?: string;
   aggressive: boolean;
   nextStepAt: number;
+  hitsFor: number;
+  nextHitAt: number;
   hits: number;
   taken: number;
   exp: number;
@@ -184,7 +196,10 @@ export class FakeGame {
   readonly data: TravelData;
   readonly events: FakeEvent[] = [];
   t = 0;
-  readonly player: { map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number };
+  readonly player: {
+    map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number;
+    damage: number | null; hp: number; maxHp: number;
+  };
   bag: { used: number; slots: number; refuse: boolean };
   /** The bag window, and the tab showing (0 = Main). */
   bagWindow: { open: boolean; section: number };
@@ -245,7 +260,7 @@ export class FakeGame {
     const p = setup.player;
     this.player = {
       map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true,
-      dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0,
+      dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0, damage: p.damage ?? null, hp: p.hp ?? 1000, maxHp: p.hp ?? 1000,
     };
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
@@ -334,6 +349,7 @@ export class FakeGame {
       id: this.nextId++, kind: 'monster', name: m.name, x: m.x, y: m.y, dead: false, level: m.level ?? stats?.[0] ?? 1, pet: false,
       disposition: m.disposition ?? 4, map: m.map ?? this.player.map, hits: m.hits ?? 1, taken: 0, exp: m.exp ?? stats?.[1] ?? 10,
       respawn: m.respawn ?? false, home: { x: m.x, y: m.y }, deadAt: 0, aggressive: m.aggressive ?? false, nextStepAt: 0, drops: m.drops,
+      maxHp: m.health ?? stats?.[2] ?? 100, hp: 0, hitsFor: m.damage ?? 0, nextHitAt: 0,
     });
   }
 
@@ -405,12 +421,29 @@ export class FakeGame {
     if (this.reviveAt !== null && this.t >= this.reviveAt) {
       this.reviveAt = null;
       this.player.dead = false;
+      this.player.hp = this.player.maxHp;
       this.teleport(ARCADIA.map, ARCADIA.x, ARCADIA.y, 'revive');
     }
     for (const m of this.monsters) {
       if (!m.dead && m.aggressive) this.closeIn(m);
+      if (!m.dead && m.hitsFor) this.hitBack(m);
       if (!m.dead) continue;
-      if (m.respawn && this.t - m.deadAt >= CORPSE_MS + RESPAWN_MS && this.free(m.map, m.home)) Object.assign(m, { dead: false, taken: 0, x: m.home.x, y: m.home.y });
+      if (m.respawn && this.t - m.deadAt >= CORPSE_MS + RESPAWN_MS && this.free(m.map, m.home)) Object.assign(m, { dead: false, taken: 0, hp: 0, x: m.home.x, y: m.home.y });
+    }
+  }
+
+  /** A monster that hits back, once attacked (or aggressive), hits the player next to it every MONSTER_HIT_MS. */
+  private hitBack(m: Monster): void {
+    for (; m.nextHitAt <= this.t; m.nextHitAt += MONSTER_HIT_MS) {
+      const angry = m.aggressive || m.taken > 0;
+      if (!angry || m.dead || m.map !== this.player.map || this.player.dead || chebyshev(m, this.player) > 1) {
+        m.nextHitAt = this.t + MONSTER_HIT_MS;
+        return;
+      }
+      this.player.hp = Math.max(0, this.player.hp - m.hitsFor);
+      this.lastCombatAt = m.nextHitAt;
+      this.events.push({ t: m.nextHitAt, type: 'hurt', name: m.name, damage: m.hitsFor, hp: this.player.hp });
+      if (this.player.hp <= 0) return this.kill();
     }
   }
 
@@ -645,8 +678,10 @@ export class FakeGame {
     if (!guard) {
       monster.taken++;
       this.lastCombatAt = this.t;
+      // The client sees the damage land: hp goes down from 0 (past -maxHp on an overkill).
+      monster.hp = -Math.round(this.player.damage !== null ? monster.taken * this.player.damage : (monster.taken * monster.maxHp!) / monster.hits);
     }
-    const killed = !guard && monster.taken >= monster.hits;
+    const killed = !guard && (this.player.damage !== null ? -monster.hp! >= monster.maxHp! : monster.taken >= monster.hits);
     this.events.push({ t: this.t, type: 'attack', name: monster.name, level: monster.level, disposition: monster.disposition ?? null, killed });
     if (!killed) return;
     monster.dead = true;
@@ -885,12 +920,12 @@ export class FakeGame {
         else if (task.type === 'TalkToNPC' && task.npc !== undefined) talks.push({ quest: q.quest.name, npc: task.npc });
       }
     }
-    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
+    const strip = ({ map: _map, hits: _h, taken: _t, exp: _e, respawn: _r, home: _home, deadAt: _d, npc: _n, menu: _m, aggressive: _a, nextStepAt: _s, drops: _dr, hitsFor: _hf, nextHitAt: _nh, ...o }: Partial<Monster & Npc> & MemoryObject): MemoryObject => o;
     return {
       inGame: true,
       user: {
         name: p.name, x: p.x, y: p.y, pickUpRadius: p.pickUpRadius, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
-        experience: p.experience, maxExperience: 1_000_000_000,
+        experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp,
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
       },
       objects: [

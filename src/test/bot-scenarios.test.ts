@@ -5,6 +5,8 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { chooseGrindMap } from '../main/grind';
+import { GrindLog } from '../main/grind-log';
 import { VK } from '../main/input';
 import { loadTravelData } from '../main/travel';
 import { play, testSettings } from './bot-harness';
@@ -433,5 +435,73 @@ test('Travel: boxed in by other players and NPCs on arrival, it still finds a wa
   const { message } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`));
   assert.equal(message, 'Arrived at Ludvik');
   assert.deepEqual(of(game, 'mapChange'), []);
+  checkAlways(game);
+});
+
+// ---- Fights measured for Grind ----
+
+test("Fights are timed from the game's memory: each monster's health going down to its death, and the health it cost", async () => {
+  const { x, y } = bichon.player;
+  // Wolves of 300 health that bite back (25 a bite) once hit; the player's blows do 60.
+  const wolves = [[-2, 1], [3, 2], [1, -3]].map(([dx, dy]) => ({ name: 'Wolf', x: x + dx, y: y + dy, health: 300, damage: 25 }));
+  const game = onBichon({ monsters: wolves }, bichon.player, { damage: 60 });
+  const grindLog = new GrindLog(() => {});
+  const { met } = await play(game, (bot) => bot.startAttack(), { grindLog, until: () => grindLog.fights('Tester').kills.length >= 3, limitMs: 2 * 60_000 });
+  assert.ok(met, 'three wolves killed and timed');
+  // Five blows each (300 / 60), the fifth killing.
+  assert.equal(of(game, 'attack').length, 15);
+  const kills = grindLog.fights('Tester').kills;
+  assert.equal(kills.length, 3);
+  for (const k of kills) {
+    assert.deepEqual([k.level, k.monsterLevel, k.maxHp, k.damage], [24, 5, 300, 300]);
+    assert.ok(k.seconds >= 1 && k.seconds < 10, `${k.seconds} s`);
+  }
+  // The bites, shared out among the kills they happened in.
+  const bitten = of(game, 'hurt').reduce((sum, h) => sum + h.damage, 0) / 1000;
+  assert.ok(bitten > 0 && game.player.hp < 1000);
+  assert.ok(Math.abs(kills.reduce((sum, k) => sum + k.hpLost, 0) - bitten) < 1e-9, `${kills.map((k) => k.hpLost)} against ${bitten}`);
+  checkAlways(game);
+});
+
+test('A death is noted with the level of the monster being fought', async () => {
+  const { x, y } = bichon.player;
+  const log = new GrindLog(() => {});
+  // Too much for the player: one bite (once hit) is the end.
+  const game = onBichon({ monsters: [{ name: 'Wolf', x: x - 2, y: y + 1, health: 5000, damage: 2000 }] }, bichon.player, { damage: 10 });
+  const { met } = await play(game, (bot) => bot.startAttack(), { grindLog: log, until: () => log.fights('Tester').deaths.length > 0, limitMs: 60_000 });
+  assert.ok(met, 'died');
+  assert.deepEqual(log.fights('Tester').deaths.map((d) => [d.level, d.monsterLevel]), [[24, 5]]);
+  assert.deepEqual(log.fights('Tester').kills, []);
+  checkAlways(game);
+});
+
+test('Grind: a strong character (quick kills above their level, hardly scratched) moves to a harder map than the estimate alone picks', async () => {
+  // Level 24 on Faraway Falls (its monsters are level 22): by the estimate alone it's the best there is, and stays so.
+  const FARAWAY = data.maps.find((m) => m.name === 'Faraway Falls')!.i;
+  const at = { x: 40, y: 40 };
+  // Zuma monsters three to five levels up, dying in three blows of 450, biting for 1% of the health.
+  const names = ['Vicious Rat', 'Zuma Fanatic', 'Zuma Guardian'];
+  const monsters = Array.from({ length: 9 }, (_, i) => ({ name: names[i % 3], x: at.x - 4 + (i % 3) * 4, y: at.y + 3 + Math.floor(i / 3) * 2, respawn: true, damage: 10 }));
+  const game = new FakeGame({ monsters, player: { map: FARAWAY, ...at, level: 24, damage: 450 } });
+  // Planning again after two minutes: elsewhere (the run stops there).
+  const plans = (lines: { message: string }[]) => lines.map((l) => l.message).filter((m) => m.startsWith('Grinding at '));
+  const { met, statuses, grindLog } = await play(game, (bot) => bot.startGrind(), {
+    settings: { grind: { ...testSettings().grind, replanMinutes: 2 } },
+    until: (lines) => plans(lines).some((p) => !p.startsWith('Grinding at Faraway Falls')),
+    limitMs: 6 * 60_000,
+  });
+  assert.ok(met, plans(statuses).join(' | '));
+  const [first, second] = [...new Set(plans(statuses))];
+  assert.match(first, /^Grinding at Faraway Falls: .*\(still the best\); fighting up to \+5 \(auto\)$/);
+  assert.match(second, /^Grinding at Zuma Temple Lv \d: .*\((\d+% better than|outgrew) Faraway Falls\)/);
+  // What it measured: quick kills, a little health each.
+  const { kills } = grindLog.fights('Tester');
+  assert.ok(kills.length >= 20, `${kills.length} kills`);
+  assert.ok(kills.every((k) => k.monsterLevel >= 27 && k.seconds < 3 && k.damage === k.maxHp));
+  assert.ok(kills.reduce((sum, k) => sum + k.hpLost, 0) / kills.length < 0.05);
+  assert.equal(grindLog.sessions('Tester')[0].kills, kills.length);
+  // By the estimate alone (the same band), it stays where it was.
+  const start = { map: FARAWAY, steps: new Map(), at };
+  assert.equal(chooseGrindMap(data, start, { level: 24, cls: 0 }, { maxLevelsAbove: 5, current: FARAWAY })!.map, FARAWAY);
   checkAlways(game);
 });

@@ -60,19 +60,22 @@ export interface Played {
   /** Whether `until` was met (else the run ended by itself, or ran out of time). */
   met: boolean;
   bot: Bot;
+  /** Grind's measurements the run kept (stints, kills, deaths). */
+  grindLog: GrindLog;
 }
 
 /**
  * Starts the bot on the game (`start` picks the mode) and lets it run until it
- * stops by itself, `until` holds (checked between the bot's steps; the bot is
- * then stopped), or `limitMs` of game time has passed.
+ * stops by itself, `until` holds (checked between the bot's steps, given the
+ * status lines so far; the bot is then stopped), or `limitMs` of game time has passed.
  */
 export async function play(
   game: FakeGame,
   start: (bot: Bot) => void,
-  options: { settings?: Partial<Settings>; until?: () => boolean; limitMs?: number; seed?: number; during?: () => void } = {},
+  options: { settings?: Partial<Settings>; until?: (statuses: Status[]) => boolean; limitMs?: number; seed?: number; during?: () => void; grindLog?: GrindLog } = {},
 ): Promise<Played> {
   const statuses: Status[] = [];
+  const grindLog = options.grindLog ?? new GrindLog(() => {});
   const bot = new Bot(testSettings(options.settings), {
     report: (status) => statuses.push(status),
     names: new NameBook(() => {}),
@@ -81,7 +84,7 @@ export async function play(
     memory: game.memory,
     input: game.input,
     clock: game.clock,
-    grindLog: new GrindLog(() => {}),
+    grindLog,
   });
   const random = Math.random;
   Math.random = seeded(options.seed ?? 1);
@@ -94,7 +97,7 @@ export async function play(
         const last = statuses.at(-1);
         if (statuses.length > 1 && last?.mode === 'idle') return resolve();
         options.during?.();
-        if (!met && options.until?.()) {
+        if (!met && options.until?.(statuses)) {
           met = true;
           bot.stop();
         } else if (game.now > limit) bot.stop();
@@ -105,5 +108,5 @@ export async function play(
   } finally {
     Math.random = random;
   }
-  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot };
+  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot, grindLog };
 }
