@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { VK } from '../main/input';
 import { loadTravelData } from '../main/travel';
-import { play } from './bot-harness';
+import { play, testSettings } from './bot-harness';
 import { FakeGame, RUN_DEAD_ZONE, openMap, type FakeEvent, type FakeGameSetup } from './fake-game';
 import { loadMapFixture } from './map-fixtures';
 
@@ -232,4 +232,18 @@ test('Scenarios are deterministic: the same run twice gives the same events', as
     return JSON.stringify(game.events);
   };
   assert.equal(await run(), await run());
+});
+
+test('Hunt, mounted: gets off before fighting at the first try, never mid-stride', async () => {
+  // Seeking a wolf out of sight, mounted: the run there ends with getting off to fight.
+  const { x, y } = bichon.player;
+  const game = onBichon({ monsters: [{ name: 'Wolf', x: x - 12, y: y - 24, level: 20 }] }, bichon.player, { mounted: true });
+  const { met } = await play(game, (bot) => bot.startAttack(), {
+    settings: { hunt: { ...testSettings().hunt, roam: true } },
+    until: () => of(game, 'attack').some((a) => a.killed),
+    limitMs: 2 * 60_000,
+  });
+  assert.ok(met, 'found and killed');
+  assert.deepEqual(of(game, 'mount').map((m) => [m.moving, m.mounted]), [[false, false]]);
+  checkAlways(game);
 });

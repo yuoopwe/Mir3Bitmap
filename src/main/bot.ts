@@ -97,8 +97,11 @@ const FIGHT_GIVE_UP_MS = 60_000;
 const STEER_ROUND_TILES = 8;
 /** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
 const MOUNT_SETTLE_MS = 1500;
-/** M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS). */
-const STILL_MS = 400;
+/**
+ * M does nothing mid-step: the character must have stayed on one tile this long first (waiting at most STILL_WAIT_MS).
+ * Longer than a stride (about 650 ms), as the tile only changes once per stride while running.
+ */
+const STILL_MS = 700;
 const STILL_WAIT_MS = 2000;
 /**
  * Running: the cursor is held this many tiles from the character, the way the path goes (tested: 2 tiles
