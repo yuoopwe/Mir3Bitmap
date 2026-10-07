@@ -219,6 +219,21 @@
         return `Travelling to ${label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`;
       });
     },
+    async startGrind() {
+      record('startGrind');
+      const plan = 'Grinding at Zuma Temple Lv 3: ~1.5M exp/h for level 35 (the best)';
+      run('grind', 'Grinding', 1000, (tick) => {
+        if (tick === 0) return plan;
+        if (tick === 1) return 'Route: Bichon Province > Zuma Temple Lv 4 > Zuma Temple Lv 3';
+        if (tick === 3) return 'Arrived at Zuma Temple Lv 3';
+        if (tick % 3 === 2) {
+          state.kills++;
+          count('kills');
+          return 'Attacking Zuma Archer (game memory)';
+        }
+        return tick % 3 === 1 ? 'Heading for where Zuma Statue, Zuma Guardian spawn' : plan;
+      });
+    },
     async searchPlaces(query) {
       record('searchPlaces', query);
       return searchPlaces(query);
