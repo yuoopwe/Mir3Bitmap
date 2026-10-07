@@ -221,7 +221,7 @@
     },
     async startGrind() {
       record('startGrind');
-      const plan = 'Grinding at Zuma Temple Lv 3: ~1.5M exp/h for level 35 (the best)';
+      const plan = 'Grinding at Zuma Temple Lv 3: ~1.5M est, 1.2M measured exp/h for level 35 (still the best)';
       run('grind', 'Grinding', 1000, (tick) => {
         if (tick === 0) return plan;
         if (tick === 1) return 'Route: Bichon Province > Zuma Temple Lv 4 > Zuma Temple Lv 3';
