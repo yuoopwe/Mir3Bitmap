@@ -169,6 +169,8 @@ export class FakeGame {
   /** A stride or step under way: where it ends, and when. */
   private move: { to: { x: number; y: number }; path: { x: number; y: number }[]; at: number; run: boolean } | null = null;
   private loadedAt = 0;
+  /** A monster clicked from afar: walked up to, a step at a time, until next to it (or something else is done). */
+  private chasing: Monster | null = null;
   private lastMoveEnd = -Infinity;
   private arcadiaAt: number | null = null;
   private reviveAt: number | null = null;
@@ -314,6 +316,7 @@ export class FakeGame {
         continue;
       }
       if (!this.move && this.rightHeld && !this.player.dead && this.t >= this.loadedAt && this.startStride()) continue;
+      if (!this.move && this.chasing && this.chaseStep()) continue;
       break;
     }
     if (this.arcadiaAt !== null && this.t >= this.arcadiaAt) {
@@ -422,6 +425,7 @@ export class FakeGame {
   private right(down: boolean): void {
     this.update();
     this.rightHeld = down;
+    if (down) this.chasing = null;
     this.update();
   }
 
@@ -486,6 +490,7 @@ export class FakeGame {
     if (this.player.dead) return;
     const tile = this.tileAt(point);
     const thing = this.objectAt(tile);
+    this.chasing = null;
     if (thing?.kind === 'monster') return this.attack(thing as Monster);
     if (thing?.kind === 'npc') return this.clickNpc(thing as Npc);
     this.step(tile);
@@ -501,8 +506,24 @@ export class FakeGame {
     this.move = { to, path: [to], at: this.t + STEP_MS, run: false };
   }
 
+  /** The next step toward the monster being chased; false when there's no more chasing to do. */
+  private chaseStep(): boolean {
+    const target = this.chasing!;
+    if (target.dead || target.map !== this.player.map || chebyshev(target, this.player) <= 1 || this.t < this.loadedAt) {
+      this.chasing = null;
+      return false;
+    }
+    this.step(target);
+    if (!this.move) this.chasing = null;
+    return !!this.move;
+  }
+
   private attack(monster: Monster): void {
-    if (chebyshev(monster, this.player) > 1) return this.step(monster);
+    if (chebyshev(monster, this.player) > 1) {
+      // Out of reach: the character walks up to it.
+      this.chasing = monster;
+      return void this.update();
+    }
     const guard = monster.disposition === 0;
     if (!guard) monster.taken++;
     const killed = !guard && monster.taken >= monster.hits;
