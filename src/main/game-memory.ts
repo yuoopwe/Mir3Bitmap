@@ -124,7 +124,7 @@ export interface MemoryState {
   collection?: MemoryCollection | null;
   reason?: string;
   /** pickUpRadius: how many tiles away clicking at the feet picks things up (the PickUpRadius stat); class is Library.MirClass; mounted: riding (its horse isn't None). */
-  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null };
+  user?: { name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean };
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;
@@ -133,6 +133,12 @@ export interface MemoryState {
   windows?: (MemoryBox & { name: string })[] | null;
   /** Monsters still needed by unfinished quest tasks (map: only those on that map count, when the task says). */
   questTargets?: { name: string; map: number | null; quest: string }[] | null;
+  /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
+  survival?: {
+    arcadia?: MemoryButton | null;
+    death?: { returnButton: MemoryButton | null };
+    bag?: { used: number; slots: number; weight: number; maxWeight: number };
+  } | null;
 }
 
 /** The middle of the player's own tile on screen, and a tile's size (the game client at 1600x900). */

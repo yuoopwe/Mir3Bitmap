@@ -39,6 +39,9 @@ export interface HuntSettings {
   roam: boolean;
   /** With the memory reader: only attack (and seek) monsters an unfinished quest task still needs. */
   questOnly?: boolean;
+  /** Grind: back to Arcadia when the bag has this few slots free (or is this close to its weight limit, in %). */
+  bagFreeSlots?: number;
+  bagWeightPercent?: number;
   /** Pick up items lying nearby (after kills, and when idle). */
   loot: boolean;
   /** Extra key pressed after walking onto an item, if the client uses one. */

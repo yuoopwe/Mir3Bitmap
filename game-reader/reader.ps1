@@ -401,6 +401,26 @@ function Read-QuestTargets($scene) {
   return @($targets.Values)
 }
 
+# Staying alive and the bag: the Return to Arcadia button, the death window (while it's up) and how full
+# the bag is (slots used of those unlocked, weight against the BagWeight stat, 73).
+$BagWeightStat = 73
+function Read-Survival($scene) {
+  $out = @{}
+  try { $out.arcadia = Read-Button ($scene.ReadObjectField('MainPanel').ReadObjectField('SanctuaryButton')) } catch {}
+  try {
+    $death = $scene.ReadObjectField('DeathOptionsBox')
+    if (-not $death.IsNull -and $death.ReadField[bool]('_IsVisible')) { $out.death = @{ returnButton = Read-Button ($death.ReadObjectField('_returnButton')) } }
+  } catch {}
+  try {
+    $slots = $scene.ReadObjectField('Inventory').AsArray()
+    $used = 0
+    for ($i = 0; $i -lt $slots.Length; $i++) { if (-not $slots.GetObjectValue($i).IsNull) { $used++ } }
+    $user = $scene.ReadObjectField('_User')
+    $out.bag = @{ used = $used; slots = $scene.ReadObjectField('InventoryBox').ReadField[int]('_lastUnlockedSlots'); weight = $user.ReadField[int]('BagWeight'); maxWeight = (Read-Stat $user $BagWeightStat) }
+  } catch {}
+  return $out
+}
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -438,7 +458,7 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; hasMount = (Read-HasMount $scene); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); hasMount = (Read-HasMount $scene); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{
@@ -469,7 +489,9 @@ while ($true) {
           try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets }
+        $survival = $null
+        try { $survival = Read-Survival $scene } catch {}
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

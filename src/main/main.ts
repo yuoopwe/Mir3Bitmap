@@ -32,7 +32,7 @@ const defaultSettings: Settings = {
   trainKey: 'F1',
   trainIntervalMs: 1000,
   grind: { replanMinutes: 15, maxLevelsAbove: 5 },
-  hunt: { roam: false, questOnly: false, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
+  hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: true, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
 let window: BrowserWindow | null = null;

@@ -112,6 +112,11 @@ const WAYPOINT_OPEN_MS = 3000;
 const WAYPOINT_TELEPORT_MS = 10_000;
 /** Giving up on waypoints after this many tries that went wrong. */
 const WAYPOINT_FAILURES = 3;
+/** Arcadia Castle's map index, where Return to Arcadia and the death window's Return send you. */
+const ARCADIA_MAP = 563;
+/** How long to wait for Return to Arcadia (it may take a moment's channelling) and for coming back to life. */
+const ARCADIA_WAIT_MS = 20_000;
+const REVIVE_WAIT_MS = 30_000;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -1944,6 +1949,8 @@ export class Bot {
         seek: true,
         stopWhen: () => {
           const now = memory.latest();
+          if (now?.user?.dead) return 'dead';
+          if (this.bagFull(now)) return 'bag';
           const newLevel = now?.user?.level;
           if (newLevel !== undefined && newLevel !== level) return `Level ${newLevel}: planning again`;
           if (now?.map && now.map.index !== choice.map) return `Left ${choice.name}: planning again`;
@@ -1951,8 +1958,79 @@ export class Bot {
           return minutes >= replanMinutes ? `${replanMinutes} minutes on ${choice.name}: planning again` : null;
         },
       });
+      if (why === 'dead') {
+        await this.reviveInArcadia();
+        continue;
+      }
+      if (why === 'bag') {
+        await this.emptyBag();
+        continue;
+      }
       this.status(why);
     }
+  }
+
+  /** The bag has too few slots free, or is too near its weight limit (the Hunt settings). */
+  private bagFull(reading: MemoryState | null | undefined): boolean {
+    const bag = reading?.survival?.bag;
+    if (!bag || bag.slots <= 0) return false;
+    const freeSlots = bag.slots - bag.used;
+    const weightPercent = bag.maxWeight > 0 ? (bag.weight / bag.maxWeight) * 100 : 0;
+    return freeSlots <= (this.settings.hunt.bagFreeSlots ?? 5) || weightPercent >= (this.settings.hunt.bagWeightPercent ?? 95);
+  }
+
+  /** Dead: presses Return on the death window (back to Arcadia, alive) and waits for it. */
+  private async reviveInArcadia(): Promise<void> {
+    const memory = this.options.memory;
+    this.stopRunning();
+    this.releaseHold();
+    for (const since = performance.now(); performance.now() - since < REVIVE_WAIT_MS; ) {
+      await this.yieldToEvents();
+      const reading = memory.latest();
+      if (reading?.user && !reading.user.dead) {
+        this.status('Back on my feet');
+        return;
+      }
+      const button = reading?.survival?.death?.returnButton;
+      if (button?.enabled) {
+        this.status('Died: returning to Arcadia');
+        await this.click(boxCentre(button), this.delay('menu'));
+        await this.sleep(1500);
+      } else {
+        this.statusEvery('Died: waiting for the death window');
+        await this.sleep(300);
+      }
+    }
+    throw new BotError("Died, and couldn't get back on my feet.");
+  }
+
+  /** Presses Return to Arcadia (out of combat) and waits to arrive; tries a few times. */
+  private async returnToArcadia(why: string): Promise<void> {
+    const memory = this.options.memory;
+    this.stopRunning();
+    this.releaseHold();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (memory.latest()?.map?.index === ARCADIA_MAP) return;
+      const button = memory.latest()?.survival?.arcadia;
+      if (button?.enabled) {
+        this.status(`${why}: returning to Arcadia`);
+        await this.click(boxCentre(button), this.delay('menu'));
+      } else {
+        this.statusEvery(`${why}: waiting for Return to Arcadia`);
+      }
+      for (const since = performance.now(); performance.now() - since < ARCADIA_WAIT_MS; ) {
+        await this.yieldToEvents();
+        if (memory.latest()?.map?.index === ARCADIA_MAP) return;
+        await this.sleep(300);
+      }
+    }
+    throw new BotError(`${why}, but Return to Arcadia didn't take me there (in combat?).`);
+  }
+
+  /** Bag full: back to Arcadia to sell. (Selling itself is still to come.) */
+  private async emptyBag(): Promise<void> {
+    await this.returnToArcadia('Bag full');
+    throw new BotError('Bag full: back in Arcadia. Selling there is still to be set up.');
   }
 
   /**
