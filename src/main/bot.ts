@@ -24,6 +24,8 @@ import { locatePlayer, nearestMonster, readMinimap } from './minimap';
 import type { NameBook } from './names';
 import { Journey, cheapestTile, direction, expandFrom, markPathVisited, startTile } from './pathing';
 import { SessionStats } from './session-stats';
+import { MapExplorer } from './map-explorer';
+import { exploredShare, type MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import { tileToScreen, type GameMemory, type MemoryBox, type MemoryCollection, type MemoryObject, type MemoryState, type MemoryTriad } from './game-memory';
 import { chooseDeck, deckInputs } from './triad-deck';
@@ -66,6 +68,9 @@ const GATHER_SKIP_MS = 5 * 60_000;
 const GATHER_RUN_TILES = 3;
 /** Looking for nodes: run one way for 4-8 s, turning sooner if the character hasn't moved a tile in this long. */
 const GATHER_WANDER_MS = 4000;
+/** Exploring from memory: not a tile moved in this long while running means blocked; keep off that spot this long. */
+const EXPLORE_BLOCKED_MS = 1500;
+const EXPLORE_AVOID_MS = 10_000;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -925,7 +930,8 @@ export class Bot {
   private async exploreWithRestarts(): Promise<string> {
     while (true) {
       try {
-        return await this.exploreLoop();
+        // With the memory reader the map comes straight from the game; without it, from the big map on screen.
+        return await (this.options.memory.installed ? this.memoryExploreLoop() : this.exploreLoop());
       } catch (error) {
         if (error instanceof Stopped || !this.settings.exploreAutoRestart) throw error;
         this.stopRunning();
@@ -1065,6 +1071,95 @@ export class Bot {
       if (plan.teleport && performance.now() >= this.teleportReadyAt) this.teleport(self, plan.waypoint, panel);
       await this.sleep(RUN_TICK_MS);
       this.statusEvery(`Exploring: about ${percent}% uncovered`);
+    }
+  }
+
+  /**
+   * Uncovers the map from the game's memory: its walls and explored blocks
+   * (map-grid.ts) and the player's tile. MapExplorer plans a walking route to
+   * the nearest unexplored ground; the bot runs (right button held) toward a
+   * spot along it, pressing the teleport key on long straight stretches.
+   */
+  private async memoryExploreLoop(): Promise<string> {
+    const memory = this.options.memory;
+    memory.start();
+    const planner = new MapExplorer();
+    const started = performance.now();
+    let mapIndex: number | null = null;
+    let share = { map: null as MapGrid | null, value: 0 };
+    let moved = { at: 0, x: NaN, y: NaN };
+
+    while (true) {
+      await this.yieldToEvents();
+      this.capture();
+      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
+      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+      this.drinkPotions();
+      const reading = memory.latest();
+      const map = memory.map();
+      if (!reading || !map?.explored) {
+        this.stopRunning();
+        this.statusEvery(
+          !reading
+            ? performance.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
+            : 'Waiting for the map from the game',
+        );
+        await this.sleep(300);
+        continue;
+      }
+      if (map.index !== mapIndex) {
+        if (mapIndex !== null) this.status(`New map (${map.name}); exploring it`);
+        mapIndex = map.index;
+      }
+      // Worked out again only when more has been uncovered (it looks at every tile).
+      if (share.map !== map) share = { map, value: exploredShare(map) };
+      const percent = Math.round(share.value * 100);
+      this.explored = share.value;
+      if (percent >= this.settings.explorePercent) {
+        this.stopRunning();
+        return `${map.name} explored (${percent}%)`;
+      }
+
+      const user = reading.user!;
+      const now = performance.now();
+      if (user.x !== moved.x || user.y !== moved.y) moved = { at: now, x: user.x, y: user.y };
+      else if (now - moved.at > EXPLORE_BLOCKED_MS) {
+        // Not moving: something the map doesn't show (monsters, pets) is in the way, or the game never marks this block explored.
+        planner.blocked(now + EXPLORE_AVOID_MS);
+        moved.at = now;
+        this.statusEvery('Blocked; going round');
+      }
+      const plan = planner.plan(map, { x: user.x, y: user.y }, now);
+      if (plan === null) {
+        this.stopRunning();
+        await this.sleep(300);
+        continue;
+      }
+      if (plan === 'done') {
+        this.stopRunning();
+        return `Nothing left on ${map.name} that can be walked to (${percent}% uncovered)`;
+      }
+
+      // Aim at the waypoint, or the farthest tile before it that isn't under the HUD.
+      const along = plan.path.indexOf(plan.path.find((t) => t.x === plan.waypoint.x && t.y === plan.waypoint.y) ?? plan.path[0]);
+      let aim = plan.waypoint;
+      for (let i = along; i > 0 && !clickable(tileToScreen(user, aim.x, aim.y)); i--) aim = plan.path[i - 1];
+      const point = tileToScreen(user, aim.x, aim.y);
+      const steps = Math.max(Math.abs(aim.x - user.x), Math.abs(aim.y - user.y));
+      if (steps <= 1) {
+        // The path turns here: a run would carry past the turn, so step.
+        this.stopRunning();
+        if (steps === 1) await this.click(point, this.delay('attackClick'));
+      } else {
+        this.holdRun(point);
+        const vk = this.teleportKey();
+        if (vk !== null && steps >= 6 && now >= this.teleportReadyAt) {
+          this.key(vk);
+          this.teleportReadyAt = now + TELEPORT_PRESS_MS + Math.random() * TELEPORT_JITTER_MS;
+        }
+      }
+      this.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
+      await this.sleep(RUN_TICK_MS);
     }
   }
 
