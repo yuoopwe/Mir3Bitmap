@@ -383,9 +383,7 @@ function Read-QuestTargets($scene) {
       if ($progress.ReadField[long]('<Amount>k__BackingField') -ge $progress.ReadField[int]('<RequiredAmount>k__BackingField')) { continue }
       $task = $progress.ReadObjectField('<Task>k__BackingField')
       if ($task.IsNull) { continue }
-      # Staged quests: only the current stage's tasks count (0 = not staged).
-      $taskStage = $task.ReadField[int]('_Stage')
-      if ($taskStage -gt 0 -and $stage -gt 0 -and $taskStage -ne $stage) { continue }
+      # Every unfinished task counts, whatever the quest's stage: the game marks those monsters "(Quest)" too.
       foreach ($detail in (Read-BindingList ($task.ReadObjectField('<MonsterDetails>k__BackingField')))) {
         $monster = $detail.ReadObjectField('_Monster')
         if ($monster.IsNull) { continue }
