@@ -72,6 +72,8 @@ const questsButton = element<HTMLButtonElement>('quests-button');
 const questMax = element<HTMLInputElement>('quest-max');
 const grindReplan = element<HTMLInputElement>('grind-replan');
 const grindAbove = element<HTMLInputElement>('grind-above');
+const bagFree = element<HTMLInputElement>('bag-free');
+const bagWeight = element<HTMLInputElement>('bag-weight');
 const grindQuestsFirst = element<HTMLInputElement>('grind-quests-first');
 const grindPlan = element<HTMLParagraphElement>('grind-plan');
 const stopButton = element<HTMLButtonElement>('stop-button');
@@ -297,6 +299,8 @@ function readSettings(): Settings {
     },
     hunt: {
       roam: roam.checked,
+      bagFreeSlots: Math.min(Math.max(readNumber(bagFree, 15), 0), 100),
+      bagWeightPercent: Math.min(Math.max(readNumber(bagWeight, 95), 10), 100),
       questOnly: questOnly.checked,
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
@@ -347,6 +351,8 @@ function applySettings(settings: Partial<Settings>): void {
   const hunt = settings.hunt;
   if (hunt) {
     roam.checked = hunt.roam;
+    bagFree.value = String(hunt.bagFreeSlots ?? 15);
+    bagWeight.value = String(hunt.bagWeightPercent ?? 95);
     questOnly.checked = hunt.questOnly ?? false;
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
@@ -593,6 +599,8 @@ async function init(): Promise<void> {
   gatherOre.checked = true;
   grindReplan.value = String(DEFAULT_GRIND.replanMinutes);
   questMax.value = '5';
+  bagFree.value = '15';
+  bagWeight.value = '95';
   grindAbove.value = String(DEFAULT_GRIND.maxLevelsAbove);
   const saved = localStorage.getItem(SETTINGS_KEY);
   if (saved) applySettings(JSON.parse(saved));

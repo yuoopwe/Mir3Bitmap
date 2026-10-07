@@ -171,6 +171,12 @@
               <p class="hint">A new level, or leaving the map (a death, say), plans again straight away.</p>
             </fieldset>
             <fieldset class="card">
+              <legend>Selling</legend>
+              <label title="Back to Arcadia to sell to Ludvik once the bag has this few slots free">Sell when <input id="bag-free" type="number" min="0" max="100"> or fewer bag slots are free</label>
+              <label title="Or once the bag is this heavy, as a share of what you can carry">or the bag is <input id="bag-weight" type="number" min="10" max="100"> % full by weight</label>
+              <p class="hint">Also when three items in a row won't pick up. Grind and Quests sell what Ludvik's Select All picks from the Main bag tab.</p>
+            </fieldset>
+            <fieldset class="card">
               <legend>Quests</legend>
               <label title="While your quest log has monsters to kill, grind only on maps where they spawn (when one suits your level and can be reached); then back to the best maps"><input id="grind-quests-first" type="checkbox"> Quests first</label>
               <p class="hint">Off, maps with quest monsters still get a bonus: they win when nearly as good as the best.</p>

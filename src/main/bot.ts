@@ -175,6 +175,8 @@ const LOOT_DETOUR_TILES = 6;
 const LOOT_GIVE_UP_MS = 5000;
 const LOOT_WALK_GIVE_UP_MS = 8000;
 const LOOT_SKIP_MS = 120_000;
+/** This many items in a row that wouldn't pick up count as a full bag. */
+const LOOT_REFUSED_FULL = 3;
 /** Exploring with "Pick up items": walk to items up to this many tiles beyond pick-up reach. */
 const EXPLORE_LOOT_TILES = 8;
 /** Clicking one target this long without it going means it can't be reached (or isn't a monster): skip it for a while. */
@@ -433,6 +435,8 @@ export class Bot {
   private teleportReadyAt = 0;
   /** M did nothing (no mount, or not allowed here): don't try again before this. */
   private mountRetryAt = 0;
+  /** Items given up on in a row (they wouldn't pick up); reset by one that does, and by selling. */
+  private lootRefused = 0;
   /** Quests mode hunting: only quest monsters, whatever the Hunt setting. */
   private forceQuestOnly = false;
   /** Maps where getting on the mount did nothing (on top of those the game data marks as no-mount). */
@@ -781,11 +785,15 @@ export class Bot {
         for (const [key, since] of inReachSince) {
           if (!inReach.some((i) => i.key === key)) {
             // Gone from the ground (not just out of reach) without being given up on: picked up, most likely.
-            if (!items.some((i) => i.key === key)) this.stats.count('items');
+            if (!items.some((i) => i.key === key)) {
+              this.stats.count('items');
+              this.lootRefused = 0;
+            }
             inReachSince.delete(key);
           } else if (now - since > LOOT_GIVE_UP_MS) {
             skipped.set(key, now + LOOT_SKIP_MS);
             inReachSince.delete(key);
+            this.lootRefused++;
           }
         }
         for (const i of inReach) if (!skipped.has(i.key) && !inReachSince.has(i.key)) inReachSince.set(i.key, now);
@@ -1684,11 +1692,15 @@ export class Bot {
     for (const [key, since] of loot.inReachSince) {
       if (!inReach.some((i) => i.key === key)) {
         // Gone from the ground (not just out of reach): picked up, most likely.
-        if (!items.some((i) => i.key === key)) this.stats.count('items');
+        if (!items.some((i) => i.key === key)) {
+          this.stats.count('items');
+          this.lootRefused = 0;
+        }
         loot.inReachSince.delete(key);
       } else if (now - since > LOOT_GIVE_UP_MS) {
         loot.skipped.set(key, now + LOOT_SKIP_MS);
         loot.inReachSince.delete(key);
+        this.lootRefused++;
       }
     }
     for (const i of inReach) if (!loot.inReachSince.has(i.key)) loot.inReachSince.set(i.key, now);
@@ -2072,7 +2084,9 @@ export class Bot {
     if (!bag || bag.slots <= 0) return false;
     const freeSlots = bag.slots - bag.used;
     const weightPercent = bag.maxWeight > 0 ? (bag.weight / bag.maxWeight) * 100 : 0;
-    return freeSlots <= (this.settings.hunt.bagFreeSlots ?? 5) || weightPercent >= (this.settings.hunt.bagWeightPercent ?? 95);
+    // Items that won't pick up, one after another, mean the game thinks the bag is full whatever the count says.
+    if (this.lootRefused >= LOOT_REFUSED_FULL) return true;
+    return freeSlots <= (this.settings.hunt.bagFreeSlots ?? 15) || weightPercent >= (this.settings.hunt.bagWeightPercent ?? 95);
   }
 
   /** Dead: presses Return on the death window (back to Arcadia, alive) and waits for it. */
@@ -2349,6 +2363,7 @@ export class Bot {
     await this.returnToArcadia('Bag full');
     await this.travelTo(`npc:${SELL_NPC.id}`);
     const sold = await this.sellAtShop(SELL_NPC.name);
+    this.lootRefused = 0;
     if (this.bagFull(this.options.memory.latest())) throw new BotError(`Sold ${sold} items, but the bag is still full (the rest are kept or can't be sold).`);
     this.status(`Sold ${sold} items; back to it`);
   }
