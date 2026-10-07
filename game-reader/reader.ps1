@@ -502,12 +502,12 @@ while ($true) {
           $location = $o.ReadValueTypeField('_CurrentLocation')
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); hasMount = (Read-HasMount $scene); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{
             id = $o.ReadField[uint32]('ObjectID'); kind = $kind; name = $name; x = $x; y = $y
-            dead = $o.ReadField[bool]('_Dead'); level = $o.ReadField[int]('<Level>k__BackingField')
+            dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); level = $o.ReadField[int]('<Level>k__BackingField')
             pet = [bool]$o.ReadStringField('_PetOwner')
           })
           if ($kind -eq 'node') {
