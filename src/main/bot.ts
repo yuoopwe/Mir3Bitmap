@@ -2430,12 +2430,32 @@ export class Bot {
 
   /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */
   private async emptyBag(): Promise<void> {
+    const from = this.options.memory.latest()?.map?.index;
     await this.returnToArcadia('Bag full');
+    try {
+      await this.sellAndGoBack(from);
+    } finally {
+      this.lootRefused = 0;
+    }
+  }
+
+  /** Sells to Ludvik, then (from Arcadia) presses Return to Arcadia again, which takes you back to where you were. */
+  private async sellAndGoBack(from: number | undefined): Promise<void> {
     await this.travelTo(`npc:${SELL_NPC.id}`);
     const sold = await this.sellAtShop(SELL_NPC.name);
     this.lootRefused = 0;
     if (this.bagFull(this.options.memory.latest())) throw new BotError(`Sold ${sold} items, but the bag is still full (the rest are kept or can't be sold).`);
     this.status(`Sold ${sold} items; back to it`);
+    // In Arcadia the same button sends you back to where you left (else the caller plans the way back).
+    if (from === undefined || from === ARCADIA_MAP) return;
+    const memory = this.options.memory;
+    for (let attempt = 0; attempt < 2 && memory.latest()?.map?.index === ARCADIA_MAP; attempt++) {
+      const button = memory.latest()?.survival?.arcadia;
+      if (!button?.enabled) break;
+      this.status('Back to where I was');
+      await this.click(boxCentre(button), this.delay('menu'));
+      for (const since = this.clock.now(); this.clock.now() - since < ARCADIA_WAIT_MS && memory.latest()?.map?.index === ARCADIA_MAP; ) await this.sleep(300);
+    }
   }
 
   /**
