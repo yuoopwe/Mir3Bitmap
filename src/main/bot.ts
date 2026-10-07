@@ -135,6 +135,8 @@ const TOWN_PORTAL_WAIT_MS = 15_000;
 const REVIVE_WAIT_MS = 30_000;
 /** Selling in Arcadia: the shopkeeper who buys (his "Select All" picks what can be sold from the open bag tab). */
 const SELL_NPC = { id: 145, name: 'Ludvik' };
+/** W opens and closes the bag window (the game's InventoryWindow key). */
+const INVENTORY_KEY = 0x57;
 const GATHER_BLOCKED_MS = 1200;
 
 /** What the bot keeps track of during one Triple Triad match. */
@@ -2464,7 +2466,13 @@ export class Bot {
     if (!sellPanel()) throw new BotError(`${npcName}'s shop didn't open.`);
     const before = memory.latest()?.survival?.bag?.used ?? 0;
 
-    // The Main tab only: Select All takes from the open tab, and potions live in Consumables.
+    // Select All takes from the bag window's open tab: open the bag (W) if it isn't showing.
+    const bagWasOpen = !!memory.latest()?.survival?.inventory?.open;
+    if (!bagWasOpen) {
+      this.key(INVENTORY_KEY);
+      if (!(await waitFor(() => !!memory.latest()?.survival?.inventory?.open, 2000))) throw new BotError("Couldn't open the bag (W) to sell from.");
+    }
+    // The Main tab only: potions live in Consumables.
     const inventory = memory.latest()?.survival?.inventory;
     if (inventory && inventory.section !== 0 && inventory.mainTab) {
       await this.click(boxCentre(inventory.mainTab), this.delay('menu'));
@@ -2489,6 +2497,8 @@ export class Bot {
     await waitFor(() => (memory.latest()?.survival?.bag?.used ?? before) < before, 3000);
     const after = memory.latest()?.survival?.bag?.used ?? before;
     await this.closeShop();
+    // Put the bag away again if it was opened for this.
+    if (!bagWasOpen && memory.latest()?.survival?.inventory?.open) this.key(INVENTORY_KEY);
     return Math.max(0, before - after);
   }
 
