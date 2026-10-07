@@ -3,9 +3,10 @@
 import type { Point } from '../shared/types';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
+import { RANDOM_TELEPORT, expectedAfterTeleport, teleportOdds, worthTeleporting } from './random-teleport';
 import type { MapGrid } from './map-grid';
 import { VK } from './input';
-import { BotError, EXPLORE_AVOID_MS, EXPLORE_BLOCKED_MS, MEMORY_START_MS, RUN_TICK_MS, STEER_ROUND_TILES, boxCentre } from './bot-shared';
+import { BotError, EXPLORE_AVOID_MS, EXPLORE_BLOCKED_MS, MEMORY_START_MS, RUN_TICK_MS, STEER_ROUND_TILES, boxCentre, keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /** Travel: this close to the NPC counts as there; blocked this many times on one map means stuck for good. */
@@ -16,6 +17,10 @@ const STONE_REACH_TILES = 4;
 
 /** After arriving on a map, wait this long before planning (the reading of walls and position catches up). */
 const ARRIVAL_SETTLE_MS = 1500;
+
+/** A random teleport scroll read: how long to wait to land, and how long to stop trying after one did nothing (none left, say). */
+const RANDOM_TELEPORT_WAIT_MS = 4000;
+const RANDOM_TELEPORT_OFF_MS = 10 * 60_000;
 
 /** With no way through, keep trying this long before giving up (the reader reads a new map's walls again over its first 8 s). */
 const NO_PATH_RETRY_MS = 10_000;
@@ -33,6 +38,10 @@ const WAYPOINT_FAILURES = 3;
 export class Travel {
   /** The tiles of every way off the current map (stepping on one sends you elsewhere), by map. */
   private exitTilesCache: { key: string; tiles: Set<number> } | null = null;
+  /** What a random landing leaves to walk, by map and tile walked to (worked out once each); scrolls read on the leg going, and a pause after one did nothing. */
+  private readonly teleportOddsCache = new Map<string, { mean: number; reach: number }>();
+  private teleportLeg: { key: string; used: number } | null = null;
+  private teleportOffUntil = 0;
 
   constructor(private readonly bot: BotContext) {}
 
@@ -259,6 +268,11 @@ export class Travel {
           throw new BotError(`Can't find a way to walk to ${route.links.length ? `the way to ${mapName(data, route.links[0].to)}` : place.npc!.name} from here.`);
         }
         noPathSince = null;
+        // A long walk where a random teleport scroll should leave clearly less: read one, and plan again from where it lands.
+        if (await this.maybeRandomTeleport(data, map, here, near)) {
+          path = null;
+          continue;
+        }
         path = pathBack(map, dist, near.tile);
         // Next to the exit already: step onto it.
         if (path.length < 2) {
@@ -275,13 +289,54 @@ export class Travel {
     }
   }
 
-  /** Steps from the player (`dist`, from walkDistances) to each way off this map, by link id. */
+  /**
+   * Reads a random teleport scroll (the Random teleport key) when the walk to `near` is long and a random landing on
+   * this map should leave clearly less (random-teleport.ts): not where the map forbids them, at most
+   * RANDOM_TELEPORT.perLeg to one place, and not for a while after one did nothing (none left). Returns whether it
+   * read one.
+   */
+  private async maybeRandomTeleport(data: TravelData, map: MapGrid, here: Point, near: { tile: Point; steps: number }): Promise<boolean> {
+    const vk = keyCode(this.bot.settings.hunt.randomTeleportKey);
+    const now = this.bot.clock.now();
+    if (vk === null || now < this.teleportOffUntil || near.steps < RANDOM_TELEPORT.minSteps) return false;
+    if (data.maps.find((m) => m.i === map.index)?.noRT) return false;
+    const key = `${map.index}:${near.tile.x},${near.tile.y}`;
+    if (this.teleportLeg?.key !== key) this.teleportLeg = { key, used: 0 };
+    if (this.teleportLeg.used >= RANDOM_TELEPORT.perLeg) return false;
+    let odds = this.teleportOddsCache.get(key);
+    if (!odds) {
+      odds = teleportOdds(map, near.tile);
+      this.teleportOddsCache.set(key, odds);
+    }
+    if (!worthTeleporting(near.steps, odds)) return false;
+    this.teleportLeg.used++;
+    this.bot.stopRunning();
+    await this.bot.moves.waitUntilStill();
+    this.bot.status(`Random teleport: ${near.steps} steps to walk, about ${Math.round(expectedAfterTeleport(odds))} from a random spot`);
+    this.bot.key(vk);
+    const memory = this.bot.options.memory;
+    const moved = () => {
+      const user = memory.latest()?.user;
+      return !!user && (memory.latest()?.map?.index !== map.index || Math.max(Math.abs(user.x - here.x), Math.abs(user.y - here.y)) > 3);
+    };
+    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < RANDOM_TELEPORT_WAIT_MS && !moved(); ) await this.bot.sleep(200);
+    if (!moved()) {
+      this.teleportOffUntil = this.bot.clock.now() + RANDOM_TELEPORT_OFF_MS;
+      this.bot.status(`The random teleport did nothing (none left, or the key isn't one?): walking for ${RANDOM_TELEPORT_OFF_MS / 60_000} minutes`);
+    }
+    return true;
+  }
+
+  /**
+   * Steps from the player (`dist`, from walkDistances) to each way off this map, by link id: Infinity for one that
+   * can't be walked to (left out, the route planner would guess it from a straight line, as for a map not worked out).
+   */
   exitSteps(data: TravelData, map: MapGrid, dist: Int32Array): Map<number, number> {
     const steps = new Map<number, number>();
     for (const l of data.links) {
       if (l.from !== map.index) continue;
       const near = nearestApproach(map, dist, l.exit.map(([x, y]) => ({ x, y })));
-      if (near) steps.set(l.id, near.steps);
+      steps.set(l.id, near ? near.steps : Infinity);
     }
     return steps;
   }

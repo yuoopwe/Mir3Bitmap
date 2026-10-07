@@ -329,6 +329,8 @@ const mapList = [...used].map((i) => maps.get(i)).map((m) => {
   if (m.MaximumLevel > 0) out.maxLevel = m.MaximumLevel;
   // Mounts aren't allowed (caves, mostly).
   if (m.CanHorse === false) out.noHorse = true;
+  // Random teleport scrolls don't work here.
+  if (m.AllowRT === false) out.noRT = true;
   return out;
 });
 

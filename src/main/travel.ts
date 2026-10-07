@@ -18,6 +18,8 @@ export interface TravelMap {
   maxLevel?: number;
   /** Mounts aren't allowed here. */
   noHorse?: boolean;
+  /** Random teleport scrolls don't work here. */
+  noRT?: boolean;
 }
 
 export interface TravelLink {

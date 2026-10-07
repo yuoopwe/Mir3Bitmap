@@ -487,6 +487,45 @@ test('Travel: walled in by weak monsters, it fights its way out even without "Fi
   checkAlways(game);
 });
 
+// ---- Random teleport scrolls ----
+
+/** Arcadia as a winding maze (rows joined at alternate ends) above Ludvik, him at the bottom and the way down long (the Waypoint Hub, below him, walled off). */
+function arcadiaMaze() {
+  const [lx, ly] = LUDVIK.at!;
+  const map = openMap(ARCADIA, 'Arcadia Castle', 800, 800);
+  const left = lx - 48, right = lx + 47, top = ly - 82, bottom = ly + 8;
+  const walls = new Uint8Array(map.walls.length).fill(0xff);
+  const open = (x: number, y: number) => (walls[(y * 800 + x) >> 3] &= ~(1 << ((y * 800 + x) & 7)));
+  for (let y = top; y <= bottom; y++) {
+    const row = y - top;
+    // Every fifth row a wall, open only at one end (left and right in turn).
+    const wall = row > 0 && row % 5 === 0;
+    const gap = (row / 5) % 2 === 0 ? right : left;
+    for (let x = left; x <= right; x++) if (!wall || x === gap) open(x, y);
+  }
+  return { map: { ...map, walls }, start: { x: lx, y: top }, near: [lx - 2, ly - 1] as [number, number] };
+}
+
+test('Travel: a long winding way on a map that allows it: a random teleport scroll, then on from where it lands', async () => {
+  const { map, start, near } = arcadiaMaze();
+  const game = new FakeGame({ maps: [map], npcs: [{ id: LUDVIK.id }], player: { map: ARCADIA, ...start, level: 30 }, randomTeleport: { key: VK.N1, landings: [near] } });
+  const settings = { hunt: { ...testSettings().hunt, randomTeleportKey: '1' } };
+  const { message, statuses } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`), { settings, limitMs: 10 * 60_000 });
+  assert.equal(message, 'Arrived at Ludvik');
+  assert.equal(of(game, 'mapChange').filter((c) => c.via === 'random').length, 1);
+  assert.ok(statuses.some((st) => /^Random teleport: \d+ steps to walk, about \d+ from a random spot$/.test(st.message)));
+  checkAlways(game);
+});
+
+test('Travel: without a random teleport key set, the long way is walked', async () => {
+  // The same maze, but no key set: walked all the way.
+  const { map, start, near } = arcadiaMaze();
+  const game = new FakeGame({ maps: [map], npcs: [{ id: LUDVIK.id }], player: { map: ARCADIA, ...start, level: 30 }, randomTeleport: { key: VK.N1, landings: [near] } });
+  const { message } = await play(game, (bot) => bot.startTravel(`npc:${LUDVIK.id}`), { limitMs: 30 * 60_000 });
+  assert.equal(message, 'Arrived at Ludvik');
+  assert.deepEqual(of(game, 'mapChange').filter((c) => c.via === 'random'), []);
+});
+
 // ---- Fights measured for Grind ----
 
 test("Fights are timed from the game's memory: each monster's health going down to its death, and the health it cost", async () => {

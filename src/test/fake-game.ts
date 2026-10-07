@@ -86,7 +86,7 @@ export type FakeEvent =
   | { t: number; type: 'lock'; name: string; locked: boolean }
   | { t: number; type: 'equip'; name: string; slot: number };
 
-export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal';
+export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal' | 'random';
 
 export interface FakeMonster {
   name: string;
@@ -169,6 +169,8 @@ export interface FakeGameSetup {
   players?: { name: string; x: number; y: number; map?: number }[];
   /** Where the Town Portal scroll takes you, and its key (default '3'). */
   townPortal?: { map: number; x: number; y: number; key?: number };
+  /** Random teleport scrolls on `key`: each read lands on the next of `landings` (on the map the player is on), while `scrolls` last. */
+  randomTeleport?: { key: number; landings: [number, number][]; scrolls?: number };
   /**
    * Profession levels by Library.ProfessionId (default 1); `loaded`: read from the start, else only once the Professions
    * window has been opened (`neverLoads`: not even then).
@@ -277,6 +279,9 @@ export class FakeGame {
   private returnTo: { map: number; x: number; y: number } | null = null;
   private portalAt: number | null = null;
   private readonly townPortal: { map: number; x: number; y: number; key: number };
+  private readonly randomTeleport: { key: number; landings: [number, number][]; scrolls: number } | null;
+  private randomTeleportAt: number | null = null;
+  private randomTeleportsUsed = 0;
   private readonly items: Thing[] = [];
   private readonly people: Thing[] = [];
   private readonly nodes: GatherPoint[] = [];
@@ -348,6 +353,7 @@ export class FakeGame {
     const confirm = setup.sellConfirm;
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
+    this.randomTeleport = setup.randomTeleport ? { scrolls: Infinity, ...setup.randomTeleport } : null;
     for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
     for (const n of setup.nodes ?? []) this.addNode(n);
     this.noTool = !!setup.noTool;
@@ -528,6 +534,11 @@ export class FakeGame {
       this.portalAt = null;
       this.teleport(this.townPortal.map, this.townPortal.x, this.townPortal.y, 'portal');
     }
+    if (this.randomTeleportAt !== null && this.t >= this.randomTeleportAt) {
+      this.randomTeleportAt = null;
+      const [x, y] = this.randomTeleport!.landings[this.randomTeleportsUsed++ % this.randomTeleport!.landings.length];
+      this.teleport(this.player.map, x, y, 'random');
+    }
     if (this.reviveAt !== null && this.t >= this.reviveAt) {
       this.reviveAt = null;
       this.player.dead = false;
@@ -687,6 +698,7 @@ export class FakeGame {
       if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
       if (vk === LOCK_KEY) this.toggleLock();
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
+      if (this.randomTeleport && vk === this.randomTeleport.key && !this.player.dead && this.randomTeleportsUsed < this.randomTeleport.scrolls) this.randomTeleportAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
       if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
         if (this.open.has('professions')) this.close('professions');
