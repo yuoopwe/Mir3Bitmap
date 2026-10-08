@@ -152,12 +152,6 @@ export interface TravelData {
    */
   consumables?: { id: number; name: string; stats: Record<string, number>; price: number; level?: number; effect?: string; sellers?: number[] }[];
   /**
-   * Per monster (same order as ): its stats by Library.Stat name (MinAC, MaxAC, MinMR, MaxMR, MinDC, MaxDC,
-   * Accuracy, Agility, FireResistance..., CriticalChance, BlockChance, EvasionChance...; absent: 0), the milliseconds
-   * between its attacks and between its steps, how far it sees, and what it is (kinds: Undead, Insect, Beast...).
-   */
-  monsterCombat?: { stats: Record<string, number>; attackDelay: number; moveDelay: number; viewRange: number; kinds?: string[]; race?: string }[];
-  /**
    * Every sub-boss, boss and behemoth that respawns on a map, as [monster (index into `monsters`), map, x, y, how many,
    * respawn minutes (once killed), kind (1 sub-boss, 2 boss, 3 behemoth)].
    */
