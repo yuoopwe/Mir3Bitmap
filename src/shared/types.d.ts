@@ -275,6 +275,8 @@ export interface BotApi {
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;
   updateSettings(settings: Settings): Promise<void>;
+  /** The settings saved to disk last time (written on every change), or null with none. */
+  loadSettings(): Promise<Settings | null>;
   listNames(): Promise<NameEntry[]>;
   setNameRule(fingerprint: string, rule: NameRule): Promise<void>;
   forgetName(fingerprint: string): Promise<void>;

@@ -788,8 +788,11 @@ async function init(): Promise<void> {
   bagFree.value = '15';
   bagWeight.value = '95';
   grindAbove.value = String(DEFAULT_GRIND.maxLevelsAbove);
+  // The settings file the bot writes on every change, else the window's own storage (older versions only had that).
+  const fromFile = await window.bot.loadSettings();
   const saved = localStorage.getItem(SETTINGS_KEY);
-  if (saved) applySettings(JSON.parse(saved));
+  if (fromFile) applySettings(fromFile);
+  else if (saved) applySettings(JSON.parse(saved));
   saveSettings();
   document.body.addEventListener('change', saveSettings);
 

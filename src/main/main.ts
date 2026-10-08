@@ -89,6 +89,19 @@ try {
 // ---- Grind's measurements (experience per hour on each map, per character), saved between runs ----
 
 const grindFile = path.join(app.getPath('userData'), 'grind.json');
+
+/**
+ * The window's settings, written straight away on every change (the window's own storage only reaches the disk every
+ * few seconds, so closing the bot hard lost the last changes: elixir keys set just before, say).
+ */
+const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+function savedSettings(): Settings | null {
+  try {
+    return JSON.parse(readFileSync(settingsFile, 'utf8')) as Settings;
+  } catch {
+    return null;
+  }
+}
 let grindTimer: NodeJS.Timeout | null = null;
 
 const grindLog = new GrindLog(() => {
@@ -150,7 +163,15 @@ ipcMain.handle('bot:circuit', () => bot.startCircuit());
 ipcMain.handle('bot:check-gear', () => bot.checkGear());
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
-ipcMain.handle('settings:update', (_event, settings: Settings) => bot.updateSettings({ ...defaultSettings, ...settings }));
+ipcMain.handle('settings:update', (_event, settings: Settings) => {
+  bot.updateSettings({ ...defaultSettings, ...settings });
+  try {
+    writeFileSync(settingsFile, JSON.stringify(settings));
+  } catch {
+    // Not written (the disk full, say): the window's own storage still has them.
+  }
+});
+ipcMain.handle('settings:load', () => savedSettings());
 ipcMain.handle('names:list', () => names.list());
 ipcMain.handle('names:rule', (_event, fingerprint: string, rule: NameRule) => names.setRule(fingerprint, rule));
 ipcMain.handle('names:forget', (_event, fingerprint: string) => names.forget(fingerprint));

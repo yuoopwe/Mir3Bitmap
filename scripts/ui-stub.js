@@ -260,6 +260,9 @@
       record('stop');
       if (running) finish('Stopped');
     },
+    async loadSettings() {
+      return null;
+    },
     async updateSettings(settings) {
       record('updateSettings', settings);
     },

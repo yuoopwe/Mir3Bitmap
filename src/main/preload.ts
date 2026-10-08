@@ -16,6 +16,7 @@ const api: BotApi = {
   searchPlaces: (query) => ipcRenderer.invoke('travel:search', query),
   stop: () => ipcRenderer.invoke('bot:stop'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
+  loadSettings: () => ipcRenderer.invoke('settings:load'),
   listNames: () => ipcRenderer.invoke('names:list'),
   setNameRule: (fingerprint, rule) => ipcRenderer.invoke('names:rule', fingerprint, rule),
   forgetName: (fingerprint) => ipcRenderer.invoke('names:forget', fingerprint),
