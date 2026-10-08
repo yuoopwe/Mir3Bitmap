@@ -126,12 +126,29 @@ const monsterNames = [];
 /** Per monster (same order as monsterNames): [level, experience per kill, health, 1 if a boss else 0]. */
 const monsterStats = [];
 const healthOf = new Map();
-for (const st of read('MonsterInfoStat')) if (st.Stat === 'Health') healthOf.set(st.Monster?.Index, st.Amount);
+/** Every stat a monster has, by MonsterInfo index: Library.Stat name -> amount (for fights worked out stat by stat). */
+const statsOf = new Map();
+for (const st of read('MonsterInfoStat')) {
+  if (st.Stat === 'Health') healthOf.set(st.Monster?.Index, st.Amount);
+  if (!st.Amount) continue;
+  const all = statsOf.get(st.Monster?.Index) ?? statsOf.set(st.Monster?.Index, {}).get(st.Monster?.Index);
+  all[st.Stat] = (all[st.Stat] ?? 0) + st.Amount;
+}
+/**
+ * Per monster (same order as monsterNames): its stats by Library.Stat name (MinAC, MaxAC, MinMR, MaxMR, MinDC, MaxDC,
+ * Accuracy, Agility, resistances...), the milliseconds between its attacks and its steps, and what it is (undead...).
+ */
+const monsterCombat = [];
 const monsterIndex = new Map();
 const nameIndex = (name, monster) => {
   if (!monsterIndex.has(name)) {
     monsterIndex.set(name, monsterNames.push(name) - 1);
     monsterStats.push([monster.Level, Number(monster.Experience) || 0, healthOf.get(monster.Index) ?? 0, monster.IsBoss || monster.IsSubBoss || monster.IsBehemoth ? 1 : 0]);
+    const kinds = ['Undead', 'Insect', 'Beast', 'Demon', 'Goblin'].filter((k) => monster[k]);
+    const combat = { stats: statsOf.get(monster.Index) ?? {}, attackDelay: monster.AttackDelay, moveDelay: monster.MoveDelay, viewRange: monster.ViewRange };
+    if (kinds.length) combat.kinds = kinds;
+    if (monster.MobRace && monster.MobRace !== 'None') combat.race = monster.MobRace;
+    monsterCombat.push(combat);
   }
   return monsterIndex.get(name);
 };
@@ -327,6 +344,53 @@ for (const { region, map, respawn, nodes } of gatherByRegion.values()) {
   gatherSpots.push({ region: region.Index, map: map.Index, at, respawn, nodes: list });
 }
 
+// ---- Base stats: each class's own at each level (gear and the rest come on top) ----
+// By class name: [level, health, mana, minAC, maxAC, minMR, maxMR, minDC, maxDC, minMC, maxMC, minSC, maxSC, accuracy, agility], by level.
+const baseStats = {};
+for (const b of read('BaseStat')) {
+  (baseStats[b.Class] ??= []).push([b.Level, b.Health, b.Mana, b.MinAC, b.MaxAC, b.MinMR, b.MaxMR, b.MinDC, b.MaxDC, b.MinMC, b.MaxMC, b.MinSC, b.MaxSC, b.Accuracy, b.Agility]);
+}
+for (const rows of Object.values(baseStats)) rows.sort((a, b) => a[0] - b[0]);
+
+// ---- Potions and elixirs: what each gives (and for how long), its price and level, and the NPCs that sell it ----
+const itemStats = new Map();
+for (const st of read('ItemInfoStat')) {
+  if (!st.Amount) continue;
+  const all = itemStats.get(st.Item?.Index) ?? itemStats.set(st.Item?.Index, {}).get(st.Item?.Index);
+  all[st.Stat] = (all[st.Stat] ?? 0) + st.Amount;
+}
+// Who sells what: the goods are on a shop page, reached from an NPC's first page by its buttons.
+const pageButtons = new Map();
+for (const b of read('NPCButton')) (pageButtons.get(b.Page?.Index) ?? pageButtons.set(b.Page?.Index, []).get(b.Page?.Index)).push(b.DestinationPage?.Index);
+const pagesOf = (entry) => {
+  const seen = new Set([entry]);
+  const queue = [entry];
+  while (queue.length) for (const next of pageButtons.get(queue.shift()) ?? []) if (next && !seen.has(next) && seen.size < 40) { seen.add(next); queue.push(next); }
+  return seen;
+};
+const sellers = new Map();
+const goodsByPage = new Map();
+for (const g of read('NPCGood')) (goodsByPage.get(g.Page?.Index) ?? goodsByPage.set(g.Page?.Index, []).get(g.Page?.Index)).push(g.Item?.Index);
+const npcEntry = new Map(read('NPCInfo').map((n) => [n.Index, n.EntryPage?.Index]));
+for (const n of npcs) {
+  const entry = npcEntry.get(n.id);
+  if (!entry) continue;
+  for (const page of pagesOf(entry)) for (const item of goodsByPage.get(page) ?? []) (sellers.get(item) ?? sellers.set(item, new Set()).get(item)).add(n.id);
+}
+const consumables = [];
+for (const i of read('ItemInfo')) {
+  if (i.ItemType !== 'Consumable') continue;
+  const stats = itemStats.get(i.Index) ?? {};
+  // Health and mana potions (healing straight off), and elixirs (a stat for a while: Duration, in seconds).
+  if (!stats.Health && !stats.Mana && !stats.Duration) continue;
+  const c = { id: i.Index, name: i.ItemName, stats, price: i.Price };
+  if (i.RequiredType === 'Level' && i.RequiredAmount) c.level = i.RequiredAmount;
+  if (i.Effect && i.Effect !== 'None') c.effect = i.Effect;
+  const sold = sellers.get(i.Index);
+  if (sold) c.sellers = [...sold].sort((a, b) => a - b);
+  consumables.push(c);
+}
+
 // ---- Maps ----
 const used = new Set([...links.flatMap((l) => [l.from, l.to]), ...npcs.map((n) => n.map), ...waypoints.map((w) => w.map), ...gatherSpots.map((s) => s.map)]);
 const mapList = [...used].map((i) => maps.get(i)).map((m) => {
@@ -403,5 +467,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawnShares, spawns, bossSpawns, bossEvents, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, monsterCombat, spawnSets, spawnShares, spawns, bossSpawns, bossEvents, baseStats, consumables, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);

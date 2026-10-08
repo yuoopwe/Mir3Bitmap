@@ -136,6 +136,28 @@ export interface TravelData {
   /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
   monsterStats?: [number, number, number, number][];
   /**
+   * Per monster (same order as `monsters`): its stats by Library.Stat name (MinAC, MaxAC, MinMR, MaxMR, MinDC, MaxDC,
+   * Accuracy, Agility, FireResistance..., CriticalChance, BlockChance, EvasionChance...; absent: 0), the milliseconds
+   * between its attacks and between its steps, how far it sees, and what it is (kinds: Undead, Insect, Beast...).
+   */
+  monsterCombat?: { stats: Record<string, number>; attackDelay: number; moveDelay: number; viewRange: number; kinds?: string[]; race?: string }[];
+  /**
+   * Each class's own stats at each level, before gear (by class name: Warrior, Wizard, Taoist, Assassin...), as
+   * [level, health, mana, minAC, maxAC, minMR, maxMR, minDC, maxDC, minMC, maxMC, minSC, maxSC, accuracy, agility].
+   */
+  baseStats?: Record<string, number[][]>;
+  /**
+   * Potions and elixirs: what each gives by Library.Stat name (Health and Mana healed; an elixir's stat for Duration
+   * seconds), its price, the level it needs, its effect, and the NPCs (ids) whose shops sell it.
+   */
+  consumables?: { id: number; name: string; stats: Record<string, number>; price: number; level?: number; effect?: string; sellers?: number[] }[];
+  /**
+   * Per monster (same order as ): its stats by Library.Stat name (MinAC, MaxAC, MinMR, MaxMR, MinDC, MaxDC,
+   * Accuracy, Agility, FireResistance..., CriticalChance, BlockChance, EvasionChance...; absent: 0), the milliseconds
+   * between its attacks and between its steps, how far it sees, and what it is (kinds: Undead, Insect, Beast...).
+   */
+  monsterCombat?: { stats: Record<string, number>; attackDelay: number; moveDelay: number; viewRange: number; kinds?: string[]; race?: string }[];
+  /**
    * Every sub-boss, boss and behemoth that respawns on a map, as [monster (index into `monsters`), map, x, y, how many,
    * respawn minutes (once killed), kind (1 sub-boss, 2 boss, 3 behemoth)].
    */
