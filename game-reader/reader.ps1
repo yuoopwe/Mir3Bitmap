@@ -660,6 +660,25 @@ function Read-Bloodline($scene) {
   return $out
 }
 
+# The game's own auto potion: each link's item (ItemInfo index), the HP and MP it's drunk below (0: not for that), and
+# whether it's on. The game drinks these itself.
+function Read-AutoPotion($scene) {
+  $box = $scene.ReadObjectField('AutoPotionBox')
+  if ($box.IsNull) { return $null }
+  $links = $box.ReadObjectField('Links')
+  if ($links.IsNull) { return $null }
+  $out = @()
+  $all = $links.AsArray()
+  for ($i = 0; $i -lt $all.Length; $i++) {
+    $l = $all.GetObjectValue($i)
+    if ($l.IsNull) { continue }
+    $item = $l.ReadField[int]('<LinkInfoIndex>k__BackingField')
+    if ($item -le 0) { continue }
+    $out += ,@{ item = $item; health = $l.ReadField[int]('<Health>k__BackingField'); mana = $l.ReadField[int]('<Mana>k__BackingField'); enabled = $l.ReadField[bool]('<Enabled>k__BackingField') }
+  }
+  return ,$out
+}
+
 # Profession levels (Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
 # The client only loads them once the Professions window (Ctrl+Shift+P) has been opened: null until then.
 function Read-Professions($scene) {
@@ -790,12 +809,13 @@ while ($true) {
           try { $script:professions = Read-Professions $scene } catch { $script:professions = $null }
           try { $script:gear = Read-Gear $scene } catch { $script:gear = $null }
           try { $script:bloodline = Read-Bloodline $scene } catch { $script:bloodline = $null }
+          try { $script:autoPotion = Read-AutoPotion $scene } catch { $script:autoPotion = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; autoPotion = $script:autoPotion; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

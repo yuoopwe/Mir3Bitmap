@@ -52,8 +52,11 @@ export class StatGuide {
     const log = this.bot.options.grindLog;
     const notes = log.potions(user.name);
     const counts = reading?.gear?.counts ?? {};
-    // Without a potion key, none are drunk.
-    const potion = keyCode(this.bot.settings.hunt.hpPotionKey) !== null ? potionInBag(loadTravelData(), counts, me.level, notes?.potion) : null;
+    // Drunk by the bot's potion key, or by the game's own auto potion (a health potion link that's on); neither: none are.
+    const data = loadTravelData();
+    const auto = (reading?.autoPotion ?? []).find((l) => l.enabled && l.health > 0 && data.consumables?.some((c) => c.id === l.item && c.stats.Health > 0));
+    const autoName = auto ? data.consumables!.find((c) => c.id === auto.item)!.name : null;
+    const potion = keyCode(this.bot.settings.hunt.hpPotionKey) !== null || autoName ? potionInBag(data, counts, me.level, notes?.potion ?? autoName) : null;
     this.model = { character: user.name, me, supplies: { potion, drinkMs: drinkMs(notes) }, calibration: calibrate(loadTravelData(), log.fights(user.name).kills, notes), counts, at: now };
     this.verdicts.clear();
     return this.model;
@@ -112,7 +115,7 @@ export class StatGuide {
   /** The card. */
   private view(model: Model, values: StatValues, weights: { grind: number; bosses: number }, auto: boolean): StatGuideView {
     const { me, supplies } = model;
-    let potions = 'No health potion key set (Keys & potions), or none in the bag: no potions are counted on.';
+    let potions = "No health potion key set (Keys & potions) and no health potion on the game's auto potion, or none in the bag: no potions are counted on.";
     if (supplies.potion) {
       const costs = values.costs.map((c) => `${c.name} ${c.potions.toFixed(c.potions < 10 ? 1 : 0)} (${Math.round(c.gold)} gold)`);
       potions =

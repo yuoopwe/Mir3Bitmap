@@ -191,6 +191,8 @@ export interface MemoryState {
    * offer: its hint as the game words it ("Focus / Steady offense. / Affects: MinDC / Cost: 2 Bloodline Points per
    * upgrade / You will gain: +2 MinDC (from 2 points)"), and with the tab open, its button and the points-to-use box.
    */
+  /** The game's own auto potion: each link's item (ItemInfo index), the HP and MP it's drunk below (0: not for that), and whether it's on. */
+  autoPotion?: { item: number; health: number; mana: number; enabled: boolean }[] | null;
   bloodline?: { points: number; bought: Record<string, number>; grade?: string; open?: boolean; options: { hint: string; enabled: boolean; box?: MemoryBox }[]; pointsBox?: MemoryBox } | null;
   /**
    * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).

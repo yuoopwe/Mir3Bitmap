@@ -96,3 +96,15 @@ test('potions: which one the key drinks, what it heals and how fast, and how soo
   // What an XL really heals feeds the healing correction: (500 + 200) / 2 of 500.
   assert.ok(Math.abs(calibrate(data, [], watch.notes).factors.heal - 0.7) < 1e-9);
 });
+
+test("PotionWatch: a potion the game's own auto potion drinks (no press of the bot's) is learned from the bag", () => {
+  const watch = new PotionWatch(data);
+  // Readings at 600 HP with 10 XLs; then one gone and 500 HP back, nothing pressed.
+  assert.equal(watch.update(reading(600, 10), 0), false);
+  watch.update(reading(1100, 9), 300);
+  assert.equal(watch.update(reading(1100, 9), CALIBRATION.watchMs), true);
+  assert.equal(watch.notes.potion, 'Health Potion (XL)');
+  assert.deepEqual(watch.notes.heals, [500]);
+  // Readings with nothing gone: nothing learned.
+  assert.equal(watch.update(reading(1100, 9), CALIBRATION.watchMs * 3), false);
+});

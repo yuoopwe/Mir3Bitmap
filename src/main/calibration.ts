@@ -211,6 +211,8 @@ export class PotionWatch {
   private watching: { at: number; hp: number; counts: Record<string, number>; early: number | null; top: number } | null = null;
   /** When the last drink that went down was pressed. */
   private lastDrunk: number | null = null;
+  /** The reading before, for drinks no key press of the bot's started (the game's own auto potion): a health potion gone from the bag. */
+  private last: { at: number; hp: number; counts: Record<string, number> } | null = null;
 
   constructor(
     private readonly data: TravelData,
@@ -229,8 +231,15 @@ export class PotionWatch {
 
   /** Takes in a reading; true when the notes changed (to be saved). */
   update(reading: PotionReading | null, now: number): boolean {
-    const w = this.watching;
     const hp = reading?.user?.hp;
+    const seen = reading?.gear?.counts;
+    // A health potion gone from the bag with no press of ours to watch: drunk all the same (the game's auto potion), from the reading before.
+    const before = this.last;
+    if (hp !== undefined && seen) this.last = { at: now, hp, counts: { ...seen } };
+    if (!this.watching && before && seen && healthPotions(this.data).some((p) => (seen[p.name] ?? 0) < (before.counts[p.name] ?? 0))) {
+      this.watching = { at: before.at, hp: before.hp, counts: before.counts, early: null, top: before.hp };
+    }
+    const w = this.watching;
     if (!w || hp === undefined) return false;
     w.top = Math.max(w.top, hp);
     if (w.early === null && now - w.at >= CALIBRATION.instantMs) w.early = hp - w.hp;
