@@ -25,6 +25,9 @@ import { Elixirs } from './bot-elixirs';
 
 export type { BotOptions } from './bot-context';
 
+/** Checking gear: how long to wait for the memory reader's first reading with the character's gear. */
+const CHECK_GEAR_WAIT_MS = 15_000;
+
 /** The modes that work at any size of game with the memory reader: they place everything from the map view. */
 const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind', 'circuit'];
 
@@ -117,6 +120,42 @@ export class Bot {
 
   startCircuit(): void {
     void this.run('circuit', () => this.ctx.circuit.circuitLoop());
+  }
+
+  /**
+   * Works the stat guide and the best gear out now, from what's worn and the bag, without starting anything: the
+   * memory reader is started for it if it isn't running (and stopped again after, if nothing else started meanwhile).
+   * Says what it found on the status line; the Stat guide card shows the rest.
+   */
+  async checkGear(): Promise<void> {
+    const memory = this.ctx.options.memory;
+    if (!memory.installed) {
+      this.ctx.status('Checking gear needs the memory reader (run scripts/setup-game-reader.ps1).');
+      return;
+    }
+    const idle = this.ctx.mode === 'idle';
+    if (idle) memory.start();
+    this.ctx.status('Checking your gear and bag');
+    try {
+      const ready = () => !!memory.latest()?.user?.combat && !!memory.latest()?.gear;
+      for (const since = Date.now(); !ready() && Date.now() - since < CHECK_GEAR_WAIT_MS; ) await new Promise((resolve) => setTimeout(resolve, 200));
+      if (!ready()) {
+        this.ctx.status(`Couldn't read your gear (${memory.problem}): is the game running and in game?`);
+        return;
+      }
+      this.ctx.guide.update();
+      const advice = this.ctx.guide.gearAdvice();
+      const swaps = advice?.plan.swaps.length ?? 0;
+      const broken = advice?.broken.length ?? 0;
+      const gain = advice && advice.expGain > 0 ? `, about +${Math.round(advice.expGain * 100)}% exp/h` : '';
+      this.ctx.status(
+        (swaps ? `Better gear: ${swaps} swap${swaps === 1 ? '' : 's'}${gain}` : 'Your gear is already the best of what you have') +
+          (broken ? `; ${broken} worn item${broken === 1 ? ' is' : 's are'} broken` : '') +
+          ' (Stat guide tab)',
+      );
+    } finally {
+      if (idle && this.ctx.mode === 'idle') memory.stop();
+    }
   }
 
   startGrind(): void {

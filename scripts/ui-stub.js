@@ -219,6 +219,9 @@
         return `Travelling to ${label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`;
       });
     },
+    async checkGear() {
+      record('checkGear');
+    },
     async startCircuit() {
       record('startCircuit');
       const view = (done) => ({

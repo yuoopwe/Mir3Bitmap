@@ -926,6 +926,18 @@ test("Best gear: the sell trip keeps the helmet it wants though it can't go on y
   checkAlways(game);
 });
 
+test('Check my gear: with nothing running, a press works the best gear out from what is worn and the bag, and says so', async () => {
+  const game = onBichon({ gear: { worn: [RUSTY_SWORD, OLD_RING, WORN_BOOTS], bag: [POWER_RING] } }, bichon.player, { combat: { ...STARTER } });
+  let checking: Promise<void> | undefined;
+  const { statuses } = await play(game, (b) => (checking = b.checkGear()));
+  await checking;
+  const lines = statuses.map((s) => s.message);
+  assert.equal(lines[0], 'Checking your gear and bag');
+  assert.match(lines.at(-1)!, /^Better gear: 1 swap, about \+\d+% exp\/h; 1 worn item is broken \(Stat guide tab\)$/, lines.join(' | '));
+  // Nothing was started.
+  assert.ok(statuses.every((s) => s.mode === 'idle'));
+});
+
 // ---- Any size of game ----
 
 /** The map view at 2560x1440, as the reader gave it in game: more map is drawn round the character. */

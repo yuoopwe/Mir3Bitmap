@@ -269,6 +269,8 @@ export interface BotApi {
   startQuests(): Promise<void>;
   /** Takes the daily boss quests ticked, does them going round the boss spawns, and hands them in (src/main/bot-circuit.ts). */
   startCircuit(): Promise<void>;
+  /** Works the stat guide and the best gear out now from what's worn and the bag, without starting a mode. */
+  checkGear(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;

@@ -12,6 +12,7 @@ const api: BotApi = {
   startGrind: () => ipcRenderer.invoke('bot:grind'),
   startQuests: () => ipcRenderer.invoke('bot:quests'),
   startCircuit: () => ipcRenderer.invoke('bot:circuit'),
+  checkGear: () => ipcRenderer.invoke('bot:check-gear'),
   searchPlaces: (query) => ipcRenderer.invoke('travel:search', query),
   stop: () => ipcRenderer.invoke('bot:stop'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),

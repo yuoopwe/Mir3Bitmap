@@ -73,6 +73,7 @@ const travelButton = element<HTMLButtonElement>('travel-button');
 const grindButton = element<HTMLButtonElement>('grind-button');
 const questsButton = element<HTMLButtonElement>('quests-button');
 const circuitButton = element<HTMLButtonElement>('circuit-button');
+const checkGearButton = element<HTMLButtonElement>('check-gear-button');
 const circuitQuests = element<HTMLDivElement>('circuit-quests');
 const circuitLevelHint = element<HTMLParagraphElement>('circuit-level-hint');
 const circuitKeep = element<HTMLInputElement>('circuit-keep');
@@ -814,6 +815,10 @@ async function init(): Promise<void> {
   grindButton.addEventListener('click', () => void window.bot.startGrind());
   questsButton.addEventListener('click', () => void window.bot.startQuests());
   circuitButton.addEventListener('click', () => void window.bot.startCircuit());
+  checkGearButton.addEventListener('click', () => {
+    checkGearButton.disabled = true;
+    void window.bot.checkGear().finally(() => (checkGearButton.disabled = false));
+  });
   stopButton.addEventListener('click', () => void window.bot.stop());
   travelButton.addEventListener('click', () => {
     if (travelResults.value) {

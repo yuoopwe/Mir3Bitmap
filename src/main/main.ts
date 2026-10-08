@@ -147,6 +147,7 @@ ipcMain.handle('bot:travel', (_event, placeId: string) => bot.startTravel(placeI
 ipcMain.handle('bot:grind', () => bot.startGrind());
 ipcMain.handle('bot:quests', () => bot.startQuests());
 ipcMain.handle('bot:circuit', () => bot.startCircuit());
+ipcMain.handle('bot:check-gear', () => bot.checkGear());
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => bot.updateSettings({ ...defaultSettings, ...settings }));
