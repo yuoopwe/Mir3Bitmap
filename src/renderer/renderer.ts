@@ -90,6 +90,9 @@ const guideLocked = element<HTMLUListElement>('guide-locked');
 const guideElixirs = element<HTMLUListElement>('guide-elixirs');
 const guidePotions = element<HTMLParagraphElement>('guide-potions');
 const guideCalibration = element<HTMLParagraphElement>('guide-calibration');
+const guideGear = element<HTMLParagraphElement>('guide-gear');
+const guideSwaps = element<HTMLOListElement>('guide-swaps');
+const guideBroken = element<HTMLUListElement>('guide-broken');
 /** The kinds of elixir with a belt key each (src/main/bot-elixirs.ts ELIXIR_KINDS). */
 const ELIXIR_KINDS = ['Haste', 'Destruction', 'Life', 'Mana', 'Nature', 'Spirit'];
 const elixirKeyInputs = new Map<string, HTMLSelectElement>();
@@ -750,6 +753,9 @@ function showStatGuide(view: StatGuideView): void {
   guideStats.replaceChildren(...view.stats.map((line) => item(line, / worth nothing here/.test(line) ? 'done' : '')));
   guideLocked.replaceChildren(...view.locked.map((l) => item(`Out of reach: ${l.name}: ${l.why}`, 'skipped')));
   guideElixirs.replaceChildren(...view.elixirs.map((e) => item(`${e.line}${e.pays ? ' (pays)' : ''}`, e.pays ? '' : 'done')));
+  guideGear.textContent = view.gear.swaps.length ? `It brings ${view.gear.gain}. Put on, in this order:` : `${view.gear.gain[0].toUpperCase()}${view.gear.gain.slice(1)}.`;
+  guideSwaps.replaceChildren(...view.gear.swaps.map((swap) => item(swap)));
+  guideBroken.replaceChildren(...view.gear.broken.map((line) => item(line, 'skipped')));
   guidePotions.textContent = view.potions;
   guideCalibration.textContent = `Measured fights: ${view.calibration}.`;
 }

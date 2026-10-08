@@ -154,10 +154,15 @@ test("the combat model's notes: a kill's newer fields, Boss circuit time and wha
   assert.deepEqual(again.toJSON(), log.toJSON());
   assert.deepEqual(again.bossTime('Alice'), [{ ms: 60_000, at: 2 }]);
   assert.equal(again.potions('Alice')!.refusedAfterMs, 1500);
+  log.setGearChecks('Alice', [{ at: 5, stats: [[8, 138, 158, 158]] }]);
+  const third = new GrindLog(() => {});
+  third.load(JSON.parse(JSON.stringify(log.toJSON())));
+  assert.deepEqual(third.gearChecks('Alice'), [{ at: 5, stats: [[8, 138, 158, 158]] }]);
   const junk = new GrindLog(() => {});
-  junk.load({ characters: {}, fights: { Alice: { kills: [{ ...kill, monster: 7, stats: ['x'], hits: 'many' }], deaths: [] } }, bossTime: { Alice: [{ ms: 'x' }] }, potions: { Alice: { heals: 'x' } } });
+  junk.load({ characters: {}, fights: { Alice: { kills: [{ ...kill, monster: 7, stats: ['x'], hits: 'many' }], deaths: [] } }, bossTime: { Alice: [{ ms: 'x' }] }, potions: { Alice: { heals: 'x' } }, gearChecks: { Alice: [{ at: 1, stats: [[8, 'x']] }] } });
   const { monster: _m, stats: _s, hits: _h, ...plain } = kill;
   assert.deepEqual(junk.fights('Alice').kills, [plain]);
   assert.deepEqual(junk.bossTime('Alice'), []);
   assert.equal(junk.potions('Alice'), null);
+  assert.deepEqual(junk.gearChecks('Alice'), []);
 });

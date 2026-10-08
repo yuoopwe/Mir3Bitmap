@@ -4,14 +4,21 @@
  * grind log), the guide worked out at each Grind and Boss circuit plan
  * (stat-values.ts) and shown on its card, and what the other parts ask of it:
  * whether a monster can be survived (Grind, the circuit), what a stat point is
- * worth (the loot judge), and whether an elixir pays (Elixirs). It also watches
- * what follows each health potion drunk (calibration.ts PotionWatch).
+ * worth (the loot judge), and whether an elixir pays (Elixirs). With it, the
+ * best gear from what's worn and the bag (loadout.ts), and the best for each
+ * boss the circuit wants that it would make survivable: the loot judge keeps
+ * those, and "Put on clear upgrades" follows its swaps. It also watches what
+ * follows each health potion drunk (calibration.ts PotionWatch), and each gear
+ * change against what the optimiser would have predicted (GearWatch).
  */
 import type { StatGuideView } from '../shared/types';
 import { calibrate, describeCalibration, drinkMs, PotionWatch, type Calibration } from './calibration';
 import { CLASS_NAMES, fighterOf, foeOf, potionInBag, type Fighter, type Supplies } from './combat-model';
 import { autoLevelsAbove, rateMaps } from './grind';
-import { cantSurvive, circuitBosses, focusWeights, statValues, type ElixirAdvice, type StatValues } from './stat-values';
+import { cantSurvive, circuitBosses, focusWeights, gain, statValues, worthOf, type ElixirAdvice, type GuideInput, type StatValues } from './stat-values';
+import { GearWatch, characterOf, describeCheck, describeSwap, fighterFrom, gearCorrections, optimise, type LoadoutPlan } from './loadout';
+import { brokenWorn } from './loot-judge';
+import type { MemoryItem } from './game-memory';
 import { loadTravelData, type TravelQuest } from './travel';
 import { keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -21,6 +28,19 @@ const MODEL_REFRESH_MS = 30_000;
 
 /** Grind's chosen map and this many of the next best are weighed. */
 const GRIND_CANDIDATES = 3;
+
+/** The best gear: the plan, what it brings (Grind's exp/h over now's, the bosses it makes survivable), the bag items wanted and why, and what's broken. */
+export interface GearAdvice {
+  plan: LoadoutPlan;
+  expGain: number;
+  opens: string[];
+  /** Bag items (by bagKey) the best gear, or a boss's best gear, wants: "part of the best gear (+12% exp/h)", "for Zuma Keeper". */
+  wanted: Map<string, string>;
+  broken: string[];
+}
+
+/** A bag item, recognised from one reading to the next: its bag slot and name. */
+export const bagKey = (item: MemoryItem) => `${item.slot}:${item.name}`;
 
 /** The model's inputs for one character. */
 interface Model {
@@ -38,6 +58,10 @@ export class StatGuide {
   private readonly verdicts = new Map<string, string | null>();
   private latest: StatValues | null = null;
   private potionWatch: { character: string; watch: PotionWatch } | null = null;
+  private gearWatch: { character: string; watch: GearWatch } | null = null;
+  /** What the guide was last worked out with, for scoring gear; and the gear advice from it. */
+  private input: GuideInput | null = null;
+  private gear: GearAdvice | null = null;
 
   constructor(private readonly bot: BotContext) {}
 
@@ -108,8 +132,72 @@ export class StatGuide {
     const { bosses, rewards } = circuitBosses(quests);
     const guide = this.bot.settings.guide ?? { auto: true, focus: 50 };
     const weights = focusWeights(log.sessions(user.name), log.bossTime(user.name), Date.now(), guide.auto ? null : guide.focus);
-    this.latest = statValues({ data, me, supplies: model.supplies, calibration: model.calibration, maps, grinder, grindOptions, bosses, rewards, weights, counts: model.counts });
+    this.input = { data, me, supplies: model.supplies, calibration: model.calibration, maps, grinder, grindOptions, bosses, rewards, weights, counts: model.counts };
+    this.latest = statValues(this.input);
+    this.refreshGear();
     this.bot.options.statGuide?.(this.view(model, this.latest, weights, guide.auto));
+  }
+
+  /** The gear advice as last worked out (null: never, or no stats). */
+  gearAdvice(): GearAdvice | null {
+    return this.gear;
+  }
+
+  /** Why the best gear wants a bag item (null: it doesn't, or there's no advice). */
+  planned(item: MemoryItem): string | null {
+    return this.gear?.wanted.get(bagKey(item)) ?? null;
+  }
+
+  /**
+   * Works the best gear out again from what's worn and the bag now, scored by
+   * what the character does as the guide last weighed it; and for each boss
+   * the circuit wants that can't be survived, the best gear for that boss
+   * alone, when it would make it survivable. Null without the stats, or before
+   * the guide has been worked out.
+   */
+  refreshGear(): GearAdvice | null {
+    const reading = this.bot.options.memory.latest();
+    const char = reading ? characterOf(reading) : null;
+    const gear = reading?.gear;
+    if (!char || !gear || !this.input || !reading?.user) {
+      this.gear = null;
+      return null;
+    }
+    const corrections = gearCorrections(this.bot.options.grindLog.gearChecks(reading.user.name));
+    const me = fighterFrom(char, char.totals, gear.worn.map((item) => ({ slot: item.slot, item })));
+    const best = (input: GuideInput) => {
+      const base = worthOf(input, me);
+      const plan = optimise(char, gear.worn, gear.bag, (f) => gain(input, base, worthOf(input, f)), corrections);
+      return { plan, base, after: worthOf(input, plan.fighter) };
+    };
+    const input = { ...this.input, me };
+    const { plan, base, after } = best(input);
+    const expGain = base.grind > 0 ? after.grind / base.grind - 1 : 0;
+    const opens = after.survivable.filter((b) => !base.survivable.includes(b));
+    const wanted = new Map<string, string>();
+    const why = `part of the best gear (${describeGain(plan.score, expGain, opens, this.input)})`;
+    for (const swap of plan.swaps) wanted.set(bagKey(swap.item), why);
+    // Each boss the circuit wants that can't be survived: its own best gear, kept if that would do it.
+    for (const boss of new Map(input.bosses.map((b) => [b.name.toLowerCase(), b])).values()) {
+      if (base.survivable.includes(boss.name.toLowerCase())) continue;
+      const solo = best({ ...input, maps: [], bosses: [boss], weights: { grind: 0, bosses: 1 } });
+      if (!solo.after.survivable.includes(boss.name.toLowerCase())) continue;
+      for (const swap of solo.plan.swaps) if (!wanted.has(bagKey(swap.item))) wanted.set(bagKey(swap.item), `for ${boss.name} (it makes it survivable)`);
+    }
+    this.gear = { plan, expGain, opens, wanted, broken: brokenWorn(gear.worn) };
+    return this.gear;
+  }
+
+  /** Each reading: a gear change is checked against what the optimiser would have predicted, said, and kept for its corrections. */
+  watchGear(): void {
+    const reading = this.bot.options.memory.latest();
+    const name = reading?.user?.name;
+    if (!reading || !name) return;
+    if (this.gearWatch?.character !== name) this.gearWatch = { character: name, watch: new GearWatch(this.bot.options.grindLog.gearChecks(name)) };
+    const check = this.gearWatch.watch.update(reading, this.bot.clock.now());
+    if (!check) return;
+    this.bot.options.grindLog.setGearChecks(name, this.gearWatch.watch.checks);
+    this.bot.status(describeCheck(check));
   }
 
   /** The card. */
@@ -131,6 +219,11 @@ export class StatGuide {
       elixirs: values.elixirs.map((e) => ({ line: e.line, pays: e.pays })),
       potions,
       calibration: describeCalibration(model.calibration),
+      gear: {
+        swaps: this.gear?.plan.swaps.map(describeSwap) ?? [],
+        gain: this.gear ? (this.gear.plan.swaps.length ? describeGain(this.gear.plan.score, this.gear.expGain, this.gear.opens, this.input!) : "what's worn is the best found") : 'not worked out (the gear and stats not read yet)',
+        broken: this.gear?.broken ?? [],
+      },
     };
   }
 
@@ -144,4 +237,12 @@ export class StatGuide {
     if (drank) this.potionWatch.watch.pressed(reading, now);
     if (this.potionWatch.watch.update(reading, now)) this.bot.options.grindLog.setPotions(name, this.potionWatch.watch.notes);
   }
+}
+
+/** "+12% exp/h; makes Zuma Keeper survivable", or the weighted gain when Grind doesn't count. */
+function describeGain(score: number, expGain: number, opens: string[], input: GuideInput): string {
+  const percent = (share: number) => `${share >= 0 ? '+' : ''}${(share * 100).toFixed(Math.abs(share) >= 0.1 ? 0 : 1)}%`;
+  const names = opens.map((o) => input.bosses.find((b) => b.name.toLowerCase() === o)?.name ?? o);
+  const parts = [input.weights.grind > 0 ? `${percent(expGain)} exp/h` : `${percent(score)} from bosses`, ...(names.length ? [`makes ${names.join(', ')} survivable`] : [])];
+  return parts.join('; ');
 }

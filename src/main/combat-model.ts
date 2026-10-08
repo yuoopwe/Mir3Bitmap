@@ -112,9 +112,8 @@ const ELEMENTS = ['Fire', 'Ice', 'Lightning', 'Wind', 'Holy', 'Dark', 'Shadow'];
 /** Library.Stat numbers of the elements' attack stats, in ELEMENTS' order. */
 const ELEMENT_ATTACKS = [20, 22, 24, 26, 28, 30, 32];
 
-/** The character from the game's memory, or null without their stats. `worn` gives the weapon's element. */
-export function fighterOf(user: MemoryState['user'], worn: readonly MemoryItem[] = []): Fighter | null {
-  if (!user?.combat || !user.maxHp || user.class === undefined || user.level === undefined) return null;
+/** The element of the strongest elemental attack among what's worn ('Fire'...), if any. */
+export function elementOf(worn: readonly MemoryItem[]): string | undefined {
   let element: string | undefined;
   let best = 0;
   for (const item of worn) {
@@ -123,6 +122,13 @@ export function fighterOf(user: MemoryState['user'], worn: readonly MemoryItem[]
       if (amount > best) [best, element] = [amount, ELEMENTS[i]];
     });
   }
+  return element;
+}
+
+/** The character from the game's memory, or null without their stats. `worn` gives the weapon's element. */
+export function fighterOf(user: MemoryState['user'], worn: readonly MemoryItem[] = []): Fighter | null {
+  if (!user?.combat || !user.maxHp || user.class === undefined || user.level === undefined) return null;
+  const element = elementOf(worn);
   return { ...user.combat, cls: user.class, level: user.level, maxHp: user.maxHp, ...(element && { element }) };
 }
 

@@ -1,15 +1,18 @@
 /**
  * The loot judge at the shop: keeps what loot-judge.ts says to out of the sale
  * by locking it (the game's ToggleItemLock key over its bag cell: Select All
- * leaves locked items), lists what was kept, and puts on clear upgrades when
- * asked. Neither the key nor double-clicking to put on is confirmed in game,
- * so every step is checked in the game's memory, and the sale is called off
- * when something to keep can't be locked.
+ * leaves locked items), including what the best gear wants (loadout.ts, through
+ * the stat guide), lists what was kept, says which worn items are broken, and
+ * puts on the best gear (else clear upgrades) when asked. Neither the key nor
+ * double-clicking to put on is confirmed in game, so every step is checked in
+ * the game's memory, and the sale is called off when something to keep can't
+ * be locked.
  */
 
 import type { KeptItem } from '../shared/types';
 import type { MemoryItem, MemoryState } from './game-memory';
-import { LOOT, RARITY_NAMES, judgeItem, type Verdict, type Wearer } from './loot-judge';
+import { LOOT, RARITY_NAMES, brokenWorn, judgeItem, type Verdict, type Wearer } from './loot-judge';
+import { describeSwap } from './loadout';
 import { HOVER_SETTLE_MS, boxCentre } from './bot-shared';
 import type { BotContext } from './bot-context';
 
@@ -52,6 +55,9 @@ export class Looting {
    */
   async protectKeepers(): Promise<string | null> {
     const memory = this.bot.options.memory;
+    // The best gear from the bag as it is now (it has new loot in it).
+    const advice = this.bot.guide.refreshGear();
+    for (const line of advice?.broken ?? brokenWorn(memory.latest()?.gear?.worn ?? [])) this.bot.status(line);
     for (let tries = 0; tries < 100; tries++) {
       const reading = memory.latest();
       const next = this.keepers(reading)[0];
@@ -77,13 +83,17 @@ export class Looting {
   }
 
   /**
-   * Puts on clear upgrades (LOOT.equipMargin better than what's worn) from the
-   * bag, best first, one at a time: double-clicks its cell and checks that
-   * what's worn changed. Never a worn-out item, nor one the character can't
-   * wear. The first that doesn't go on ends it. (The bag's AutoEquipButton
-   * might do this too, but its rules aren't known: it isn't used.)
+   * Puts on the best gear (the loadout optimiser's swaps, in their order) when
+   * it does LOOT.equipGearGain better than what's worn; without its advice (no
+   * stats read yet), clear upgrades (LOOT.equipMargin better than what's worn)
+   * from the bag, best first. One at a time: double-clicks its cell and checks
+   * that what's worn changed, working the best gear out again after each. Never
+   * a worn-out item, nor one the character can't wear. The first that doesn't
+   * go on ends it. (The bag's AutoEquipButton might do this too, but its rules
+   * aren't known: it isn't used.)
    */
   async equipUpgrades(): Promise<void> {
+    if (this.bot.guide.refreshGear()) return this.equipBestGear();
     const memory = this.bot.options.memory;
     for (let tries = 0; tries < 20; tries++) {
       const reading = memory.latest();
@@ -114,14 +124,64 @@ export class Looting {
     }
   }
 
-  /** Bag items to keep that the sale could take: the judge says keep, and they're neither locked nor unsellable. Best first. */
+  /** The best gear's swaps, one at a time, the plan worked out again after each from what's worn then. */
+  private async equipBestGear(): Promise<void> {
+    const memory = this.bot.options.memory;
+    /** What was worn before each swap: worn again means going round in circles (the game put an item somewhere else). */
+    const seen = new Set<string>();
+    for (let tries = 0; tries < 20; tries++) {
+      const advice = tries === 0 ? this.bot.guide.gearAdvice() : this.bot.guide.refreshGear();
+      const swap = advice?.plan.swaps[0];
+      if (!advice || !swap || advice.plan.score < LOOT.equipGearGain) return;
+      const gear = memory.latest()?.gear;
+      const item = gear?.bag.find(sameItem(swap.item));
+      if (!gear || !item?.cell) {
+        this.bot.status(`Can't see ${swap.item.name} in the bag to put it on; leaving the best gear for now`);
+        return;
+      }
+      // What's worn, told apart by stats too (the item may share its name with what it replaces).
+      const wornNow = (worn: MemoryItem[]) => JSON.stringify(worn.map((w) => [w.slot, w.name, w.base, w.added]));
+      const before = wornNow(gear.worn);
+      if (seen.has(before)) {
+        this.bot.status(`Putting on the best gear went round in circles (${swap.item.name} didn't go where it was wanted); stopping there`);
+        return;
+      }
+      seen.add(before);
+      const point = boxCentre(item.cell);
+      this.bot.stopRunning();
+      this.bot.status(`Putting on ${describeSwap(swap)}: best gear`);
+      // The totals just before, for the gear check.
+      this.bot.guide.watchGear();
+      this.bot.input.doubleClick(this.bot.hwnd, point.x, point.y);
+      const changed = () => {
+        const now = memory.latest()?.gear;
+        return !!now && wornNow(now.worn) !== before;
+      };
+      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < EQUIP_WAIT_MS && !changed(); ) {
+        await this.bot.sleep(100);
+        this.bot.guide.watchGear();
+      }
+      if (!changed()) {
+        this.bot.status(`Couldn't put on ${item.name} (double-clicking it did nothing); leaving it in the bag`);
+        return;
+      }
+      this.bot.status(`Put on ${item.name}`);
+      // The totals settle a moment after the gear: let the gear check see them.
+      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < EQUIP_WAIT_MS; ) {
+        await this.bot.sleep(250);
+        this.bot.guide.watchGear();
+      }
+    }
+  }
+
+  /** Bag items to keep that the sale could take: the judge says keep (or the best gear wants them), and they're neither locked nor unsellable. Best first. */
   private keepers(reading: MemoryState | null): { item: MemoryItem; verdict: Verdict }[] {
     const gear = reading?.gear;
     if (!gear || !reading.user) return [];
     const who = this.wearer(reading);
     return gear.bag
       .filter((item) => item.canSell && !(item.flags & LOCKED))
-      .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { values: this.bot.guide.values() }) }))
+      .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { values: this.bot.guide.values(), planned: this.bot.guide.planned(item) }) }))
       .filter((k) => k.verdict.keep)
       .sort((a, b) => b.verdict.gain - a.verdict.gain);
   }

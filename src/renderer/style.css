@@ -639,6 +639,11 @@ table {
   font-size: 12px;
 }
 
+.guide-head {
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+
 .circuit-list .done,
 .circuit-list .skipped {
   color: var(--muted);

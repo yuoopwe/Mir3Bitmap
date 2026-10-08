@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { MemoryItem } from '../main/game-memory';
 import { UNCALIBRATED } from '../main/calibration';
-import { LOOT, cantWear, describeChanges, judgeItem, scoreItem } from '../main/loot-judge';
+import { LOOT, brokenWorn, cantWear, describeChanges, judgeItem, scoreItem } from '../main/loot-judge';
 import { statValues } from '../main/stat-values';
 import { loadTravelData } from '../main/travel';
 
@@ -125,4 +125,15 @@ test("with the stat guide's values: an Attack Speed ring beats a small DC ring f
   const cap = item('Cap', HELMET, { 4: 2, 5: 3 }, { slot: 2 });
   const helmet = judgeItem(item('Helmet', HELMET, { 4: 5, 5: 8 }), [cap], who, { values: perStat });
   assert.deepEqual([perStat[4], helmet.upgrade], [0, true]);
+});
+
+test('the loadout optimiser: an item it wants is kept whatever it scores alone; broken worn items are flagged with what they cost', () => {
+  const gated = item('War Helm', HELMET, { 16: 5 }, { needs: 4, needsAmount: 200 });
+  const who = { cls: WARRIOR, level: 48, combat: { maxAC: 100, maxMR: 30, maxDC: 194, maxMC: 0, maxSC: 0 } };
+  assert.deepEqual([judgeItem(gated, [], who).keep, judgeItem(gated, [], who).reason], [false, 'needs DC 200']);
+  const kept = judgeItem(gated, [], who, { planned: 'part of the best gear (after Power Ring)' });
+  assert.deepEqual([kept.keep, kept.upgrade, kept.reason], [true, false, 'part of the best gear (after Power Ring)']);
+  const blade = item('Steelforge Blade', WEAPON, dc(22, 51), { slot: 0, durability: 0, maxDurability: 32000 });
+  const horse = item('Brown Horse', 50, { 4: 5 }, { slot: 18, durability: 0, maxDurability: 100 });
+  assert.deepEqual(brokenWorn([blade, horse, item('Cap', HELMET, {}, { slot: 2 })]), ['Steelforge Blade is broken: −22–51 DC, repair it']);
 });

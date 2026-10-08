@@ -216,10 +216,10 @@ test('Loot: an item behind a wall with a way round is walked to round it and pic
 });
 
 /** Chickens about the player on Bichon Province, for a level 1 to grind on. */
-function grindOnBichon(setup: Partial<FakeGameSetup> = {}): FakeGame {
+function grindOnBichon(setup: Partial<FakeGameSetup> = {}, player: Partial<FakeGameSetup['player']> = {}): FakeGame {
   const { x, y } = bichon.player;
   const chickens = Array.from({ length: 6 }, (_, i) => ({ name: 'Chicken', x: x - 4 + (i % 3) * 4, y: y + 3 + Math.floor(i / 3) * 3, respawn: true }));
-  return onBichon({ monsters: chickens, allNpcs: true, ...setup }, bichon.player, { level: 1 });
+  return onBichon({ monsters: chickens, allNpcs: true, ...setup }, bichon.player, { level: 1, ...player });
 }
 
 const backOnBichon = (game: FakeGame, after: FakeEvent['type'], what: (e: FakeEvent) => boolean) => () => {
@@ -886,6 +886,43 @@ test("Loot judge: a double-click that doesn't put the upgrade on is given up on,
   assert.ok(met, `back to grinding (${statuses.at(-1)?.message})`);
   assert.ok(statuses.some((s) => s.message === "Couldn't put on Iron Sword (double-clicking it did nothing); leaving it in the bag"));
   assert.deepEqual(game.gear.worn.map((w) => w.name), ['Rusty Sword', 'Leather Cap']);
+  checkAlways(game);
+});
+
+// ---- The loadout optimiser ----
+
+/** A level 1 Warrior's stats as the reader sends them, with a weak sword, an old ring and broken boots on. */
+const STARTER = { minAC: 5, maxAC: 8, minMR: 0, maxMR: 2, minDC: 10, maxDC: 25, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0, accuracy: 15, agility: 15, attackSpeed: 0 };
+const OLD_RING = { name: 'Old Ring', type: 8, slot: 7, base: { 8: 0, 9: 1 } };
+const WORN_BOOTS = { name: 'Worn Boots', type: 9, slot: 9, base: { 4: 2, 5: 3 }, durability: 0, maxDurability: 2000 };
+/** In the bag: a ring with 6 more max DC, and a helmet of Attack Speed that needs DC 30 (25 now: only with the ring on). */
+const POWER_RING = { name: 'Power Ring', type: 8, slot: 3, base: { 9: 6 } };
+const WAR_HELM = { name: 'War Helm', type: 5, slot: 4, base: { 16: 10 }, needs: 4, needsAmount: 30 };
+
+test("Best gear: the sell trip keeps the helmet it wants though it can't go on yet, says the boots are broken, and puts the ring on first, then the helmet", async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: { worn: [RUSTY_SWORD, OLD_RING, WORN_BOOTS], bag: [WAR_HELM, POWER_RING, BENT_SWORD] } }, { combat: { ...STARTER } });
+  const { met, kept, statuses, guide } = await play(game, (bot) => bot.startGrind(), {
+    settings: { hunt: { ...testSettings().hunt, equipUpgrades: true } },
+    until: backOnBichon(game, 'sold', () => true),
+    limitMs: 10 * 60_000,
+  });
+  const lines = statuses.map((s) => s.message);
+  assert.ok(met, lines.join(' | '));
+  // Kept: the ring (nothing worn in the second ring place) and the helmet, for the best gear.
+  const helm = kept.find((k) => k.name === 'War Helm');
+  assert.match(helm?.reason ?? '', /^part of the best gear \(\+\d+(\.\d)?% exp\/h\)$/, JSON.stringify(kept));
+  assert.ok(kept.some((k) => k.name === 'Power Ring'));
+  assert.ok(lines.includes('Worn Boots is broken: −2–3 AC, repair it'), lines.join(' | '));
+  // The ring first (into the empty ring place), lifting DC to 31; then the helmet.
+  assert.deepEqual(of(game, 'equip').map((e) => [e.name, e.slot]), [['Power Ring', 8], ['War Helm', 2]]);
+  assert.deepEqual(game.player.combat && [game.player.combat.maxDC, game.player.combat.attackSpeed], [31, 10]);
+  // Each change checked against what was predicted: right on.
+  assert.ok(lines.includes('Gear check: DC 10–25 predicted 10–31, read 10–31'), lines.join(' | '));
+  assert.ok(lines.includes('Gear check: Attack Speed 0 predicted 10, read 10'), lines.join(' | '));
+  // Grind's next plan, back from the trip: the card says it's the best now.
+  assert.deepEqual([guide!.gear.swaps, guide!.gear.gain], [[], "what's worn is the best found"]);
+  assert.ok(lines.some((m) => /^Putting on Power Ring for nothing \(Ring\): best gear$/.test(m)));
+  assert.deepEqual(guide!.gear.broken, ['Worn Boots is broken: −2–3 AC, repair it']);
   checkAlways(game);
 });
 

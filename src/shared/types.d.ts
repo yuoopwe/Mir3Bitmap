@@ -232,6 +232,8 @@ export interface StatGuideView {
   /** The potion the bot drinks and what a kill costs in them; how the model compares with the fights measured. */
   potions: string;
   calibration: string;
+  /** The best gear from what's worn and the bag (src/main/loadout.ts): the swaps, what they bring, and worn items to repair. */
+  gear: { swaps: string[]; gain: string; broken: string[] };
 }
 
 /** An item the loot judge kept out of a sale: its name, rarity and why (shown under "Kept this run"). */
