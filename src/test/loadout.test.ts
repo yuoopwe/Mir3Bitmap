@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { UNCALIBRATED } from '../main/calibration';
 import { fight, foeOf, survivalGap, type Fighter } from '../main/combat-model';
 import type { MemoryItem } from '../main/game-memory';
-import { GearWatch, cantPutOn, characterOf, contribution, describeCheck, gearCorrections, optimise, predict, setBonus, type Character, type Worn } from '../main/loadout';
+import { GearWatch, bagPlace, cantPutOn, characterOf, contribution, describeCheck, describeSwap, gearCorrections, optimise, predict, setBonus, type Character, type Worn } from '../main/loadout';
 import { gain, worthOf, type GuideInput } from '../main/stat-values';
 import { loadTravelData } from '../main/travel';
 
@@ -215,3 +215,14 @@ test('set bonuses: two pieces of a set worn give its bonus, so a weaker pair can
 });
 
 const setBonusOf = (items: MemoryItem[]) => setBonus(items.map((i, n) => ({ slot: [7, 5][n], item: i })), false);
+
+test("where a bag item is: row and column in the bag's Main tab, counting from 1 (14 columns unless the game says)", () => {
+  assert.deepEqual(bagPlace(0), { row: 1, column: 1 });
+  assert.deepEqual(bagPlace(13), { row: 1, column: 14 });
+  assert.deepEqual(bagPlace(14), { row: 2, column: 1 });
+  assert.deepEqual(bagPlace(31, 10), { row: 4, column: 2 });
+  const ring = item('Power Ring', RING, 17, DC(0, 6));
+  assert.equal(describeSwap({ slot: 8, item: ring, replaces: RINGS_ON[1], fromBag: true }, 14), 'Power Ring for Fine Ring (Ring), bag row 2, column 4');
+  // One already worn, moved to another place: no bag place.
+  assert.equal(describeSwap({ slot: 8, item: RINGS_ON[0], replaces: null, fromBag: false }), 'Old Ring for nothing (Ring)');
+});

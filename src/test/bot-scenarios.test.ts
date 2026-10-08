@@ -921,7 +921,7 @@ test("Best gear: the sell trip keeps the helmet it wants though it can't go on y
   assert.ok(lines.includes('Gear check: Attack Speed 0 predicted 10, read 10'), lines.join(' | '));
   // Grind's next plan, back from the trip: the card says it's the best now.
   assert.deepEqual([guide!.gear.swaps, guide!.gear.gain], [[], "what's worn is the best found"]);
-  assert.ok(lines.some((m) => /^Putting on Power Ring for nothing \(Ring\): best gear$/.test(m)));
+  assert.ok(lines.some((m) => /^Putting on Power Ring for nothing \(Ring\), bag row 1, column 4: best gear$/.test(m)), lines.join(' | '));
   assert.deepEqual(guide!.gear.broken, ['Worn Boots is broken: −2–3 AC, repair it']);
   checkAlways(game);
 });

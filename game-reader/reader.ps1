@@ -681,7 +681,9 @@ function Read-Gear($scene) {
       if ($read) { if ($cells.ContainsKey("$i")) { $read.cell = $cells["$i"] }; $bag += $read }
     }
   }
-  return @{ worn = $worn; bag = $bag; counts = $counts }
+  # How many columns the bag's grid has (its Main tab starts at bag slot 0, top left, row by row).
+  $columns = $(try { $scene.ReadObjectField('InventoryBox').ReadObjectField('Grid').ReadValueTypeField('_GridSize').ReadField[int]('width') } catch { 0 })
+  return @{ worn = $worn; bag = $bag; counts = $counts; columns = $columns }
 }
 
 # The bloodline (the game's Hermit system: points from levelling bought into stats): the points to spend, what's been

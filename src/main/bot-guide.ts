@@ -225,7 +225,7 @@ export class StatGuide {
       potions,
       calibration: describeCalibration(model.calibration),
       gear: {
-        swaps: this.gear?.plan.swaps.map(describeSwap) ?? [],
+        swaps: this.gear?.plan.swaps.map((swap) => describeSwap(swap, this.bot.options.memory.latest()?.gear?.columns)) ?? [],
         gain: this.gear ? (this.gear.plan.swaps.length ? describeGain(this.gear.plan.score, this.gear.expGain, this.gear.opens, this.input!) : "what's worn is the best found") : 'not worked out (the gear and stats not read yet)',
         broken: this.gear?.broken ?? [],
       },

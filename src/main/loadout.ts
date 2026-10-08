@@ -228,6 +228,17 @@ export interface Swap {
   slot: number;
   item: MemoryItem;
   replaces: MemoryItem | null;
+  /** The item comes from the bag (its slot is then the bag's), not from another place it's worn. */
+  fromBag?: boolean;
+}
+
+/** The bag's grid is this many columns wide when the game doesn't say (its Main tab: bag slot 0 top left, row by row). */
+export const BAG_COLUMNS = 14;
+
+/** Where a bag slot is in the bag's Main tab, counting from 1: row and column. */
+export function bagPlace(slot: number, columns = BAG_COLUMNS): { row: number; column: number } {
+  const width = columns > 0 ? columns : BAG_COLUMNS;
+  return { row: Math.floor(slot / width) + 1, column: (slot % width) + 1 };
 }
 
 /**
@@ -252,7 +263,7 @@ export function swapOrder(char: Character, from: Loadout, to: Loadout, correctio
     });
     if (i < 0) return null;
     const slot = pending.splice(i, 1)[0];
-    swaps.push({ slot, item: to.get(slot)!.item, replaces: state.get(slot)?.item ?? null });
+    swaps.push({ slot, item: to.get(slot)!.item, replaces: state.get(slot)?.item ?? null, fromBag: !to.get(slot)!.worn });
     state.set(slot, to.get(slot)!);
   }
   return swaps;
@@ -360,8 +371,12 @@ export function optimise(char: Character, worn: readonly MemoryItem[], bag: read
 }
 
 /** "Battle Necklace for Old Necklace (Necklace)". */
-export function describeSwap(swap: Swap): string {
-  return `${swap.item.name} for ${swap.replaces?.name ?? 'nothing'} (${SLOT_NAMES[swap.slot] ?? `slot ${swap.slot}`})`;
+/** "Hero's Bracelet for Leather Glove (Bracelet), bag row 2, column 5": where to find it, when it's in the bag (`columns`: the bag's width). */
+export function describeSwap(swap: Swap, columns = BAG_COLUMNS): string {
+  const what = `${swap.item.name} for ${swap.replaces?.name ?? 'nothing'} (${SLOT_NAMES[swap.slot] ?? `slot ${swap.slot}`})`;
+  if (!swap.fromBag) return what;
+  const { row, column } = bagPlace(swap.item.slot, columns);
+  return `${what}, bag row ${row}, column ${column}`;
 }
 
 // ---- Checking against the game ----

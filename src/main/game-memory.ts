@@ -192,7 +192,7 @@ export interface MemoryState {
    * What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second;
    * counts: how many the bag holds, by name, of every consumable (potions, elixirs, scrolls) and of a few other items (Forge Stone, Phoenix Tear).
    */
-  gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number> } | null;
+  gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number>; columns?: number } | null;
   /** The game's own auto potion: each link's item (ItemInfo index), the HP and MP it's drunk below (0: not for that), and whether it's on. */
   autoPotion?: { item: number; health: number; mana: number; enabled: boolean }[] | null;
   /**
