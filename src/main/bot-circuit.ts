@@ -63,6 +63,7 @@ export class BossCircuit {
     let stonesAtStart: number | null = null;
     /** Spawns already said to be skipped (said once a run). */
     const said = new Set<string>();
+    this.bot.elixirs.reset();
 
     while (true) {
       await this.bot.yieldToEvents();
@@ -140,9 +141,10 @@ export class BossCircuit {
           const info = data.maps.find((x) => x.i === m);
           return info && levelAllows(info, user.level!) && routes.steps(map.index, m, who) < Infinity;
         });
-        if (bossLevel > user.level + band.levels || !where) {
+        const deadly = this.bot.guide.cantSurvive(summon.boss);
+        if (bossLevel > user.level + band.levels || !where || deadly) {
           summonsGivenUp.add(summon.boss.toLowerCase());
-          this.bot.status(`Skipping ${summon.boss}: ${!where ? 'nowhere to summon it' : `level ${bossLevel}: too strong for level ${user.level} yet`}`);
+          this.bot.status(`Skipping ${summon.boss}: ${!where ? 'nowhere to summon it' : deadly ?? `level ${bossLevel}: too strong for level ${user.level} yet`}`);
           continue;
         }
         const result = await this.summonAt(summon, where[0], settings.retreatHpPercent);
@@ -151,10 +153,11 @@ export class BossCircuit {
         continue;
       }
 
-      // 4. The circuit from here, as far above the level as the character's fights say is safe.
+      // 4. The circuit from here, as far above the level as the character's fights say is safe, without what the combat model says can't be survived.
       const plan = planCircuit(data, spawns, { map: map.index, level: user.level, cls: user.class, waypoints: unlocked, maxLevelsAbove: band.levels }, {
-        now, routes, clearedAt, tooHard, need: farming ? undefined : need,
+        now, routes, clearedAt, tooHard, need: farming ? undefined : need, cantSurvive: (s) => this.bot.guide.cantSurvive(s.monster),
       });
+      this.bot.guide.update();
       const progress = farming ? 'Hunting bosses' : `${active.map(shortName).join(', ')} ${sum(tasks, 'done')}/${sum(tasks, 'need')}`;
       this.show(plan, tasks, farming ? null : active.map((q) => q.name).join(', '), reading, stonesAtStart, now);
       for (const { spawn, why } of plan.skipped) {
@@ -170,6 +173,9 @@ export class BossCircuit {
       this.bot.status(`${progress} · next: ${describeStop(stop, now)}`);
 
       // 5. There: by Return to Arcadia when that's the quicker way; a trip that fails means trying the others first.
+      const tripStart = this.bot.clock.now();
+      const tripPaused = this.bot.pausedMs;
+      const logTrip = () => this.bot.options.grindLog.addBossTime(user.name, { ms: this.bot.clock.now() - tripStart - (this.bot.pausedMs - tripPaused), at: Date.now() });
       try {
         if (stop.viaArcadia && map.index !== CIRCUIT.arcadia) await this.bot.survival.returnToArcadia(`On to ${stop.spawn.monster}`);
         if (memory.latest()?.user?.dead) continue;
@@ -178,11 +184,13 @@ export class BossCircuit {
         if (error instanceof Stopped || !(error instanceof BotError)) throw error;
         clearedAt.set(stop.spawn.key, this.bot.clock.now());
         this.bot.status(`Couldn't get to ${stop.spawn.monster} at ${stop.spawn.mapName} (${error.message}); planning again`);
+        logTrip();
         continue;
       }
 
-      // 6. Fight there.
+      // 6. Fight there (the time going to the stat guide's weighing of the circuit against Grind).
       const why = await this.fightAt(stop, farming ? null : need, settings.retreatHpPercent, progress);
+      logTrip();
       if (why === 'empty') clearedAt.set(stop.spawn.key, this.bot.clock.now());
       if (why === 'stalled') {
         clearedAt.set(stop.spawn.key, this.bot.clock.now());

@@ -2,7 +2,7 @@
 
 import { walkDistances } from './map-path';
 import { loadTravelData, mapName } from './travel';
-import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage } from './grind';
+import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage, rateMap, rateMaps, type GrindOptions } from './grind';
 import { ExperienceMeter, damageDealt } from './grind-log';
 import { BotError, MEMORY_START_MS } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -24,6 +24,9 @@ export class Grinding {
     const started = this.bot.clock.now();
     /** The map being ground on, kept unless another is clearly better. */
     let grinding: number | undefined;
+    /** Maps said to be skipped as unsurvivable (said once a run, while the reason holds). */
+    const said = new Set<string>();
+    this.bot.elixirs.reset();
 
     while (true) {
       await this.bot.yieldToEvents();
@@ -50,17 +53,26 @@ export class Grinding {
       const log = this.bot.options.grindLog;
       const fights = log.fights(user.name);
       const band = autoLevelsAbove(fights, maxLevelsAbove, Date.now());
-      const choice = chooseGrindMap(data, start, { level, cls: user.class, waypoints: unlocked }, {
+      const who = { level, cls: user.class, waypoints: unlocked };
+      const options: GrindOptions = {
         maxLevelsAbove: band.levels,
         damage: measuredDamage(data, fights.kills, level, user.class),
         danger: dangerByGap(fights),
-        current: grinding,
         measured: log.sessions(user.name),
         quests: reading.questTargets ?? undefined,
-        questsFirst,
-      });
+      };
+      // Maps the combat model says can't be survived even with potions are left out (once they can, they're back).
+      const cantSurvive: GrindOptions['cantSurvive'] = (m) => this.bot.guide.cantSurvive(m.name);
+      const choice = chooseGrindMap(data, start, who, { ...options, cantSurvive, current: grinding, questsFirst });
       if (!choice) throw new BotError(`No map to grind on at level ${level} can be reached from ${mapName(data, map.index)}.`);
       grinding = choice.map;
+      for (const better of rateMaps(data, who, options).filter((r) => r.rate > choice.rate)) {
+        const rating = rateMap(data, better.map, who, { ...options, cantSurvive });
+        if (!('skip' in rating) || said.has(`${better.map}:${rating.skip}`)) continue;
+        said.add(`${better.map}:${rating.skip}`);
+        this.bot.status(`Skipping ${better.name}: ${rating.skip}`);
+      }
+      this.bot.guide.update(choice.map);
       const plan = describeChoice(choice, level, band);
       this.bot.status(plan);
       if (map.index !== choice.map) {

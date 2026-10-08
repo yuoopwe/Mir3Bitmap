@@ -209,7 +209,8 @@ export class Hunting {
       this.bot.scanMs = this.bot.clock.now() - start;
       const now = this.bot.clock.now();
       const sightings = this.sightings.update(labels, now);
-      this.bot.drinkPotions();
+      const drank = this.bot.drinkPotions();
+      this.bot.elixirs.upkeep();
 
       for (const [key, until] of skipped) if (until <= now) skipped.delete(key);
       const memory = this.bot.options.memory.latest();
@@ -222,6 +223,7 @@ export class Hunting {
         continue;
       }
       if (memory) {
+        if (drank) fights.drank(memoryId(current?.key));
         const { kills, death } = fights.update(memory, now, memoryId(current?.key));
         const name = memory.user?.name ?? '';
         for (const kill of kills) this.bot.options.grindLog.addKill(name, kill);

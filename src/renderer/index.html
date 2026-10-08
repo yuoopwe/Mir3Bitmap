@@ -24,6 +24,7 @@
         <p class="tabs-group" id="shared-label">Shared</p>
         <div role="tablist" aria-labelledby="shared-label" aria-orientation="vertical">
           <button type="button" role="tab" id="tab-keys" aria-controls="panel-keys">Keys &amp; potions</button>
+          <button type="button" role="tab" id="tab-guide" aria-controls="panel-guide">Stat guide</button>
           <button type="button" role="tab" id="tab-monsters" aria-controls="panel-monsters">Monsters</button>
           <button type="button" role="tab" id="tab-stats" aria-controls="panel-stats">Stats &amp; log</button>
           <button type="button" role="tab" id="tab-general" aria-controls="panel-general">General</button>
@@ -325,6 +326,40 @@
               <legend>Timing (ms)</legend>
               <div id="delays" class="delays"></div>
             </fieldset>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-guide" role="tabpanel" aria-labelledby="tab-guide" hidden>
+          <header class="panel-head">
+            <div>
+              <h1>Stat guide</h1>
+              <p>What each stat, potion and elixir is worth to your character for what they actually do: Grind's maps and the Boss
+                circuit's bosses, worked out from both sides' stats and checked against your own fights. Worked out again at every
+                Grind and circuit plan (needs the memory reader). The loot judge scores items by it, and Grind and the circuit skip
+                what it says can't be survived even with potions.</p>
+            </div>
+          </header>
+          <div class="cards">
+            <fieldset class="card">
+              <legend>Weighing</legend>
+              <label title="Weigh levelling and bosses by the time Grind and the Boss circuit have run this past week"><input id="guide-auto" type="checkbox"> By the time spent on each lately</label>
+              <label title="How much bosses count against levelling, when not by the time spent">Levelling <input id="guide-focus" type="range" min="0" max="100" step="5"> Bosses</label>
+            </fieldset>
+            <fieldset class="card">
+              <legend>Elixirs</legend>
+              <label title="While grinding and on the Boss circuit, drink each kind with a key below when the guide says it pays and some are in the bag; a drink is checked against the bag's count"><input id="elixirs-on" type="checkbox"> Keep elixirs up that pay</label>
+              <div id="elixir-keys" class="delays"></div>
+              <p class="hint">Put each kind on a belt key and pick the key here. A key that doesn't drink it is left alone for the run.</p>
+            </fieldset>
+            <section class="card route-card">
+              <h2>Stat guide</h2>
+              <p id="guide-summary" class="hint">Not worked out yet: start Grind or the Boss circuit with the memory reader.</p>
+              <ol id="guide-stats" class="circuit-list"></ol>
+              <ul id="guide-locked" class="circuit-list"></ul>
+              <ul id="guide-elixirs" class="circuit-list"></ul>
+              <p id="guide-potions" class="hint"></p>
+              <p id="guide-calibration" class="hint"></p>
+            </section>
           </div>
         </section>
 

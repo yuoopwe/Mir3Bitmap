@@ -6,7 +6,7 @@
 (() => {
   /** Every call the window made: { fn, args }, the args copied the way Electron's IPC copies them. */
   const calls = [];
-  const listeners = { status: [], names: [], monsters: [], kept: [], circuit: [] };
+  const listeners = { status: [], names: [], monsters: [], kept: [], circuit: [], statGuide: [] };
   const record = (fn, ...args) => calls.push({ fn, args: structuredClone(args) });
   const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -237,6 +237,7 @@
       record('startGrind');
       const plan = 'Grinding at Zuma Temple Lv 3: ~1.5M est, 1.2M measured exp/h for level 35 (still the best)';
       run('grind', 'Grinding', 1000, (tick) => {
+        if (tick === 0) listeners.statGuide.forEach((listener) => listener(structuredClone(SAMPLE_GUIDE)));
         if (tick === 0) return plan;
         if (tick === 1) return 'Route: Bichon Province > Zuma Temple Lv 4 > Zuma Temple Lv 3';
         if (tick === 3) return 'Arrived at Zuma Temple Lv 3';
@@ -301,6 +302,9 @@
     onKept(listener) {
       listeners.kept.push(listener);
     },
+    onStatGuide(listener) {
+      listeners.statGuide.push(listener);
+    },
     onCircuit(listener) {
       listeners.circuit.push(listener);
     },
@@ -309,8 +313,27 @@
     },
   };
 
+  /** A stat guide as the bot sends one at a Grind plan. */
+  const SAMPLE_GUIDE = {
+    character: 'Level 48 Warrior',
+    activities: ['Zuma Temple Lv 5 (~94k exp/h)', 'Zuma Temple Lv 3 (~94k exp/h)', 'Zuma Keeper (boss)'],
+    weights: { grind: 0.8, bosses: 0.2, auto: true },
+    stats: [
+      'Attack Speed: +3.0% exp/h each; +4.4% kill speed; you never miss and take no damage here',
+      'DC: +0.45% exp/h each (min and max)',
+      'AC: +0.02% exp/h each (min and max); 76 more opens [Behemoth] Bone Revenant Brood',
+      'Accuracy: worth nothing here; you never miss here',
+    ],
+    locked: [{ name: '[Behemoth] Bone Revenant Brood', why: "needs +76 AC, or +19154 HP, or 168 Health Potion (XL) a kill (you have 100) (a gear gap: levels alone won't close it)" }],
+    elixirs: [{ line: 'Haste (II): +6.3% exp/h for an hour, you have 25', pays: true }, { line: 'Destruction (IV): +3.4% exp/h for an hour, you have 0', pays: false }],
+    potions: 'Health Potion (XL), 100 in the bag, one every 1.5 s at most. Potions a kill: Zuma Keeper 2.4 (970 gold).',
+    calibration: '6% quicker kills than the model says (42 kills)',
+  };
+
   /** For poking the window from the console (or a test script). */
   window.uiStub = {
+    /** Sends a stat guide, as Grind and the Boss circuit do at each plan (default: a sample). */
+    statGuide: (view = SAMPLE_GUIDE) => listeners.statGuide.forEach((listener) => listener(structuredClone(view))),
     calls,
     /** Sends a status as the bot would, e.g. uiStub.status('Hunting', { mode: 'attack', hp: 0.5 }). */
     status: emitStatus,

@@ -1113,3 +1113,90 @@ test('Boss circuit: a death mid-circuit, then Return, and on round the circuit t
     checkAlways(game);
   });
 });
+
+// ---- The combat model and the stat guide ----
+
+/** A level 45 Warrior with AC 170-190: Prajna Guardians hardly get through, Jinchon Warlords do, for longer than their health lasts. */
+const ARMOURED = { minAC: 170, maxAC: 190, minMR: 0, maxMR: 0, minDC: 100, maxDC: 150, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0, accuracy: 40, agility: 30, attackSpeed: 4 };
+
+test("Boss circuit: a boss the combat model says can't be survived is skipped, saying what it would take; once the gap is closed it's gone for", async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    const game = inArcadia({ quests: [{ key: SUPPLY_HUNT, state: 'active' }], monsters: [...bossesAt(GUARDIAN, 4), ...bossesAt(WARLORD, 4)] }, { combat: { ...ARMOURED } });
+    let closed = false;
+    const { met, statuses, guide } = await play(game, (bot) => bot.startCircuit(), {
+      during: () => {
+        // The Guardians done: better armour on, and the Warlords can be taken on.
+        if (!closed && killsOf(game, GUARDIAN.name).length >= 3) {
+          closed = true;
+          game.player.combat = { ...ARMOURED, minAC: 260, maxAC: 280 };
+        }
+      },
+      until: () => killsOf(game, WARLORD.name).length >= 1,
+      limitMs: 60 * 60_000,
+    });
+    assert.ok(met, statuses.map((s) => s.message).join(' | '));
+    const lines = statuses.map((s) => s.message);
+    const skip = lines.find((m) => m.startsWith('Skipping Jinchon Warlord at Jinchon Palace Lv 6: '));
+    // No potion key set: potions are a way too.
+    assert.match(skip ?? '', /^Skipping Jinchon Warlord at Jinchon Palace Lv 6: needs \+\d+ AC, or \+\d+ HP, or \d+ Health Potion \(\w+\) a kill \(you have 0\) \(a gear gap: levels alone won't close it\)$/, lines.join(' | '));
+    // Not gone near the Warlords until the AC was there.
+    const firstThere = of(game, 'mapChange').find((c) => c.to === JINCHON_6)!;
+    assert.ok(firstThere.t > killsOf(game, GUARDIAN.name)[2].t);
+    // The guide said so too.
+    assert.ok(guide, 'the stat guide was shown');
+    checkAlways(game);
+  });
+});
+
+/** Level 24 on Faraway Falls (as the Grind test above), DC 40-60, with 25 Elixirs of Haste (II) and its belt key `5`. */
+function grindWithHaste(belt: boolean) {
+  const FARAWAY = data.maps.find((m) => m.name === 'Faraway Falls')!.i;
+  const at = { x: 40, y: 40 };
+  const names = ['Vicious Rat', 'Zuma Fanatic', 'Zuma Guardian'];
+  const monsters = Array.from({ length: 9 }, (_, i) => ({ name: names[i % 3], x: at.x - 4 + (i % 3) * 4, y: at.y + 3 + Math.floor(i / 3) * 2, respawn: true, damage: 10 }));
+  const combat = { minAC: 10, maxAC: 20, minMR: 5, maxMR: 10, minDC: 40, maxDC: 60, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0, accuracy: 20, agility: 15, attackSpeed: 0 };
+  return new FakeGame({
+    monsters, player: { map: FARAWAY, ...at, level: 24, damage: 450, combat },
+    itemCounts: { 'Elixir Of Haste (II)': 25, 'Forge Stone': 0 }, belt: belt ? { 0x35: 'Elixir Of Haste (II)' } : {},
+  });
+}
+const elixirSettings = { elixirs: { enabled: true, keys: { Haste: '5', Destruction: '6', Life: '', Mana: '', Nature: '', Spirit: '' } } };
+
+test('Elixirs: kept up while grinding when the guide says they pay: Haste drunk from its belt key, confirmed by the bag count, not again while it works', async () => {
+  const game = grindWithHaste(true);
+  let drankAt: number | null = null;
+  const { met, statuses, guide } = await play(game, (bot) => bot.startGrind(), {
+    settings: elixirSettings,
+    until: (lines) => {
+      if (drankAt === null && lines.some((s) => s.message === 'Drank Elixir Of Haste (II): 24 left')) drankAt = game.now;
+      return drankAt !== null && game.now > drankAt + 3 * 60_000;
+    },
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, statuses.map((s) => s.message).join(' | '));
+  assert.equal(game.itemCounts.get('Elixir Of Haste (II)'), 24);
+  assert.equal(keyDowns(game, 0x35).length, 1);
+  assert.ok(statuses.some((s) => /^Drinking Elixir Of Haste \(II\) \(5\): \+\d\.\d% exp\/h for an hour, you have 25$/.test(s.message)));
+  // None of the Destruction elixirs in the bag: its key never pressed.
+  assert.equal(keyDowns(game, 0x36).length, 0);
+  assert.ok(guide!.elixirs.some((e) => e.pays && e.line.startsWith('Haste (II): ')), JSON.stringify(guide!.elixirs));
+  assert.equal(guide!.character, 'Level 24 Warrior');
+  checkAlways(game);
+});
+
+test("Elixirs: a key that doesn't drink it (the bag count stays) is pressed once, said, and left alone for the run", async () => {
+  const game = grindWithHaste(false);
+  const failed = "Elixir Of Haste (II) didn't go down in the bag after pressing 5 (is it on that belt key?): not drinking it again this run";
+  let saidAt: number | null = null;
+  const { met, statuses } = await play(game, (bot) => bot.startGrind(), {
+    settings: elixirSettings,
+    until: (lines) => {
+      if (saidAt === null && lines.some((s) => s.message === failed)) saidAt = game.now;
+      return saidAt !== null && game.now > saidAt + 60_000;
+    },
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, statuses.map((s) => s.message).join(' | '));
+  assert.equal(keyDowns(game, 0x35).length, 1);
+  assert.equal(game.itemCounts.get('Elixir Of Haste (II)'), 25);
+});

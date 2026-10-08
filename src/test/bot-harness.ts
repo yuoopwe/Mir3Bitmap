@@ -3,7 +3,7 @@
  * scenario tests: the settings the app starts with (fuzz off, so waits are
  * exact), a seeded Math.random, and a run with a time limit in game time.
  */
-import type { CircuitView, KeptItem, KeyId, Settings, Status } from '../shared/types';
+import type { CircuitView, KeptItem, KeyId, Settings, StatGuideView, Status } from '../shared/types';
 import { Bot } from '../main/bot';
 import { GrindLog } from '../main/grind-log';
 import { NameBook } from '../main/names';
@@ -36,6 +36,8 @@ export function testSettings(changes: Partial<Settings> = {}): Settings {
     trainIntervalMs: 1000,
     questMaxActive: 5,
     circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35 },
+    guide: { auto: true, focus: 50 },
+    elixirs: { enabled: false, keys: { Haste: '', Destruction: '', Life: '', Mana: '', Nature: '', Spirit: '' } },
     grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
     hunt: { roam: false, questOnly: false, bagFreeSlots: 5, bagWeightPercent: 95, loot: false, pickUpKey: '', hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: '', randomTeleportKey: '' },
     ...changes,
@@ -66,6 +68,8 @@ export interface Played {
   grindLog: GrindLog;
   /** What the loot judge kept out of sales, as the window's "Kept this run" shows it. */
   kept: KeptItem[];
+  /** The stat guide as its card last showed it (null: never worked out). */
+  guide: StatGuideView | null;
 }
 
 /**
@@ -81,6 +85,7 @@ export async function play(
   const statuses: Status[] = [];
   const grindLog = options.grindLog ?? new GrindLog(() => {});
   let kept: KeptItem[] = [];
+  let guide: StatGuideView | null = null;
   const bot = new Bot(testSettings(options.settings), {
     report: (status) => statuses.push(status),
     names: new NameBook(() => {}),
@@ -92,6 +97,7 @@ export async function play(
     grindLog,
     kept: (items) => (kept = [...items]),
     circuit: options.onCircuit,
+    statGuide: (view) => (guide = view),
   });
   const random = Math.random;
   Math.random = seeded(options.seed ?? 1);
@@ -116,5 +122,5 @@ export async function play(
   } finally {
     Math.random = random;
   }
-  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot, grindLog, kept };
+  return { statuses, message: statuses.at(-1)?.message ?? '', met, bot, grindLog, kept, guide };
 }

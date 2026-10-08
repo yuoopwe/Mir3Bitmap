@@ -1,9 +1,11 @@
 /**
  * The loot judge: whether an item in the bag is worth keeping out of the
- * sale. It scores an item for the character's class by its stats (the item's
- * own and what it rolled on top), and compares it with what's worn where it
- * would go: better by a margin is an upgrade. Rare items are kept whatever
- * they score. Pure: no game, no screen.
+ * sale. It scores an item by its stats (the item's own and what it rolled on
+ * top): by what each stat is worth to this character for what they do (the
+ * stat guide, stat-values.ts), or without that, by fixed weights for the
+ * class. It compares the score with what's worn where the item would go:
+ * better by a margin is an upgrade. Rare items are kept whatever they score.
+ * Pure: no game, no screen.
  */
 import type { MemoryItem } from './game-memory';
 import { classFlagOf } from './travel';
@@ -35,7 +37,7 @@ export const LOOT = {
   /** Items this rare or rarer (Library.Rarity: 3 Legendary) are kept whatever they score: they may be worth something. */
   keepRarity: 3,
   /**
-   * What each stat is worth to each class (Library.MirClass), per point. Health and mana come in bigger numbers, so
+   * Without the stat guide's values: what each stat is worth to each class (Library.MirClass), per point. Health and mana come in bigger numbers, so
    * they weigh little a point. Classes not listed use `other`.
    */
   weights: {
@@ -95,8 +97,15 @@ function weightsFor(cls: number | undefined): Weights {
   return (cls !== undefined && LOOT.weights[cls]) || LOOT.other;
 }
 
-/** What an item is worth to the class: its weighted stats, min/max pairs at their average. */
-export function scoreItem(item: MemoryItem, cls: number | undefined): number {
+/** What a point of each stat is worth (by Library.Stat number), from the stat guide (stat-values.ts perStat). */
+export type PointValues = Readonly<Record<number, number>>;
+
+/**
+ * What an item is worth to the character: its stats at `values` (the stat
+ * guide's), else at the class's fixed weights, min/max pairs at their average.
+ */
+export function scoreItem(item: MemoryItem, cls: number | undefined, values?: PointValues | null): number {
+  if (values) return Object.entries(values).reduce((sum, [n, value]) => sum + value * stat(item, Number(n)), 0);
   let score = 0;
   for (const [key, weight] of Object.entries(weightsFor(cls)) as [StatKey, number][]) {
     const numbers = STATS[key];
@@ -120,8 +129,9 @@ export function cantWear(item: MemoryItem, who: Wearer): string | null {
  * an upgrade when the character can wear it and it beats what's worn where it
  * goes by LOOT.upgradeMargin (or nothing is worn there); with two places (rings,
  * bracelets), against the weaker. Kept too when it's LOOT.keepRarity or rarer.
+ * Scored at the stat guide's `values` when given, else the class's weights.
  */
-export function judgeItem(item: MemoryItem, worn: readonly MemoryItem[], who: Wearer, options: { margin?: number; keepRarity?: number } = {}): Verdict {
+export function judgeItem(item: MemoryItem, worn: readonly MemoryItem[], who: Wearer, options: { margin?: number; keepRarity?: number; values?: PointValues | null } = {}): Verdict {
   const margin = options.margin ?? LOOT.upgradeMargin;
   const rare = item.rarity >= (options.keepRarity ?? LOOT.keepRarity);
   const rarity = RARITY_NAMES[item.rarity] ?? `rarity ${item.rarity}`;
@@ -139,10 +149,12 @@ export function judgeItem(item: MemoryItem, worn: readonly MemoryItem[], who: We
 
   // The weaker of its places: an empty one first.
   const there = slots.map((slot) => ({ slot, item: worn.find((w) => w.slot === slot), score: 0 }));
-  for (const t of there) t.score = t.item ? scoreItem(t.item, who.cls) : -Infinity;
+  for (const t of there) t.score = t.item ? scoreItem(t.item, who.cls, options.values) : -Infinity;
   const weakest = there.reduce((a, b) => (b.score < a.score ? b : a));
   if (!weakest.item) return verdict(true, weakest.slot, Infinity, `nothing worn as ${SLOT_NAMES[weakest.slot] ?? `slot ${weakest.slot}`}`);
-  const score = scoreItem(item, who.cls);
+  const score = scoreItem(item, who.cls, options.values);
+  // The guide says none of their stats count for what the character does now (armour where nothing gets through, say): the class's weights decide.
+  if (options.values && score === 0 && weakest.score === 0) return judgeItem(item, worn, who, { ...options, values: null });
   const gain = weakest.score > 0 ? score / weakest.score - 1 : score > 0 ? Infinity : 0;
   const percent = gain === Infinity ? 'better' : `${gain >= 0 ? '+' : ''}${Math.round(gain * 100)}%`;
   const upgrade = gain > margin;

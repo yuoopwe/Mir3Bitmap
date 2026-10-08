@@ -92,7 +92,7 @@ export class Looting {
       const who = this.wearer(reading);
       const best = gear.bag
         .filter((item) => item.cell && !(item.maxDurability > 0 && item.durability <= 0))
-        .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { margin: LOOT.equipMargin }) }))
+        .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { margin: LOOT.equipMargin, values: this.bot.guide.values() }) }))
         .filter((c) => c.verdict.upgrade)
         .sort((a, b) => b.verdict.gain - a.verdict.gain)[0];
       if (!best) return;
@@ -121,7 +121,7 @@ export class Looting {
     const who = this.wearer(reading);
     return gear.bag
       .filter((item) => item.canSell && !(item.flags & LOCKED))
-      .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who) }))
+      .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { values: this.bot.guide.values() }) }))
       .filter((k) => k.verdict.keep)
       .sort((a, b) => b.verdict.gain - a.verdict.gain);
   }

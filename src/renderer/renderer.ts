@@ -80,6 +80,19 @@ const circuitRetreat = element<HTMLInputElement>('circuit-retreat');
 const circuitSummary = element<HTMLParagraphElement>('circuit-summary');
 const circuitTasks = element<HTMLUListElement>('circuit-tasks');
 const circuitStops = element<HTMLOListElement>('circuit-stops');
+const guideAuto = element<HTMLInputElement>('guide-auto');
+const guideFocus = element<HTMLInputElement>('guide-focus');
+const elixirsOn = element<HTMLInputElement>('elixirs-on');
+const elixirKeys = element<HTMLDivElement>('elixir-keys');
+const guideSummary = element<HTMLParagraphElement>('guide-summary');
+const guideStats = element<HTMLOListElement>('guide-stats');
+const guideLocked = element<HTMLUListElement>('guide-locked');
+const guideElixirs = element<HTMLUListElement>('guide-elixirs');
+const guidePotions = element<HTMLParagraphElement>('guide-potions');
+const guideCalibration = element<HTMLParagraphElement>('guide-calibration');
+/** The kinds of elixir with a belt key each (src/main/bot-elixirs.ts ELIXIR_KINDS). */
+const ELIXIR_KINDS = ['Haste', 'Destruction', 'Life', 'Mana', 'Nature', 'Spirit'];
+const elixirKeyInputs = new Map<string, HTMLSelectElement>();
 /** The Boss circuit's quests (as src/main/boss-planner.ts has them): the daily Seasonal Supply Hunts and Elite Bounties, and the level each needs. */
 const CIRCUIT_QUESTS = [
   { id: 1840, label: 'Seasonal Supply Hunt – Grade E (100 Forge Stones)', level: 40 },
@@ -327,6 +340,8 @@ function readSettings(): Settings {
       keepHunting: circuitKeep.checked,
       retreatHpPercent: Math.min(Math.max(readNumber(circuitRetreat, DEFAULT_CIRCUIT.retreatHpPercent), 5), 90),
     },
+    guide: { auto: guideAuto.checked, focus: Math.min(Math.max(readNumber(guideFocus, 50), 0), 100) },
+    elixirs: { enabled: elixirsOn.checked, keys: Object.fromEntries([...elixirKeyInputs].map(([kind, select]) => [kind, select.value])) },
     grind: {
       replanMinutes: Math.max(readNumber(grindReplan, DEFAULT_GRIND.replanMinutes), 1),
       maxLevelsAbove: Math.min(readNumber(grindAbove, DEFAULT_GRIND.maxLevelsAbove), 50),
@@ -388,6 +403,15 @@ function applySettings(settings: Partial<Settings>): void {
     for (const [id, input] of circuitQuestInputs) input.checked = settings.circuit.quests.includes(id);
     circuitKeep.checked = settings.circuit.keepHunting;
     circuitRetreat.value = String(settings.circuit.retreatHpPercent);
+  }
+  if (settings.guide) {
+    guideAuto.checked = settings.guide.auto;
+    guideFocus.value = String(settings.guide.focus);
+    guideFocus.disabled = settings.guide.auto;
+  }
+  if (settings.elixirs) {
+    elixirsOn.checked = settings.elixirs.enabled;
+    for (const [kind, select] of elixirKeyInputs) select.value = settings.elixirs.keys[kind] ?? '';
   }
   if (settings.grind?.maxLevelsAbove !== undefined) grindAbove.value = String(settings.grind.maxLevelsAbove);
   if (settings.grind?.questsFirst !== undefined) grindQuestsFirst.checked = settings.grind.questsFirst;
@@ -699,12 +723,48 @@ function showCircuit(view: CircuitView): void {
   );
 }
 
+/** A belt key for each kind of elixir. */
+function buildElixirKeys(): void {
+  for (const kind of ELIXIR_KINDS) {
+    const label = document.createElement('label');
+    const select = document.createElement('select');
+    select.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
+    label.append(`${kind} `, select);
+    elixirKeys.append(label);
+    elixirKeyInputs.set(kind, select);
+  }
+}
+
+/** The stat guide: each stat's worth best first, what's out of reach and what it would take, the elixirs, potions and how the model measures up. */
+function showStatGuide(view: StatGuideView): void {
+  const share = (n: number) => `${Math.round(n * 100)}%`;
+  guideSummary.textContent =
+    `${view.character}, weighing levelling ${share(view.weights.grind)} and bosses ${share(view.weights.bosses)}` +
+    `${view.weights.auto ? ' (by the time spent lately)' : ''}: ${view.activities.join(', ')}.`;
+  const item = (text: string, className = '') => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (className) li.className = className;
+    return li;
+  };
+  guideStats.replaceChildren(...view.stats.map((line) => item(line, / worth nothing here/.test(line) ? 'done' : '')));
+  guideLocked.replaceChildren(...view.locked.map((l) => item(`Out of reach: ${l.name}: ${l.why}`, 'skipped')));
+  guideElixirs.replaceChildren(...view.elixirs.map((e) => item(`${e.line}${e.pays ? ' (pays)' : ''}`, e.pays ? '' : 'done')));
+  guidePotions.textContent = view.potions;
+  guideCalibration.textContent = `Measured fights: ${view.calibration}.`;
+}
+
 async function init(): Promise<void> {
   setUpTabs();
   buildKeyRows();
   buildDelayFields();
   buildPotionSelects();
   buildCircuitQuests();
+  buildElixirKeys();
+  guideAuto.checked = true;
+  guideFocus.value = '50';
+  guideFocus.disabled = true;
+  guideAuto.addEventListener('change', () => (guideFocus.disabled = guideAuto.checked));
   circuitRetreat.value = String(DEFAULT_CIRCUIT.retreatHpPercent);
   const level = Number(localStorage.getItem(LEVEL_KEY));
   if (level > 0) showLevel(level);
@@ -734,6 +794,7 @@ async function init(): Promise<void> {
   window.bot.onNames(showNames);
   window.bot.onKept(showKept);
   window.bot.onCircuit(showCircuit);
+  window.bot.onStatGuide(showStatGuide);
   window.bot.onMonsters((names) => {
     monstersSeen = names;
     showMonsters();

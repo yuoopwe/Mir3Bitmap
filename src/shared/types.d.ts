@@ -112,6 +112,25 @@ export interface Settings {
   questMaxActive?: number;
   /** Boss circuit mode (src/main/bot-circuit.ts). */
   circuit?: CircuitSettings;
+  /** The stat guide (src/main/stat-values.ts): what it weighs Grind and the circuit by. */
+  guide?: GuideSettings;
+  /** Keeping elixirs up while grinding and on the Boss circuit (src/main/bot-elixirs.ts). */
+  elixirs?: ElixirSettings;
+}
+
+/** How the stat guide weighs levelling against bosses: by the time spent on each lately, or by `focus` (0 all levelling, 100 all bosses). */
+export interface GuideSettings {
+  auto: boolean;
+  focus: number;
+}
+
+/**
+ * Elixirs kept up while grinding and on the Boss circuit, when the stat guide says they pay: each kind's belt key
+ * (Haste, Destruction, Life, Mana, Nature, Spirit; '' for none).
+ */
+export interface ElixirSettings {
+  enabled: boolean;
+  keys: Record<string, BindableKey>;
 }
 
 /** Somewhere Travel can go: a map or an NPC (id "map:<index>" or "npc:<index>"). */
@@ -197,6 +216,24 @@ export interface CircuitView {
   stones: number | null;
 }
 
+/** The stat guide, for its card: what each stat, potion and elixir is worth to the character for what they do. */
+export interface StatGuideView {
+  /** "Level 48 Warrior", and what was weighed: "Zuma Temple Lv 5 (~94k exp/h)", "Zuma Keeper (boss)". */
+  character: string;
+  activities: string[];
+  /** How Grind and the circuit were weighed (shares adding up to 1), and whether by the time spent (auto) or the focus set. */
+  weights: { grind: number; bosses: number; auto: boolean };
+  /** Each stat's worth, best first: "Attack Speed: +3.0% exp/h each; +4.4% kill speed; ...". */
+  stats: string[];
+  /** What can't be survived even with potions, and what it would take. */
+  locked: { name: string; why: string }[];
+  /** "Haste (II): +6.3% exp/h for an hour, you have 25", and whether it pays. */
+  elixirs: { line: string; pays: boolean }[];
+  /** The potion the bot drinks and what a kill costs in them; how the model compares with the fights measured. */
+  potions: string;
+  calibration: string;
+}
+
 /** An item the loot judge kept out of a sale: its name, rarity and why (shown under "Kept this run"). */
 export interface KeptItem {
   name: string;
@@ -249,4 +286,6 @@ export interface BotApi {
   onKept(listener: (items: KeptItem[]) => void): void;
   /** The Boss circuit's plan as it stands: the tasks' counts, the spawns in order and when each is back. */
   onCircuit(listener: (view: CircuitView) => void): void;
+  /** The stat guide, worked out again at each Grind plan and Boss circuit plan. */
+  onStatGuide(listener: (view: StatGuideView) => void): void;
 }

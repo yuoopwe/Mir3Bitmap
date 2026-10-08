@@ -95,9 +95,10 @@ alone monsters it can't walk to (walled off), and gives up on a target after 6 s
 
 Selling with the memory reader (Grind, Quests, Gather trips, and Hunt with "Sell items") uses Ludvik's Select All,
 which would take everything on the bag's Main tab. So first, with the bag open, the loot judge
-(`src/main/loot-judge.ts`) looks at every wearable bag item: its own stats and what it rolled on top, weighted for
-your class (DC for Warriors, MC for Wizards, SC for Taoists... all in one table, `LOOT.weights`, min/max pairs at
-their average), against what you wear where it would go (for rings and bracelets, the weaker of the two). Items you
+(`src/main/loot-judge.ts`) looks at every wearable bag item: its own stats and what it rolled on top, scored by what
+each stat is worth to your character for what they do (the stat guide, below), or until that's been worked out, by
+fixed weights for your class (DC for Warriors, MC for Wizards, SC for Taoists... all in one table, `LOOT.weights`,
+min/max pairs at their average), against what you wear where it would go (for rings and bracelets, the weaker of the two). Items you
 can wear (class, level, a stat requirement against your stats) that beat it by 5%, or go where nothing is worn, are
 upgrades; those and anything Legendary or rarer are kept. Each is locked in game (Scroll Lock, the game's
 ToggleItemLock key, with the mouse over its bag cell), and the lock is checked in the game's memory: one that doesn't
@@ -110,6 +111,38 @@ started or the session was reset), and counted with the stats.
 15% better than what's worn, best first, and checks that what's worn changed (giving up on the first that doesn't).
 Never one that's worn out, or that you can't wear yet. Whether Scroll Lock over a cell locks it, Select All leaves
 locked items, and a double-click puts an item on aren't confirmed in game yet; each is checked as it's done.
+
+## The combat model and the stat guide
+
+Fixed weights get things wrong: for a Warrior who never misses and takes no damage on Zuma Temple Lv 5, a point of
+Attack Speed is worth about eight of DC, and AC is worth nothing there. So `src/main/combat-model.ts` works one fight
+out from both sides' stats (yours from the game's memory, the monster's from `monsterCombat` in
+`game-data/travel.json`): your blow is your DC roll less its AC roll (MC or SC against MR for Wizards and Taoists),
+landing as often as your Accuracy over its Agility, a swing every 1500 − 47 × Attack Speed ms (measured: 158 dps
+predicted for DC 146–215 and Attack Speed 8 against Zuma AC 2–3, 162 measured); its blows the same way against your
+AC, every attack delay; your potions and regeneration against that. From it: how long a kill takes (hits to kill as
+a distribution, so breakpoints show), the health it costs, potions and gold a kill, whether it can be survived (what
+it takes, within 70% of your health, with the potions in the bag drunk as often as the bot does), and for one that
+can't, what would do it: "needs +76 AC, or +19154 HP, or 168 Health Potion (XL) a kill (you have 100) (a gear gap:
+levels alone won't close it)". Its guesses (the miss roll, crits, regeneration) are checked against your own fights
+(`src/main/calibration.ts`): each kill is now logged with the monster, your stats, the potions drunk, the health put
+back and the lowest it got, and the model's kill times and health lost are compared with what was measured, newer
+kills counting most, trusted as far as there are kills and capped, per level gap too. What follows each press of the
+HP potion key teaches it which potion the key drinks, what one really heals and how soon the game allows another.
+
+`src/main/stat-values.ts` turns that into the **Stat guide** (its own tab): what a point of each stat is worth for
+what you actually do (Grind's map and the next best ones, by exp/h with the model's kill times; the Boss circuit's
+bosses, by their exp, Forge Stone drops and quest rewards), weighed by the time you've spent on each this past week or
+by the Levelling–Bosses slider. Survival is a threshold: what can't be survived brings nothing, so a stat that would
+open it up is worth that whole activity shared over the points it takes, and once it's safe more defence is worth next
+to nothing. It lists what's out of reach and what it would take, the potions a kill costs, and each elixir's worth
+("Haste (II): +6.3% exp/h for an hour, you have 25"). It's worked out at every Grind and circuit plan, and acted on:
+the loot judge scores by it, Grind leaves out maps and the circuit skips bosses it says can't be survived even with
+potions (saying why, and taking them on again once the gap is closed), and with "Keep elixirs up that pay" ticked (off
+unless ticked) each kind with a belt key set is drunk while grinding and on the circuit when it pays and some are in
+the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run). Luck,
+crits and the server's level-difference rules aren't modelled yet; the corrections from your fights cover them as
+far as they go.
 
 ## Training
 
@@ -239,7 +272,8 @@ Arcadia counted as a shortcut, leaving out PvP maps and the Warped copies of map
 each spawn it fights only that monster (fighting anything in the way as it goes), until the task's done or none have
 been about for a minute; a spawn cleared or found empty isn't expected back until its respawn time (15 minutes for
 the Supply Hunt's) and the circuit waits for it only when nothing else is left. Monsters further above your level
-than your fights say is safe (Grind's measurements) are skipped, and so is a spawn where the HP went below the
+than your fights say is safe (Grind's measurements) are skipped, as are those the combat model says can't be survived
+even with potions (with what it would take; see the stat guide), and so is a spawn where the HP went below the
 "Get away below" share (35% unless set) with the monster not nearly dead: it reads a Town Portal scroll (else
 Returns to Arcadia once out of combat) and leaves that spawn for the run. A death means Return and carrying on; a
 full bag is sold as Grind sells it; five minutes with nothing happening at a spawn plans again. Once every task is
@@ -290,7 +324,10 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/travel.ts` – map links, NPCs and waypoints, place search and route planning
 - `src/main/gather-planner.ts` – where to gather for the profession levels
 - `src/main/boss-planner.ts` – the Boss circuit's spawns, its quests' tasks, and the order to go round them
-- `src/main/loot-judge.ts` – whether a bag item is an upgrade for the class, or rare enough to keep
+- `src/main/loot-judge.ts` – whether a bag item is an upgrade for the character, or rare enough to keep
+- `src/main/combat-model.ts` – one fight from both sides' stats: kill time, health and potions it costs, survival and the gap
+- `src/main/calibration.ts` – the model checked against the character's fights, and what's learned of their potions
+- `src/main/stat-values.ts` – the stat guide: each stat's and elixir's worth for Grind and the Boss circuit, what's out of reach
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses
@@ -305,4 +342,6 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
   - `bot-gathering.ts` – Gather and Train
   - `bot-gather-trips.ts` – Gathering trips: reading the profession levels, going to the best spot, gathering there
   - `bot-loot.ts` – at the shop: locking what the loot judge keeps, putting on clear upgrades
+  - `bot-guide.ts` – the stat guide worked out from the game's memory and the grind log, for its card and the other parts
+  - `bot-elixirs.ts` – keeping elixirs up that pay while grinding and on the Boss circuit
 - `src/renderer/` – the control window

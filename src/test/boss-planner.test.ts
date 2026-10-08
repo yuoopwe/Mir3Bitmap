@@ -94,6 +94,18 @@ test('skips: too strong for the level, too hard this run, a map the level may no
   assert.deepEqual(small.stops.map((s) => s.spawn.key), ['Keeper@2:10,10', 'Keeper@3:11,11']);
 });
 
+test("skips: what the combat model says can't be survived, with what it would take; planned again once it can be", () => {
+  const w = world(ALL);
+  const routes = new RouteCosts(w);
+  const cantSurvive = (spawn: { monster: string }) => (spawn.monster === 'Guardian' ? 'needs +40 AC, or +900 HP' : null);
+  const plan = planCircuit(w, bossSpawns(w, new Set(['keeper', 'guardian'])), who, { now: NOW, routes, cantSurvive });
+  assert.deepEqual(plan.skipped.map((s) => [s.spawn.monster, s.why]), [['Guardian', 'needs +40 AC, or +900 HP']]);
+  assert.deepEqual(plan.stops.map((s) => s.spawn.monster), ['Keeper']);
+  // The gap closed: back on the circuit.
+  const again = planCircuit(w, bossSpawns(w, new Set(['keeper', 'guardian'])), who, { now: NOW, routes, cantSurvive: () => null });
+  assert.deepEqual(again.stops.map((s) => s.spawn.monster), ['Keeper', 'Guardian']);
+});
+
 test('tasks: counted from the quest targets; a task not among them is done', () => {
   const quest: TravelQuest = {
     id: 1, name: 'Supply Hunt', type: 'Daily', start: 237, finish: 237,

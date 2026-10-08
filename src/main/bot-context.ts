@@ -7,7 +7,7 @@
  * call one another through it and never import each other.
  */
 
-import type { CircuitView, Delays, KeptItem, KeyId, Point, Settings, Status } from '../shared/types';
+import type { CircuitView, Delays, KeptItem, KeyId, Point, Settings, StatGuideView, Status } from '../shared/types';
 import type { TriadMemory } from './triad-memory';
 import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, hudPanels, type Rect } from './layout';
 import type { NameBook } from './names';
@@ -31,6 +31,8 @@ import type { Gathering } from './bot-gathering';
 import type { GatherTrips } from './bot-gather-trips';
 import type { Looting } from './bot-loot';
 import type { BossCircuit } from './bot-circuit';
+import type { StatGuide } from './bot-guide';
+import type { Elixirs } from './bot-elixirs';
 
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
@@ -84,6 +86,8 @@ export interface BotOptions {
   kept?: (items: KeptItem[]) => void;
   /** The Boss circuit's plan, for the window's Circuit card. */
   circuit?: (view: CircuitView) => void;
+  /** The stat guide, for the window's Stat guide card. */
+  statGuide?: (view: StatGuideView) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
   /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */
@@ -137,6 +141,8 @@ export class BotContext {
   gatherTrips!: GatherTrips;
   loot!: Looting;
   circuit!: BossCircuit;
+  guide!: StatGuide;
+  elixirs!: Elixirs;
 
   constructor(
     public settings: Settings,
@@ -344,19 +350,25 @@ export class BotContext {
     this.holding = null;
   }
 
-  drinkPotions(): void {
+  /** Drinks a health or mana potion when below the setting's share (and not drunk too lately); true when a health potion was. */
+  drinkPotions(): boolean {
     const { hunt } = this.settings;
     const now = this.clock.now();
     const hpKey = keyCode(hunt.hpPotionKey);
+    let drank = false;
     if (hpKey !== null && this.hp !== null && this.hp * 100 < hunt.hpPotionPercent && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
       this.key(hpKey);
       this.lastHpPotion = now;
+      drank = true;
     }
+    // What follows a drink tells which potion the key holds, what it heals and how soon another may be drunk.
+    this.guide.watchPotions(drank);
     const mpKey = keyCode(hunt.mpPotionKey);
     if (mpKey !== null && this.mp !== null && this.mp * 100 < hunt.mpPotionPercent && now - this.lastMpPotion > POTION_COOLDOWN_MS) {
       this.key(mpKey);
       this.lastMpPotion = now;
     }
+    return drank;
   }
 
   /** Presses the enabled spell and buff keys that are due; returns whether the attack spell (F1) was cast. */

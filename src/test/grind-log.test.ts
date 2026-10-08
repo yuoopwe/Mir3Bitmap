@@ -64,7 +64,8 @@ test('the fight timer times a kill from the first blow to its death, with the he
   // Overkill: no more than its health counts.
   const { kills, death } = timer.update(reading([monster(1, -450, true)], 900), 5000, 1, 42);
   assert.equal(death, null);
-  assert.deepEqual(kills, [{ level: 20, monsterLevel: 22, maxHp: 400, damage: 400, seconds: 4, hpLost: 0.2, at: 42 }]);
+  // With what the combat model's calibration goes by: the monster, the health put back and the lowest it got, blows seen land.
+  assert.deepEqual(kills, [{ level: 20, monsterLevel: 22, maxHp: 400, damage: 400, seconds: 4, hpLost: 0.2, at: 42, monster: 'Wolf', potions: 0, healed: 0.1, lowest: 0.85, hits: 4 }]);
   // Seen once only.
   assert.deepEqual(timer.update(reading([monster(1, -450, true)]), 5500, null).kills, []);
 });
@@ -139,4 +140,24 @@ test('the log keeps fights per character, saves and loads them, and still loads 
   const junk = new GrindLog(() => {});
   junk.load({ characters: { Alice: [{ map: 33, level: 20, ms: 60_000, exp: 5, at: 1, kills: 'x', dps: 3 }] }, fights: { Alice: { kills: [kill, { level: 'x' }], deaths: [null, { level: 1, monsterLevel: 'x', at: 1 }] }, Bob: 7 } });
   assert.deepEqual(junk.toJSON(), { characters: { Alice: [{ map: 33, level: 20, ms: 60_000, exp: 5, at: 1 }] }, fights: { Alice: { kills: [kill], deaths: [] } } });
+});
+
+test("the combat model's notes: a kill's newer fields, Boss circuit time and what's learned of potions are saved and loaded, junk in them dropped", () => {
+  const log = new GrindLog(() => {});
+  const kill: Kill = { level: 48, monsterLevel: 31, maxHp: 3410, damage: 3410, seconds: 25, hpLost: 0.6, at: 1, monster: 'Zuma Keeper', stats: [1, 2, 3], potions: 3, healed: 0.5, lowest: 0.4, hits: 24 };
+  log.addKill('Alice', kill);
+  log.addBossTime('Alice', { ms: 60_000, at: 2 });
+  log.addBossTime('Alice', { ms: 0, at: 3 });
+  log.setPotions('Alice', { potion: 'Health Potion (XL)', heals: [500], instant: 1, drankAfterMs: null, refusedAfterMs: 1500 });
+  const again = new GrindLog(() => {});
+  again.load(JSON.parse(JSON.stringify(log.toJSON())));
+  assert.deepEqual(again.toJSON(), log.toJSON());
+  assert.deepEqual(again.bossTime('Alice'), [{ ms: 60_000, at: 2 }]);
+  assert.equal(again.potions('Alice')!.refusedAfterMs, 1500);
+  const junk = new GrindLog(() => {});
+  junk.load({ characters: {}, fights: { Alice: { kills: [{ ...kill, monster: 7, stats: ['x'], hits: 'many' }], deaths: [] } }, bossTime: { Alice: [{ ms: 'x' }] }, potions: { Alice: { heals: 'x' } } });
+  const { monster: _m, stats: _s, hits: _h, ...plain } = kill;
+  assert.deepEqual(junk.fights('Alice').kills, [plain]);
+  assert.deepEqual(junk.bossTime('Alice'), []);
+  assert.equal(junk.potions('Alice'), null);
 });

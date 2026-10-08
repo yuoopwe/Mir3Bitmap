@@ -112,6 +112,17 @@ export interface GrindOptions {
   measured?: readonly GrindSession[];
   /** Monsters unfinished quests still need: maps where they spawn get a bonus. */
   quests?: readonly QuestTarget[];
+  /** The combat model's seconds to kill a monster (combat-model.ts), instead of its health over `damage`; null: no say. */
+  killSeconds?: (monster: MapMonster) => number | null;
+  /** Why the combat model says a monster can't be survived even with potions (null: it can): it's worth nothing, and maps with too many such are left out. */
+  cantSurvive?: (monster: MapMonster) => string | null;
+}
+
+/** A monster hunted on a map, as the combat model is asked about it: its name (lower case), level and health. */
+export interface MapMonster {
+  name: string;
+  level: number;
+  health: number;
 }
 
 export interface MapRating {
@@ -203,6 +214,14 @@ export function rateMap(data: TravelData, mapIndex: number, who: Grinder, option
   if (monsters < GRIND.minMonsters) return { skip: 'too few monsters' };
   const tooStrong = hunted.filter((m) => m.level > level + options.maxLevelsAbove).reduce((sum, m) => sum + m.n, 0) / monsters;
   if (tooStrong > GRIND.tooStrongShare) return { skip: `${Math.round(tooStrong * 100)}% of its monsters are too strong` };
+  // Those within reach the combat model says can't be survived (the most numerous first, for the reason).
+  const deadly = !options.cantSurvive ? [] : hunted
+    .filter((m) => m.level <= level + options.maxLevelsAbove)
+    .sort((a, b) => b.n - a.n)
+    .map((m) => ({ m, why: options.cantSurvive!(m) }))
+    .filter((d) => d.why);
+  const deadlyShare = deadly.reduce((sum, d) => sum + d.m.n, 0) / monsters;
+  if (deadlyShare > GRIND.tooStrongShare) return { skip: `can't be survived (${deadly[0].m.name}: ${deadly[0].why})` };
   const estimate = estimateRate(data, mapIndex, hunted, level, characterDamage(data, level, who.cls, options.damage), options);
 
   // Measured here: how it compared with its estimate (newest first), trusted as far as it goes. What's not
@@ -267,6 +286,11 @@ function huntedOn(data: TravelData, mapIndex: number): Hunted[] | null {
   }
   cache.set(mapIndex, hunted);
   return hunted;
+}
+
+/** The monsters hunted on a map (lower-case names) and how many of each to expect, as rateMap goes by them; null without spawn data. */
+export function mapMonsters(data: TravelData, mapIndex: number): readonly (MapMonster & { exp: number; n: number })[] | null {
+  return huntedOn(data, mapIndex);
 }
 
 /** The character's damage per second, as the estimates have it: the typical health at their level, killed in sameLevelKillSeconds. */
@@ -433,12 +457,12 @@ function estimateRate(data: TravelData, mapIndex: number, hunted: Hunted[], leve
     const below = level - m.level - GRIND.outlevelGrace;
     // Too strong: still met (and fought) on the way, but nothing to count on from it.
     const worth =
-      above > options.maxLevelsAbove ? 0
+      above > options.maxLevelsAbove || options.cantSurvive?.(m) ? 0
       : above > 0 ? (options.danger?.get(above) ?? GRIND.dangerPerLevel ** above)
       : below > 0 ? Math.max(GRIND.outlevelFloor, 1 - below * GRIND.outlevelPerLevel)
       : 1;
     exp += m.n * m.exp * worth;
-    seconds += m.n * (m.health / damage + GRIND.killOverheadSeconds + seekSeconds);
+    seconds += m.n * ((options.killSeconds?.(m) ?? m.health / damage) + GRIND.killOverheadSeconds + seekSeconds);
   }
   return (exp / seconds) * 3600;
 }
