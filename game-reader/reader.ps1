@@ -635,6 +635,31 @@ function Read-Gear($scene) {
   return @{ worn = $worn; bag = $bag; counts = $counts }
 }
 
+# The bloodline (the game's Hermit system: points from levelling bought into stats): the points to spend, what's been
+# bought (by Library.Stat number), and, once the Character window's Bloodline tab has been shown, the grade and each
+# upgrade on offer with its button and hint (name, what it affects, its cost and what it gives, as the game words it).
+function Read-Bloodline($scene) {
+  $user = $scene.ReadObjectField('_User')
+  if ($user.IsNull) { return $null }
+  $out = @{ points = $user.ReadField[int]('HermitPoints'); bought = (Read-AllStats ($user.ReadObjectField('_HermitStats'))); options = @() }
+  $box = $scene.ReadObjectField('CharacterBox')
+  if ($box.IsNull) { return $out }
+  $grade = $box.ReadObjectField('BloodlineGrade')
+  if (-not $grade.IsNull) { $out.grade = $grade.ReadStringField('_Text') }
+  $out.open = $box.ReadField[bool]('_IsVisible')
+  foreach ($button in (Read-List ($box.ReadObjectField('bloodlineButtons')))) {
+    if ($button.IsNull) { continue }
+    $hint = $button.ReadStringField('_Hint')
+    if (-not $hint) { continue }
+    $option = @{ hint = $hint; enabled = $button.ReadField[bool]('_IsEnabled') }
+    if ($out.open -and $button.ReadField[bool]('_IsVisible')) { $option.box = Read-Box $button }
+    $out.options += ,$option
+  }
+  $use = $box.ReadObjectField('bloodlinePointsToUse')
+  if (-not $use.IsNull -and $out.open -and $use.ReadField[bool]('_IsVisible')) { $out.pointsBox = Read-Box $use }
+  return $out
+}
+
 # Profession levels (Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
 # The client only loads them once the Professions window (Ctrl+Shift+P) has been opened: null until then.
 function Read-Professions($scene) {
@@ -764,12 +789,13 @@ while ($true) {
           try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null }
           try { $script:professions = Read-Professions $scene } catch { $script:professions = $null }
           try { $script:gear = Read-Gear $scene } catch { $script:gear = $null }
+          try { $script:bloodline = Read-Bloodline $scene } catch { $script:bloodline = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

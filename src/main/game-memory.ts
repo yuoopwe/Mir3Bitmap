@@ -186,6 +186,13 @@ export interface MemoryState {
    */
   gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number> } | null;
   /**
+   * The bloodline (the game's Hermit system): points to spend, what's been bought (Library.Stat number -> amount),
+   * and once the Character window's Bloodline tab has been shown, the grade ("F (High Tier)") and each upgrade on
+   * offer: its hint as the game words it ("Focus / Steady offense. / Affects: MinDC / Cost: 2 Bloodline Points per
+   * upgrade / You will gain: +2 MinDC (from 2 points)"), and with the tab open, its button and the points-to-use box.
+   */
+  bloodline?: { points: number; bought: Record<string, number>; grade?: string; open?: boolean; options: { hint: string; enabled: boolean; box?: MemoryBox }[]; pointsBox?: MemoryBox } | null;
+  /**
    * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).
    * usable: the level that counts (it can be held back below level); exp of toNext into this level; canGain false (lockReason says why) when it's not earning.
    * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
