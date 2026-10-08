@@ -6,7 +6,7 @@ import { HUD_MASKS, PANEL_MASKS, TARGET_HP_BAR, TARGET_HP_TEXT } from './layout'
 import { nearestMonster, readMinimap } from './minimap';
 import { MapExplorer } from './map-explorer';
 import { nearestApproach, pathBack, walkDistances } from './map-path';
-import { loadTravelData, mapName } from './travel';
+import { loadTravelData, mapName, spawnShare } from './travel';
 import type { MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import type { MemoryObject, MemoryState } from './game-memory';
@@ -637,8 +637,9 @@ export class Hunting {
       if (wanted && !names(set).some((name) => wanted.has(name.toLowerCase()))) continue;
       const near = nearestApproach(map, dist, [{ x, y }]);
       if (!near) continue;
-      // Steps there, less a bonus for how many monsters to expect.
-      const score = near.steps - 15 * Math.log2(1 + n);
+      // Steps there, less a bonus for how many monsters to expect (of those hunted: not unticked, and wanted when only some are).
+      const hunted = names(set).reduce((sum, name, k) => sum + (!skip.has(name.toLowerCase()) && (!wanted || wanted.has(name.toLowerCase())) ? spawnShare(data, set, k) : 0), 0);
+      const score = near.steps - 15 * Math.log2(1 + n * hunted);
       if (!best || score < best.score) best = { spot, score, steps: near.steps };
     }
     if (!best) {

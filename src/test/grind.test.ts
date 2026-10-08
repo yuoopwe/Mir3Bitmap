@@ -56,7 +56,10 @@ test('hysteresis: a map nearly as good is kept; one outgrown or no longer allowe
   const best = choices.get(level)!;
   const rated = rateMaps(data, who, options);
   // Nearly as good (within the 25%): kept when it's the map being ground on, though the best is nearer.
-  const close = rated.find((r) => r.map !== best.map && r.rate < best.rate && r.rate > best.rate * 0.9)!;
+  // A map past its level limit (no map in the data has one yet: one's given here).
+  const capped = (map: number): TravelData => ({ ...data, maps: data.maps.map((m) => (m.i === map ? { ...m, maxLevel: level - 1 } : m)) });
+  // (One there's a way out of once it's capped: some are only reached, and left, by ways the data leaves out.)
+  const close = rated.find((r) => r.map !== best.map && r.rate < best.rate && r.rate > best.rate * 0.9 && chooseGrindMap(capped(r.map), startOn(r.map), who, { ...options, current: r.map }) !== null)!;
   assert.ok(close, 'a map nearly as good as the best');
   const kept = chooseGrindMap(data, startOn(), who, { ...options, current: close.map })!;
   assert.equal(kept.map, close.map);
@@ -77,8 +80,7 @@ test('hysteresis: a map nearly as good is kept; one outgrown or no longer allowe
   assert.match(left.reason, /^outgrew /);
 
   // Its level limit passed (no map in the data has one yet: give the kept one a limit): leave it, and say so.
-  const capped: TravelData = { ...data, maps: data.maps.map((m) => (m.i === close.map ? { ...m, maxLevel: level - 1 } : m)) };
-  const moved = chooseGrindMap(capped, startOn(close.map), who, { ...options, current: close.map })!;
+  const moved = chooseGrindMap(capped(close.map), startOn(close.map), who, { ...options, current: close.map })!;
   assert.notEqual(moved.map, close.map);
   assert.equal(moved.reason, `${close.name} no longer suits`);
 });
@@ -242,8 +244,10 @@ test('a quest map wins only when close to the best; "Quests first" picks one whe
   /** A quest for the commonest monster on `map` that isn't on the best map, tied to `map`. */
   const questOn = (map: number, quest: string): QuestTarget[] => [{ name: monstersOn(map).find((n) => !bestMonsters.has(n))!, map, quest }];
   const close = ratings.find((r) => r.map !== best.map && r.rate > best.rate * 0.9 && reachable(r))!;
-  const far = ratings.find((r) => r.rate < best.rate * 0.4 && reachable(r))!;
-  assert.ok(close && far);
+  // Far behind, but not too far for "Quests first"; and a quest map so poor it's never worth it (the quest bonus counted).
+  const far = ratings.find((r) => r.rate < best.rate * 0.4 && r.rate > best.rate * GRIND.questsFirstFloor && reachable(r))!;
+  const poor = ratings.find((r) => r.rate * (1 + GRIND.questBonus) < best.rate * GRIND.questsFirstFloor && reachable(r))!;
+  assert.ok(close && far && poor);
 
   const won = chooseGrindMap(data, startOn(), who, { ...options, quests: questOn(close.map, 'Descent into Darkness Pt. 3') })!;
   assert.equal(won.map, close.map);
@@ -254,7 +258,7 @@ test('a quest map wins only when close to the best; "Quests first" picks one whe
   assert.equal(lost.map, best.map);
   assert.ok(!lost.reason.startsWith('quest'));
 
-  // Quests first: the quest map, however far behind; back to the best once there are no quests (or none to be had).
+  // Quests first: the quest map, though far behind; back to the best once there are no quests (or none to be had).
   const first = chooseGrindMap(data, startOn(), who, { ...options, quests: farQuest, questsFirst: true })!;
   assert.equal(first.map, far.map);
   assert.equal(first.reason, 'quest: Far Away');
@@ -263,6 +267,10 @@ test('a quest map wins only when close to the best; "Quests first" picks one whe
   assert.equal(chooseGrindMap(data, startOn(), who, { ...options, quests: [], questsFirst: true })!.map, best.map);
   const nowhere: QuestTarget[] = [{ name: 'Nobody', map: null, quest: 'Q' }];
   assert.equal(chooseGrindMap(data, startOn(), who, { ...options, quests: nowhere, questsFirst: true })!.map, best.map);
+  // ...but not one making a fraction of the best (a low-level quest, say: 14k exp/h against 1.6M): the best, as without.
+  const notWorth = chooseGrindMap(data, startOn(), who, { ...options, quests: questOn(poor.map, 'Hollow at Flea Cave'), questsFirst: true })!;
+  assert.equal(notWorth.map, best.map);
+  assert.ok(!notWorth.reason.startsWith('quest'));
 });
 
 // ---- Measured fighting: damage, danger, how far above the level ----
@@ -296,10 +304,10 @@ test('measured damage: as dealt over what the estimate would deal in the time, a
 });
 
 test('measured damage moves the best map: harder for a strong character, easier for a weak one, unvisited maps included', () => {
-  // Experience follows health closely, so the choice moves only where kill time and walking weigh differently: at 47 and 44, say.
+  // Experience follows health closely, so the choice moves only where kill time and walking weigh differently: at 40 and 44, say.
   const choose = (level: number, power: number, kills = 30) =>
     chooseGrindMap(data, startOn(), { level, cls: 0 }, { ...options, damage: { perSecond: damagePerSecond(data, level, 0) * power, kills } })!;
-  for (const [level, power] of [[47, 3], [44, 1 / 3]]) {
+  for (const [level, power] of [[40, 3], [44, 1 / 3]]) {
     const plain = chooseGrindMap(data, startOn(), { level, cls: 0 }, options)!;
     const measured = choose(level, power);
     const moved = power > 1 ? measured.monsterLevel > plain.monsterLevel : measured.monsterLevel < plain.monsterLevel;

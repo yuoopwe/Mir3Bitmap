@@ -7,7 +7,7 @@
  * choice is the same for the same state.
  */
 import { GRIND, damagePerSecond, levelAllows } from './grind';
-import { classFlagOf, findPlace, mapName, planRoute, waypointLinks, type TravelData, type TravelQuest, type Traveller } from './travel';
+import { classFlagOf, findPlace, mapName, planRoute, spawnShare, waypointLinks, type TravelData, type TravelQuest, type Traveller } from './travel';
 
 /** Every number the quest planner is tuned by. */
 export const QUESTS = {
@@ -188,7 +188,7 @@ function monsterInfo(data: TravelData): Map<string, MonsterInfo> {
     const counts = new Map<number, number>();
     for (const [, , n, set] of spots) {
       const list = data.spawnSets?.[set] ?? [];
-      for (const i of list) counts.set(i, (counts.get(i) ?? 0) + n / list.length);
+      list.forEach((i, k) => counts.set(i, (counts.get(i) ?? 0) + n * spawnShare(data, set, k)));
     }
     for (const [i, n] of counts) out.get(data.monsters![i].toLowerCase())?.spawns.push({ map: Number(map), n, spots: spots.length });
   }

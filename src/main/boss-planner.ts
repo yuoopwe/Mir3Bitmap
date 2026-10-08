@@ -9,7 +9,7 @@
  */
 import { GRIND, levelAllows } from './grind';
 import { questKey, type RouteCosts } from './quest-planner';
-import { mapName, type TravelData, type TravelQuest, type Traveller } from './travel';
+import { mapName, spawnShare, type TravelData, type TravelQuest, type Traveller } from './travel';
 
 /** Every number the circuit is tuned by. */
 export const CIRCUIT = {
@@ -199,8 +199,8 @@ export function summonFor(data: TravelData, names: readonly string[]): Summon | 
     for (const [map, spots] of Object.entries(data.spawns ?? {})) {
       for (const [, , n, set] of spots) {
         const list = data.spawnSets?.[set] ?? [];
-        const hits = list.filter((i) => killers.includes(i)).length;
-        if (hits) counts.set(Number(map), (counts.get(Number(map)) ?? 0) + (n * hits) / list.length);
+        const share = list.reduce((sum, i, k) => sum + (killers.includes(i) ? spawnShare(data, set, k) : 0), 0);
+        if (share) counts.set(Number(map), (counts.get(Number(map)) ?? 0) + n * share);
       }
     }
     const maps = [...counts].filter(([map]) => !CIRCUIT.excludedMaps.test(mapName(data, map))).sort((a, b) => b[1] - a[1] || a[0] - b[0]);

@@ -130,6 +130,8 @@ export interface TravelData {
   spawns?: Record<string, [number, number, number, number][]>;
   /** Lists of monsters (indices into `monsters`) spawning at a spot. */
   spawnSets?: number[][];
+  /** With each of spawnSets, each monster's share of what spawns at a spot (in the same order); missing: an even split. */
+  spawnShares?: number[][];
   monsters?: string[];
   /** Per monster (same order as `monsters`): [level, experience per kill, health, 1 if a boss else 0]. */
   monsterStats?: [number, number, number, number][];
@@ -149,6 +151,12 @@ export interface TravelData {
   questRegions?: Record<string, [number, number, number]>;
   /** Every gathering node, and every region that grows them. */
   gathering?: { nodes: GatherNode[]; spots: GatherSpot[] };
+}
+
+/** The share of what spawns at a spot with this spawnSets entry that is its `k`th monster (an even split without spawnShares). */
+export function spawnShare(data: TravelData, set: number, k: number): number {
+  const shares = data.spawnShares?.[set];
+  return shares?.[k] ?? 1 / Math.max(1, data.spawnSets?.[set]?.length ?? 1);
 }
 
 /** Somewhere to travel to: a map, or an NPC. `id` is "map:<index>" or "npc:<index>". */

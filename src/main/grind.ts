@@ -6,7 +6,7 @@
  * the current map unless another is clearly better. Pure: no game, no screen.
  */
 import type { Fights, GrindSession, Kill } from './grind-log';
-import { mapName, planRoute, type Route, type Start, type TravelData, type TravelMap, type Traveller } from './travel';
+import { mapName, planRoute, spawnShare, type Route, type Start, type TravelData, type TravelMap, type Traveller } from './travel';
 
 /**
  * Every number the planner is tuned by, in one place. Rough by nature: the
@@ -90,6 +90,8 @@ export const GRIND = {
   questBonus: 0.3,
   /** ...in full once this share of its monsters are quest targets (less, a part of it). */
   questFullShare: 0.1,
+  /** With "Quests first", only quest maps making at least this share of the best map's rate are gone to (else: as without). */
+  questsFirstFloor: 0.25,
 };
 
 /** A monster an unfinished quest task still needs (MemoryState.questTargets): anywhere, or on that map only. */
@@ -250,7 +252,7 @@ function huntedOn(data: TravelData, mapIndex: number): Hunted[] | null {
     const counts = new Map<number, number>();
     for (const [, , n, set] of spots) {
       const list = data.spawnSets?.[set] ?? [];
-      for (const i of list) counts.set(i, (counts.get(i) ?? 0) + n / list.length);
+      list.forEach((i, k) => counts.set(i, (counts.get(i) ?? 0) + n * spawnShare(data, set, k)));
     }
     const names = new Set([...counts.keys()].map((i) => data.monsters?.[i]));
     hunted = [];
@@ -488,8 +490,10 @@ function withTrip(rating: MapRating, route: Route): number {
  * trip there; but when `current` (the map being ground on, else the one the
  * player stands on) still suits the level, it's kept unless another is clearly
  * better (switchGain) or it has been outgrown (poorShare). With `questsFirst`
- * and quest targets about, only maps where they spawn are looked at (all of
- * them again when none can be reached). Null if nowhere suits and can be reached.
+ * and quest targets about, only maps where they spawn are looked at, and only
+ * those making at least questsFirstFloor of the best map's rate (a low-level
+ * quest isn't worth hours at a fraction of the experience); all of them again
+ * when none such can be reached. Null if nowhere suits and can be reached.
  */
 export function chooseGrindMap(
   data: TravelData,
@@ -507,7 +511,8 @@ export function chooseGrindMap(
   const questName = (choice: GrindChoice) => `quest: ${choice.quests.join(', ')}`;
 
   if (options.questsFirst && options.quests?.length) {
-    const choice = pickMap(data, start, rated.filter((r) => r.quests.length), route, options.current);
+    const floor = (rated[0]?.rate ?? 0) * GRIND.questsFirstFloor;
+    const choice = pickMap(data, start, rated.filter((r) => r.quests.length && r.rate >= floor), route, options.current);
     if (choice) return { ...choice, reason: questName(choice) };
   }
   const choice = pickMap(data, start, rated, route, options.current);

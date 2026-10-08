@@ -169,20 +169,28 @@ for (const r of read('RespawnInfo')) {
   if (!total) continue;
   const spots = spawnsByMap.get(map.Index) ?? spawnsByMap.set(map.Index, new Map()).get(map.Index);
   for (const [key, cell] of cells) {
-    const spot = spots.get(key) ?? spots.set(key, { at: cell.at, n: 0, monsters: new Set() }).get(key);
-    spot.n += ((r.Count || 1) * cell.tiles) / total;
-    spot.monsters.add(nameIndex(monster.MonsterName, monster));
+    const spot = spots.get(key) ?? spots.set(key, { at: cell.at, n: 0, monsters: new Map() }).get(key);
+    const add = ((r.Count || 1) * cell.tiles) / total;
+    const i = nameIndex(monster.MonsterName, monster);
+    spot.n += add;
+    spot.monsters.set(i, (spot.monsters.get(i) ?? 0) + add);
   }
 }
-// Each spot as [x, y, monsters expected, index into spawnSets]: the same few lists of monsters repeat a lot.
+// Each spot as [x, y, monsters expected, index into spawnSets]: the same few lists of monsters repeat a lot. With each
+// list, in spawnShares, each monster's share of what spawns there (5 RedKektals among 180 Kektals are rare, not half).
 const spawns = {};
 const spawnSets = [];
+const spawnShares = [];
 const setIndex = new Map();
 for (const [mapIndex, spots] of spawnsByMap) {
   const list = [...spots.values()].filter((p) => p.n >= 0.2).map((p) => {
-    const set = [...p.monsters].sort((a, b) => a - b);
-    const key = set.join(',');
-    if (!setIndex.has(key)) setIndex.set(key, spawnSets.push(set) - 1);
+    const set = [...p.monsters.keys()].sort((a, b) => a - b);
+    const shares = set.map((i) => Math.round((p.monsters.get(i) / p.n) * 1000) / 1000);
+    const key = set.join(',') + '|' + shares.join(',');
+    if (!setIndex.has(key)) {
+      setIndex.set(key, spawnSets.push(set) - 1);
+      spawnShares.push(shares);
+    }
     return [p.at[0], p.at[1], Math.round(p.n * 10) / 10, setIndex.get(key)];
   });
   if (list.length) spawns[mapIndex] = list;
@@ -395,5 +403,5 @@ for (const l of [...links, ...waypoints.map((w) => Object.assign(w, { to: w.map 
 }
 
 for (const w of waypoints) delete w.to;
-fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawns, bossSpawns, bossEvents, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
+fs.writeFileSync(OUT, JSON.stringify({ maps: mapList, links, npcs, waypoints, monsters: monsterNames, monsterStats, spawnSets, spawnShares, spawns, bossSpawns, bossEvents, quests, questRegions, gathering: { nodes: gatherNodes, spots: gatherSpots } }));
 console.log(`travel.json: ${mapList.length} maps, ${links.length} links, ${npcs.length} NPCs (${npcs.filter((n) => n.stone).length} waypoint stones), ${waypoints.length} waypoints, spawn areas on ${Object.keys(spawns).length} maps, ${quests.length} NPC quests, ${searched} landings searched, ${(fs.statSync(OUT).size / 1024).toFixed(0)} KB`);
