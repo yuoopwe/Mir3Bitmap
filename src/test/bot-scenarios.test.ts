@@ -374,6 +374,16 @@ test('Selling: the bag opened with W on its Main tab, Select All and Sell (with 
   checkAlways(game);
 });
 
+test('Selling: a shop that shuts before Select All is opened again, and the sale goes on', async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, bagWindow: { open: false }, shopShutsOnBag: true });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold');
+  const opened = game.events.filter((e) => e.type === 'window' && e.name === 'sell' && e.open);
+  assert.equal(opened.length, 2);
+  assert.ok(opened[1].t < buttons(game, 'Select All')[0].t);
+  checkAlways(game);
+});
+
 test('Selling: then Return to Arcadia again goes back to where it was pressed, and Grind carries on there without travelling', async () => {
   const game = grindOnBichon({ bag: { used: 38, slots: 40 } });
   const left = { ...game.player };

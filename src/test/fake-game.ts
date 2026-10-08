@@ -173,6 +173,8 @@ export interface FakeGameSetup {
    * (`showMs`) and ignore clicks for a while once shown (`cooldownMs`): `true` is neither.
    */
   sellConfirm?: boolean | { showMs?: number; cooldownMs?: number; text?: string };
+  /** Opening the bag (W) with the shop open shuts the shop, the first time. */
+  shopShutsOnBag?: boolean;
   /** Items on the ground. */
   items?: { name: string; x: number; y: number; map?: number }[];
   /** Other players standing about (they don't block the way: in towns you walk through people). */
@@ -286,6 +288,7 @@ export class FakeGame {
   private confirmAt = 0;
   private readonly sellPerRound: number;
   private readonly sellConfirm: { showMs: number; cooldownMs: number; text: string } | null;
+  private shopShutsOnBag: boolean;
   /** When the player was last in combat (hitting a monster, or hit by one). */
   private lastCombatAt = -Infinity;
   /** Where Return to Arcadia was pressed from: pressed again in Arcadia, it takes you back there. */
@@ -365,6 +368,7 @@ export class FakeGame {
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
     this.sellPerRound = setup.sellPerRound ?? 30;
+    this.shopShutsOnBag = !!setup.shopShutsOnBag;
     const confirm = setup.sellConfirm;
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
@@ -711,7 +715,13 @@ export class FakeGame {
     if (down) {
       this.keysDown.add(vk);
       if (vk === VK.ESCAPE) this.escape();
-      if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
+      if (vk === BAG_KEY) {
+        this.bagWindow.open = !this.bagWindow.open;
+        if (this.bagWindow.open && this.shopShutsOnBag && this.open.has('sell')) {
+          this.shopShutsOnBag = false;
+          this.close('sell');
+        }
+      }
       if (vk === LOCK_KEY) this.toggleLock();
       if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;

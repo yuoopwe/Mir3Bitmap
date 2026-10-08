@@ -46,6 +46,8 @@ const CONFIRM_TRIES = 5;
 
 /** At most this many Select All / Sell rounds (the sell panel holds only so many items at a time). */
 const SELL_ROUNDS = 20;
+/** Select All is waited for this long before the first round (and again after opening a shop that shut). */
+const SELECT_ALL_WAIT_MS = 3000;
 
 /** A trip that couldn't sell (something to keep couldn't be locked): the bag doesn't count as full for this long after. */
 const SELL_PAUSE_MS = 10 * 60_000;
@@ -290,17 +292,20 @@ export class Survival {
       return ok();
     };
     this.bot.stopRunning();
-    for (let attempt = 0; attempt < 3 && !sellPanel(); attempt++) {
-      const reading = memory.latest();
-      const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
-      if (!npc || !reading?.user) throw new BotError(`Can't see ${npcName} to sell to.`);
-      const tile = this.bot.toScreen(reading.user, npc.x, npc.y);
-      const point = (await this.bot.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
-      this.bot.status(`Opening ${npcName}'s shop`);
-      await this.bot.click(point, this.bot.delay('menu'));
-      await waitFor(() => !!sellPanel(), 3000);
-    }
-    if (!sellPanel()) throw new BotError(`${npcName}'s shop didn't open.`);
+    const openShop = async () => {
+      for (let attempt = 0; attempt < 3 && !sellPanel(); attempt++) {
+        const reading = memory.latest();
+        const npc = reading?.objects?.find((o) => o.kind === 'npc' && o.name === npcName);
+        if (!npc || !reading?.user) throw new BotError(`Can't see ${npcName} to sell to.`);
+        const tile = this.bot.toScreen(reading.user, npc.x, npc.y);
+        const point = (await this.bot.aimAt({ key: `npc${npc.id}`, point: tile, name: npcName, tile })) ?? tile;
+        this.bot.status(`Opening ${npcName}'s shop`);
+        await this.bot.click(point, this.bot.delay('menu'));
+        await waitFor(() => !!sellPanel(), 3000);
+      }
+      if (!sellPanel()) throw new BotError(`${npcName}'s shop didn't open.`);
+    };
+    await openShop();
     const before = memory.latest()?.survival?.bag?.used ?? 0;
 
     // Select All takes from the bag window's open tab: open the bag (W) if it isn't showing.
@@ -321,11 +326,17 @@ export class Survival {
     const unprotected = await this.bot.loot.protectKeepers();
     if (unprotected) this.bot.status(`Couldn't protect ${unprotected}: not selling`);
     // The sell panel holds only so many: Select All and Sell again until nothing more is picked, or the bag stops emptying.
+    // A reading can miss it for a moment, and the shop can shut meanwhile (opened again, once).
+    if (!unprotected && !(await waitFor(() => !!sellPanel()?.selectAll?.enabled, SELECT_ALL_WAIT_MS)) && !sellPanel()) {
+      await openShop();
+      await waitFor(() => !!sellPanel()?.selectAll?.enabled, SELECT_ALL_WAIT_MS);
+    }
     for (let round = 0; round < SELL_ROUNDS && !unprotected; round++) {
       const selectAll = sellPanel()?.selectAll;
       if (!selectAll?.enabled) {
-        if (round === 0) throw new BotError("The shop's Select All button isn't there.");
-        break;
+        if (round > 0) break;
+        if (!sellPanel()) throw new BotError(`${npcName}'s shop closed before Select All could be pressed.`);
+        throw new BotError(selectAll ? "The shop's Select All button stayed greyed out." : "The shop's Select All button isn't there.");
       }
       await this.bot.click(boxCentre(selectAll), this.bot.delay('menu'));
       if (!(await waitFor(() => !!sellPanel()?.sell?.enabled, 2000))) break;
