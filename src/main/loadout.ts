@@ -25,6 +25,12 @@ export const LOADOUT = {
   toolSlots: [28, 29, 30, 31, 32],
   /** Slots whose items weigh on HandWeight (the rest on WearWeight): the weapon. */
   handSlots: [0],
+  /**
+   * Stats the game caps, by Library.Stat number, and the cap: Attack Speed at 15 (swings never quicker than 800 ms; the
+   * game shows 16 from gear as 15). A capped total can hide gear past the cap, so a change is worked from the uncapped
+   * sum (the larger of the total read and what the gear worn gives), then capped again.
+   */
+  caps: { 16: 15 } as Record<number, number>,
   /** The beam keeps this many loadouts; each slot's best this many items are tried in it and in pair swaps. */
   beamWidth: 4,
   topPerSlot: 3,
@@ -153,12 +159,19 @@ export interface Prediction {
  * (the total over 1 + % now) with the change, times 1 + the new %, rounded down.
  */
 export function predict(char: Character, from: readonly Worn[], to: readonly Worn[], corrections: Stats = {}): Prediction {
-  const change = add(contribution(to, char.mounted), contribution(from, char.mounted), -1);
+  const given = contribution(from, char.mounted);
+  const change = add(contribution(to, char.mounted), given, -1);
   const totals: Stats = { ...char.totals };
   for (const s of new Set([...Object.keys(char.totals), ...Object.keys(change)].map(Number))) {
     const by = (change[s] ?? 0) * (corrections[s] ?? 1);
     const percent = PERCENT_OF[s];
     const now = char.totals[s] ?? 0;
+    const cap = LOADOUT.caps[s];
+    if (cap !== undefined) {
+      // Capped: from the uncapped sum, capped again.
+      totals[s] = Math.min(cap, Math.max(now, given[s] ?? 0) + by);
+      continue;
+    }
     if (percent === undefined) {
       totals[s] = now + by;
       continue;

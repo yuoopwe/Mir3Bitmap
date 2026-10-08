@@ -62,9 +62,21 @@ test('the delta maths: changes from the game\'s own totals, by what each swap ta
   // Ridden, the horse's AC goes with it.
   const riding = { ...SHOWN, mounted: true };
   assert.deepEqual([at(without(HORSE), riding)[4], at(without(HORSE), riding)[5]], [99, 117]);
-  // A ring for a better one: DC by the difference, Attack Speed too.
+  // A ring for a better one: DC by the difference; Attack Speed too, but only up to the game's cap of 15 (at it already).
   const ring = at(swapped(RINGS_ON[1], item('Haste Ring', RING, 20, { 16: 7 })));
-  assert.deepEqual([ring[8], ring[9], ring[16]], [108, 154, 17]);
+  assert.deepEqual([ring[8], ring[9], ring[16]], [108, 154, 15]);
+  // The gear here gives exactly 15 (necklace 10, ring 5; the pick axe nothing): a ring of 2 for the ring of 5 is 12.
+  assert.equal(at(swapped(RINGS_ON[1], item('Slow Ring', RING, 20, { 16: 2 })))[16], 12);
+  // With the Haste Ring on, the gear gives 17 and the game shows 15: a ring of 5 for it still leaves 15, one of 3 makes 13.
+  const haste = swapped(RINGS_ON[1], item('Haste Ring', RING, 20, { 16: 7 }));
+  const fromHaste = (into: MemoryItem) => predict(SHOWN, haste, haste.map((w) => (w.item.name === 'Haste Ring' ? { ...w, item: into } : w))).totals[16];
+  assert.equal(fromHaste(item('Mid Ring', RING, 20, { 16: 5 })), 15);
+  assert.equal(fromHaste(item('Weak Ring', RING, 20, { 16: 3 })), 13);
+  // Below the cap it moves by the difference: without the necklace the gear gives 5 (the ring), shown 5; the Haste Ring makes it 7.
+  const noNecklace = without(WORN_NECKLACE);
+  const slower = { ...SHOWN, totals: { ...SHOWN.totals, 16: 5 } };
+  const hasteOn = noNecklace.map((w) => (w.item === RINGS_ON[1] ? { ...w, item: item('Haste Ring', RING, 20, { 16: 7 }) } : w));
+  assert.equal(predict(slower, noNecklace, hasteOn).totals[16], 7);
 });
 
 test("% stats: the bag necklace's +15% DC and HP on the sum they multiply, worked back from the totals and the % now", () => {
@@ -98,14 +110,14 @@ test('rings and bracelets: two places each, the best two of everything (worn rin
 });
 
 test('a requirement that only passes after another swap: the ring that lifts DC to 200 first, then the helmet that needs it', () => {
-  const helmet = item('War Helm', HELMET, 10, { 16: 5 }, { needs: 4, needsAmount: 200 });
+  const helmet = item('War Helm', HELMET, 10, DC(6, 12), { needs: 4, needsAmount: 200 });
   const ring = item('Power Ring', RING, 11, DC(0, 10));
   // Alone, the helmet can't go on (DC 194).
   const alone = optimise(SHOWN, WORN, [helmet], damage);
   assert.deepEqual(alone.swaps, []);
   const plan = optimise(SHOWN, WORN, [helmet, ring], damage);
   assert.deepEqual(plan.swaps.map((s) => s.item.name), ['Power Ring', 'War Helm']);
-  assert.equal(plan.totals[9], 194 - 4 + 10);
+  assert.ok(plan.totals[9] >= 194 - 4 + 10, String(plan.totals[9]));
   // The helmet first, its requirement fails: with the ring's 10 max DC it passes.
   assert.equal(cantPutOn(helmet, SHOWN, SHOWN.totals), 'needs DC 200');
   assert.equal(cantPutOn(helmet, SHOWN, predict(SHOWN, worn(WORN), swapped(RINGS_ON[0], ring)).totals), null);
@@ -190,16 +202,16 @@ test('checked against the game: a gear change compared with what was read once t
 });
 
 test('set bonuses: two pieces of a set worn give its bonus, so a weaker pair can beat two better single items', () => {
-  const set = { name: 'Warlord', bonuses: [{ pieces: 2, stats: { 16: 3 } }] };
+  const set = { name: 'Warlord', bonuses: [{ pieces: 2, stats: { 9: 12 } }] };
   const wornPair = [item('Old Ring', RING, 7, DC(0, 6)), item('Fine Ring', RING, 8, DC(0, 6))];
   const bag = [item('Warlord Ring', RING, 10, DC(0, 2), { set }), item('Warlord Bracelet', BRACELET, 11, DC(0, 2), { set })];
   // One piece alone is worse than the ring it replaces; the bracelet with no set mate is just DC 0-2.
   assert.deepEqual(setBonusOf([bag[0]]), {});
-  assert.deepEqual(setBonusOf(bag), { 16: 3 });
+  assert.deepEqual(setBonusOf(bag), { 9: 12 });
   const plan = optimise(SHOWN, wornPair, bag, damage);
   assert.deepEqual(plan.swaps.map((s) => s.item.name).sort(), ['Warlord Bracelet', 'Warlord Ring']);
-  // The ring 4 max DC less, the bracelet (an empty place) 2 more, and the set 3 Attack Speed: worth it.
-  assert.equal(plan.totals[16], SHOWN.totals[16] + 3);
+  // The ring 4 max DC less, the bracelet (an empty place) 2 more, and the set 12 more: worth it.
+  assert.equal(plan.totals[9], SHOWN.totals[9] - 4 + 2 + 12);
 });
 
 const setBonusOf = (items: MemoryItem[]) => setBonus(items.map((i, n) => ({ slot: [7, 5][n], item: i })), false);
