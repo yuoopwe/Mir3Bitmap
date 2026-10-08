@@ -29,6 +29,9 @@ const api: BotApi = {
   onCircuit: (listener) => {
     ipcRenderer.on('circuit', (_event, view) => listener(view));
   },
+  onStatGuide: (listener) => {
+    ipcRenderer.on('stat-guide', (_event, view) => listener(view));
+  },
   onKept: (listener) => {
     ipcRenderer.on('kept', (_event, items) => listener(items));
   },

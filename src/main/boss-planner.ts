@@ -124,20 +124,27 @@ export interface CircuitPlan {
  * (`clearedAt` plus its respawn). Monsters with `need` counts stop being
  * planned once the spawns ordered for them hold that many (none given: every
  * spawn is visited). Monsters more than `who.maxLevelsAbove` above the
- * character, spawns too hard this run, and spawns with no way there are left out.
+ * character, those the combat model says can't be survived even with potions
+ * (`cantSurvive` gives why: what it would take), spawns too hard this run, and
+ * spawns with no way there are left out.
  */
 export function planCircuit(
   data: TravelData,
   spawns: readonly BossSpawn[],
   who: CircuitWho,
-  options: { now: number; routes: RouteCosts; clearedAt?: ReadonlyMap<string, number>; tooHard?: ReadonlySet<string>; need?: ReadonlyMap<string, number> },
+  options: {
+    now: number; routes: RouteCosts; clearedAt?: ReadonlyMap<string, number>; tooHard?: ReadonlySet<string>; need?: ReadonlyMap<string, number>;
+    cantSurvive?: (spawn: BossSpawn) => string | null;
+  },
 ): CircuitPlan {
   const skipped: CircuitPlan['skipped'] = [];
   const maps = new Map(data.maps.map((m) => [m.i, m]));
   const left: BossSpawn[] = [];
   for (const spawn of spawns) {
     const map = maps.get(spawn.map);
+    const deadly = spawn.level > who.level + who.maxLevelsAbove ? null : options.cantSurvive?.(spawn);
     if (spawn.level > who.level + who.maxLevelsAbove) skipped.push({ spawn, why: `level ${spawn.level}: too strong for level ${who.level} yet` });
+    else if (deadly) skipped.push({ spawn, why: deadly });
     else if (options.tooHard?.has(spawn.key)) skipped.push({ spawn, why: 'too hard this run' });
     else if (map && !levelAllows(map, who.level)) skipped.push({ spawn, why: `${map.name} needs level ${map.level}` });
     else left.push(spawn);

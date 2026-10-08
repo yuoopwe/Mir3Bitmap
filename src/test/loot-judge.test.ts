@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { MemoryItem } from '../main/game-memory';
+import { UNCALIBRATED } from '../main/calibration';
 import { LOOT, cantWear, describeChanges, judgeItem, scoreItem } from '../main/loot-judge';
+import { statValues } from '../main/stat-values';
+import { loadTravelData } from '../main/travel';
 
 const WARRIOR = 0, WIZARD = 1, TAOIST = 2;
 /** Library.ItemType. */
@@ -100,4 +103,26 @@ test('changes: only the stats the class weighs, pairs as ranges, the rest as dif
   // Light (17) isn't weighed: not mentioned.
   assert.equal(describeChanges(from, to, WARRIOR), 'DC 5–10 → 5–12, -10 HP');
   assert.equal(describeChanges(from, from, WARRIOR), '');
+});
+
+test("with the stat guide's values: an Attack Speed ring beats a small DC ring for this Warrior (the fixed weights had it the other way)", () => {
+  const data = loadTravelData();
+  const me = { cls: WARRIOR, level: 48, maxHp: 1500, minAC: 55, maxAC: 80, minMR: 20, maxMR: 30, minDC: 146, maxDC: 215, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0, accuracy: 95, agility: 30, attackSpeed: 8 };
+  const { perStat } = statValues({
+    data, me, supplies: { potion: null, drinkMs: 1500 }, calibration: UNCALIBRATED, maps: [37], grinder: { level: 48, cls: WARRIOR }, grindOptions: { maxLevelsAbove: 5 },
+    bosses: [], rewards: {}, weights: { grind: 1, bosses: 0 }, counts: {},
+  });
+  const haste = item('Haste Ring', RING, { 16: 1 });
+  const power = item('Power Ring', RING, dc(0, 3));
+  const worn = [item('Old Ring', RING, dc(0, 1), { slot: 7 }), item('Old Ring', RING, dc(0, 1), { slot: 8 })];
+  const who = { cls: WARRIOR, level: 48 };
+  assert.ok(scoreItem(haste, WARRIOR, perStat) > 4 * scoreItem(power, WARRIOR, perStat));
+  const [fast, strong] = [haste, power].map((ring) => judgeItem(ring, worn, who, { values: perStat }));
+  assert.ok(fast.upgrade && strong.upgrade && fast.gain > 4 * strong.gain, `${fast.gain} against ${strong.gain}`);
+  // The fixed weights had the DC ring first.
+  assert.ok(judgeItem(power, worn, who).gain > judgeItem(haste, worn, who).gain);
+  // A better helmet, though AC is worth nothing here: with no say from the guide on either, the class's weights keep it.
+  const cap = item('Cap', HELMET, { 4: 2, 5: 3 }, { slot: 2 });
+  const helmet = judgeItem(item('Helmet', HELMET, { 4: 5, 5: 8 }), [cap], who, { values: perStat });
+  assert.deepEqual([perStat[4], helmet.upgrade], [0, true]);
 });

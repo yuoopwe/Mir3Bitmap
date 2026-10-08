@@ -9,6 +9,7 @@ type Stats = import('../shared/types').Stats;
 type StatCounts = import('../shared/types').StatCounts;
 type KeptItem = import('../shared/types').KeptItem;
 type CircuitView = import('../shared/types').CircuitView;
+type StatGuideView = import('../shared/types').StatGuideView;
 
 interface Window {
   bot: BotApi;

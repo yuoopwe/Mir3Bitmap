@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { CircuitView, KeptItem, KeyId, NameRule, Settings, Status } from '../shared/types';
+import type { CircuitView, KeptItem, KeyId, NameRule, Settings, StatGuideView, Status } from '../shared/types';
 import { loadTravelData, places, searchPlaces } from './travel';
 import { Bot } from './bot';
 import type { Rect } from './layout';
@@ -36,6 +36,8 @@ const defaultSettings: Settings = {
   grind: { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false },
   questMaxActive: 5,
   circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35 },
+  guide: { auto: true, focus: 50 },
+  elixirs: { enabled: false, keys: { Haste: '', Destruction: '', Life: '', Mana: '', Nature: '', Spirit: '' } },
   hunt: { roam: false, questOnly: false, bagFreeSlots: 15, bagWeightPercent: 95, loot: true, pickUpKey: '', townPortalKey: '3', equipUpgrades: false, hpPotionKey: '', hpPotionPercent: 50, mpPotionKey: '', mpPotionPercent: 30, unstuckKey: 'F2', randomTeleportKey: '1' },
 };
 
@@ -126,6 +128,7 @@ const bot = new Bot(defaultSettings, {
   monsters: (list: string[]) => window?.webContents.send('monsters', list),
   kept: (items: KeptItem[]) => window?.webContents.send('kept', items),
   circuit: (view: CircuitView) => window?.webContents.send('circuit', view),
+  statGuide: (view: StatGuideView) => window?.webContents.send('stat-guide', view),
   imageOf,
   report: (status: Status) => window?.webContents.send('bot:status', status),
 });

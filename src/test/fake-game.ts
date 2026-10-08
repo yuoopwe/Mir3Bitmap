@@ -12,7 +12,8 @@
  * the Town Portal scroll, the mount, a bag, gathering nodes and the profession
  * levels (read only once the Professions window has been opened), and gear:
  * what's worn and the bag's wearable items, with cells while the bag is open,
- * the lock key over a cell, and a double-click on one to put it on. Its map
+ * the lock key over a cell, and a double-click on one to put it on; belt keys
+ * that use up potions and elixirs, and the player's combat stats. Its map
  * view (setup `view`) sets the game's size and where tiles are drawn: the
  * mouse's tile is worked out from it. Time is virtual: every wait jumps ahead, so a
  * minute of play takes a moment. Everything it saw is in `events`, for the
@@ -84,7 +85,9 @@ export type FakeEvent =
   | { t: number; type: 'gather'; node: number; map: number; refused: boolean }
   /** The lock key over a bag item's cell (locked: how it is now), and an item put on by a double-click. */
   | { t: number; type: 'lock'; name: string; locked: boolean }
-  | { t: number; type: 'equip'; name: string; slot: number };
+  | { t: number; type: 'equip'; name: string; slot: number }
+  /** A belt key used an item from the bag (a potion heals at once). */
+  | { t: number; type: 'use'; name: string; left: number };
 
 export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal' | 'random';
 
@@ -141,7 +144,11 @@ export interface FakeGameSetup {
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
   maps?: MapGrid[];
   /** damage: what each blow takes off a monster (else monsters die in their `hits`); hp: the player's health (default 1000, all of it). */
-  player: { map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number };
+  player: {
+    map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number;
+    /** The stats the reader sends (user.combat): none unless given. */
+    combat?: NonNullable<MemoryState['user']>['combat'];
+  };
   monsters?: FakeMonster[];
   /** NPCs to place, by travel.json id; with `allNpcs`, every NPC on a map is placed when the player gets there too. */
   npcs?: FakeNpcSetup[];
@@ -188,6 +195,8 @@ export interface FakeGameSetup {
   itemCounts?: Record<string, number>;
   /** The map view, which sets the game's size too (default: 1600x900 at zoom 100%, as measured). */
   view?: MapView;
+  /** Belt keys (virtual-key code to item name): a press uses one from `itemCounts` while there are any (a health potion heals at once). */
+  belt?: Record<number, string>;
 }
 
 interface Monster extends MemoryObject {
@@ -261,7 +270,7 @@ export class FakeGame {
   t = 0;
   readonly player: {
     map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number;
-    damage: number | null; hp: number; maxHp: number;
+    damage: number | null; hp: number; maxHp: number; combat: NonNullable<MemoryState['user']>['combat'] | null;
   };
   bag: { used: number; slots: number; refuse: boolean };
   /** The bag window, and the tab showing (0 = Main). */
@@ -297,6 +306,7 @@ export class FakeGame {
   private readonly equipFails: boolean;
   /** Items counted by name in the bag (gear.counts). */
   readonly itemCounts: Map<string, number>;
+  private readonly belt: Map<number, string>;
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -346,6 +356,7 @@ export class FakeGame {
     this.player = {
       map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true,
       dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0, damage: p.damage ?? null, hp: p.hp ?? 1000, maxHp: p.hp ?? 1000,
+      combat: p.combat ?? null,
     };
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
@@ -367,6 +378,7 @@ export class FakeGame {
     this.lockFails = !!setup.lockFails;
     this.equipFails = !!setup.equipFails;
     this.itemCounts = new Map(Object.entries(setup.itemCounts ?? { 'Forge Stone': 0, 'Phoenix Tear': 0 }));
+    this.belt = new Map(Object.entries(setup.belt ?? {}).map(([vk, name]) => [Number(vk), name]));
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
@@ -697,6 +709,7 @@ export class FakeGame {
       if (vk === VK.ESCAPE) this.escape();
       if (vk === BAG_KEY) this.bagWindow.open = !this.bagWindow.open;
       if (vk === LOCK_KEY) this.toggleLock();
+      if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       if (this.randomTeleport && vk === this.randomTeleport.key && !this.player.dead && this.randomTeleportsUsed < this.randomTeleport.scrolls) this.randomTeleportAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
@@ -714,6 +727,16 @@ export class FakeGame {
       if (!moving && this.player.hasMount && (this.player.mounted || !noHorse)) this.player.mounted = !this.player.mounted;
       this.events.push({ t: this.t, type: 'mount', moving, mounted: this.player.mounted, map: this.player.map });
     }
+  }
+
+  /** A belt key's item used: one fewer in the bag; a health potion heals at once. */
+  private useItem(name: string): void {
+    const left = this.itemCounts.get(name) ?? 0;
+    if (left <= 0) return;
+    this.itemCounts.set(name, left - 1);
+    const item = (this.data.consumables ?? []).find((c) => c.name === name);
+    if (item?.stats.Health && !item.stats.Duration) this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.Health);
+    this.events.push({ t: this.t, type: 'use', name, left: left - 1 });
   }
 
   private escape(): void {
@@ -1168,7 +1191,7 @@ export class FakeGame {
       inGame: true,
       user: {
         name: p.name, x: p.x, y: p.y, pickUpRadius: p.pickUpRadius, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
-        experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp,
+        experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp, ...(p.combat && { combat: { ...p.combat } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
       },
       objects: [

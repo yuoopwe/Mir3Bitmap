@@ -20,6 +20,8 @@ import { Gathering } from './bot-gathering';
 import { GatherTrips } from './bot-gather-trips';
 import { Looting } from './bot-loot';
 import { BossCircuit } from './bot-circuit';
+import { StatGuide } from './bot-guide';
+import { Elixirs } from './bot-elixirs';
 
 export type { BotOptions } from './bot-context';
 
@@ -46,6 +48,8 @@ export class Bot {
     ctx.gatherTrips = new GatherTrips(ctx);
     ctx.loot = new Looting(ctx);
     ctx.circuit = new BossCircuit(ctx);
+    ctx.guide = new StatGuide(ctx);
+    ctx.elixirs = new Elixirs(ctx);
     this.ctx = ctx;
   }
 
