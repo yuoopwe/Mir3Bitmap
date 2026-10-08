@@ -34,6 +34,11 @@ export const LOADOUT = {
   /** The beam keeps this many loadouts; each slot's best this many items are tried in it and in pair swaps. */
   beamWidth: 4,
   topPerSlot: 3,
+  /**
+   * The best gear is only said (and its bag items kept for it) when it's worth at least this much over what's worn: 0.02,
+   * 2% more of what the character does. Less is within what the model can tell (a near tie, or a guess deciding it).
+   */
+  worthSwapping: 0.02,
   /** A swap must raise the score by more than this (rounding aside); and the search stops after this many rounds. */
   minGain: 1e-6,
   maxRounds: 20,

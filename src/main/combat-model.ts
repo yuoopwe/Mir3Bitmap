@@ -35,6 +35,11 @@ export const COMBAT = {
    * twice it. How big the extra really is isn't known: small next to the blow either way.
    */
   resistancePerPoint: 0.01,
+  /**
+   * ...and the share of that extra counted: 0 until fights measure it (a guess shouldn't decide gear; set from kills
+   * with and without elemental gear against the same monsters).
+   */
+  elementShare: 0,
   /** A kill shows this many swings before the last would end: the last blow lands N-1 swings on, its death is seen a moment later. */
   lastSwingShare: 0.5,
   // ---- Health ----
@@ -293,7 +298,7 @@ export function fight(me: Fighter, foe: Foe, options: { supplies?: Supplies; fac
   const hitChance = physical ? Math.min(1, me.accuracy / Math.max(1, foe.agility)) : 1;
   // Elemental attack: extra damage on each blow, less the monster's resistance to that element.
   const resist = me.element ? (foe.resist[me.element] ?? 0) : 0;
-  const extra = me.element ? (me.elementAttack ?? 0) * Math.max(0, 1 - resist * COMBAT.resistancePerPoint) : 0;
+  const extra = me.element ? (me.elementAttack ?? 0) * Math.max(0, 1 - resist * COMBAT.resistancePerPoint) * COMBAT.elementShare : 0;
   const scale = factors.damage;
   const blow = blowMoments(attackOf(me, physical), physical ? [foe.minAC, foe.maxAC] : [foe.minMR, foe.maxMR]);
   const perSwing = hitChance * (blow.mean + extra) * scale;

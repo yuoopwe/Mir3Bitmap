@@ -16,7 +16,7 @@ import { calibrate, describeCalibration, drinkMs, PotionWatch, type Calibration 
 import { CLASS_NAMES, fighterOf, foeOf, potionInBag, type Fighter, type Supplies } from './combat-model';
 import { autoLevelsAbove, rateMaps } from './grind';
 import { cantSurvive, circuitBosses, focusWeights, gain, statValues, worthOf, type ElixirAdvice, type GuideInput, type StatValues } from './stat-values';
-import { GearWatch, characterOf, describeCheck, describeSwap, fighterFrom, gearCorrections, optimise, type LoadoutPlan } from './loadout';
+import { GearWatch, LOADOUT, characterOf, describeCheck, describeSwap, fighterFrom, gearCorrections, optimise, type LoadoutPlan } from './loadout';
 import { brokenWorn } from './loot-judge';
 import type { MemoryItem } from './game-memory';
 import { loadTravelData, type TravelQuest } from './travel';
@@ -171,7 +171,12 @@ export class StatGuide {
       return { plan, base, after: worthOf(input, plan.fighter) };
     };
     const input = { ...this.input, me };
-    const { plan, base, after } = best(input);
+    const found = best(input);
+    const { base } = found;
+    // Not worth it (a near tie): what's worn stays the advice.
+    const worth = found.plan.score - found.plan.currentScore >= LOADOUT.worthSwapping;
+    const plan = worth ? found.plan : { ...found.plan, swaps: [] };
+    const after = worth ? found.after : base;
     const expGain = base.grind > 0 ? after.grind / base.grind - 1 : 0;
     const opens = after.survivable.filter((b) => !base.survivable.includes(b));
     const wanted = new Map<string, string>();

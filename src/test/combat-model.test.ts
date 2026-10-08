@@ -115,8 +115,17 @@ test("the character from the game's memory: stats, class, level, and the weapon'
   // untouched (Lightning gear didn't halve kills there: measured).
   const per = (element?: string) => fight({ ...WARRIOR, ...(element && { element, elementAttack: 10 }) }, guardian).perSwing;
   const hit = fight(WARRIOR, guardian).hitChance;
-  assert.ok(Math.abs(per('Fire') - per() - 15 * hit) < 1e-9);
-  assert.ok(Math.abs(per('Lightning') - per() - 5 * hit) < 1e-9);
+  // Counted as nothing until measured (COMBAT.elementShare 0)...
+  assert.equal(COMBAT.elementShare, 0);
+  assert.equal(per('Fire'), per());
+  // ...and, once it is, as the stat less the resistance.
+  try {
+    COMBAT.elementShare = 1;
+    assert.ok(Math.abs(per('Fire') - per() - 15 * hit) < 1e-9);
+    assert.ok(Math.abs(per('Lightning') - per() - 5 * hit) < 1e-9);
+  } finally {
+    COMBAT.elementShare = 0;
+  }
   assert.deepEqual(potionInBag(data, { 'Health Potion (L)': 5, 'Health Potion (XL)': 0, 'Health Potion (M)': 9 }, 48), { name: 'Health Potion (L)', heal: 300, price: 200, count: 5 });
   // As learned: the M on the key, though bigger ones are in the bag.
   assert.equal(potionInBag(data, { 'Health Potion (L)': 5, 'Health Potion (M)': 9 }, 48, 'Health Potion (M)')!.name, 'Health Potion (M)');
