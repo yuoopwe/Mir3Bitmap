@@ -7,6 +7,7 @@
 import type { MemoryState } from './game-memory';
 import { packFighter } from './combat-model';
 import { potionNotesFrom, type PotionNotes } from './calibration';
+import type { GearCheck } from './loadout';
 
 /** One stint of hunting on a map: how long (not travelling, not paused), and the experience it brought. */
 export interface GrindSession {
@@ -238,6 +239,7 @@ export class GrindLog {
   private readonly fightLog = new Map<string, Fights>();
   private readonly bossStints = new Map<string, BossStint[]>();
   private readonly potionNotes = new Map<string, PotionNotes>();
+  private readonly gearCheckLog = new Map<string, GearCheck[]>();
 
   constructor(private readonly onChange: () => void) {}
 
@@ -295,9 +297,22 @@ export class GrindLog {
     this.onChange();
   }
 
+  /** A character's gear changes checked against the game (loadout.ts GearWatch), oldest first. */
+  gearChecks(character: string): GearCheck[] {
+    return this.gearCheckLog.get(character) ?? [];
+  }
+
+  setGearChecks(character: string, checks: GearCheck[]): void {
+    if (!character) return;
+    this.gearCheckLog.set(character, checks);
+    this.onChange();
+  }
+
   /** Takes what toJSON saved (fights are newer than stints: a file without them loads as before). */
   load(saved: unknown): void {
-    const data = saved as { characters?: Record<string, unknown>; fights?: Record<string, unknown>; bossTime?: Record<string, unknown>; potions?: Record<string, unknown> } | null;
+    const data = saved as {
+      characters?: Record<string, unknown>; fights?: Record<string, unknown>; bossTime?: Record<string, unknown>; potions?: Record<string, unknown>; gearChecks?: Record<string, unknown>;
+    } | null;
     if (!data || typeof data.characters !== 'object' || !data.characters) return;
     for (const [name, list] of Object.entries(data.characters)) {
       if (!Array.isArray(list)) continue;
@@ -326,14 +341,23 @@ export class GrindLog {
       const valid = potionNotesFrom(notes);
       if (valid) this.potionNotes.set(name, valid);
     }
+    const row = (r: unknown) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isFinite(v));
+    for (const [name, list] of Object.entries(data.gearChecks && typeof data.gearChecks === 'object' ? data.gearChecks : {})) {
+      if (!Array.isArray(list)) continue;
+      this.gearCheckLog.set(name, list.filter((c): c is GearCheck => finite(c, ['at']) && Array.isArray((c as GearCheck).stats) && (c as GearCheck).stats.every(row)));
+    }
   }
 
-  toJSON(): { characters: Record<string, GrindSession[]>; fights?: Record<string, Fights>; bossTime?: Record<string, BossStint[]>; potions?: Record<string, PotionNotes> } {
+  toJSON(): {
+    characters: Record<string, GrindSession[]>; fights?: Record<string, Fights>; bossTime?: Record<string, BossStint[]>; potions?: Record<string, PotionNotes>;
+    gearChecks?: Record<string, GearCheck[]>;
+  } {
     return {
       characters: Object.fromEntries(this.characters),
       ...(this.fightLog.size ? { fights: Object.fromEntries(this.fightLog) } : {}),
       ...(this.bossStints.size ? { bossTime: Object.fromEntries(this.bossStints) } : {}),
       ...(this.potionNotes.size ? { potions: Object.fromEntries(this.potionNotes) } : {}),
+      ...(this.gearCheckLog.size ? { gearChecks: Object.fromEntries(this.gearCheckLog) } : {}),
     };
   }
 }

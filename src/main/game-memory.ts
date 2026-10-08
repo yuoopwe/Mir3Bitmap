@@ -58,6 +58,10 @@ export interface MemoryItem {
   maxDurability: number;
   base: Record<string, number>;
   added: Record<string, number>;
+  /** Its weight (ItemInfo's), against the character's WearWeight (HandWeight for a weapon). */
+  weight?: number;
+  /** The set it's part of, if any: its name and the bonus at each count of pieces worn (stats by Library.Stat number). */
+  set?: { name: string; bonuses: { pieces: number; stats: Record<string, number> }[] } | null;
   /** Bag items, with the bag open and the item's cell showing: where that cell is on the game's screen. */
   cell?: MemoryBox;
 }
@@ -165,6 +169,10 @@ export interface MemoryState {
     hp?: number; maxHp?: number;
     /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */
     combat?: { minAC: number; maxAC: number; minMR: number; maxMR: number; minDC: number; maxDC: number; minMC: number; maxMC: number; minSC: number; maxSC: number; accuracy: number; agility: number; attackSpeed: number } | null;
+    /** The % stats' totals (by Library.Stat number: DCPercent 84, ACPercent 10031, HealthPercent 54...), which multiply the stats they're for. */
+    percents?: Record<string, number> | null;
+    /** Weight worn on the body (WearWeight) and in hand (HandWeight), and the most of each the character may wear. */
+    weights?: { wear: number; wearMax: number; hand: number; handMax: number } | null;
   };
   objects?: MemoryObject[];
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
@@ -185,14 +193,14 @@ export interface MemoryState {
    * counts: how many the bag holds, by name, of every consumable (potions, elixirs, scrolls) and of a few other items (Forge Stone, Phoenix Tear).
    */
   gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number> } | null;
+  /** The game's own auto potion: each link's item (ItemInfo index), the HP and MP it's drunk below (0: not for that), and whether it's on. */
+  autoPotion?: { item: number; health: number; mana: number; enabled: boolean }[] | null;
   /**
    * The bloodline (the game's Hermit system): points to spend, what's been bought (Library.Stat number -> amount),
    * and once the Character window's Bloodline tab has been shown, the grade ("F (High Tier)") and each upgrade on
    * offer: its hint as the game words it ("Focus / Steady offense. / Affects: MinDC / Cost: 2 Bloodline Points per
    * upgrade / You will gain: +2 MinDC (from 2 points)"), and with the tab open, its button and the points-to-use box.
    */
-  /** The game's own auto potion: each link's item (ItemInfo index), the HP and MP it's drunk below (0: not for that), and whether it's on. */
-  autoPotion?: { item: number; health: number; mana: number; enabled: boolean }[] | null;
   bloodline?: { points: number; bought: Record<string, number>; grade?: string; open?: boolean; options: { hint: string; enabled: boolean; box?: MemoryBox }[]; pointsBox?: MemoryBox } | null;
   /**
    * Profession levels (id is Library.ProfessionId: 1 Fishing, 2 Mining, 3 Harvesting, 4 Taming, 5 Cooking, 6 Crafting, 7 Farming).

@@ -363,6 +363,7 @@ export class BotContext {
     }
     // What follows a drink tells which potion the key holds, what it heals and how soon another may be drunk.
     this.guide.watchPotions(drank);
+    this.guide.watchGear();
     const mpKey = keyCode(hunt.mpPotionKey);
     if (mpKey !== null && this.mp !== null && this.mp * 100 < hunt.mpPotionPercent && now - this.lastMpPotion > POTION_COOLDOWN_MS) {
       this.key(mpKey);

@@ -30,6 +30,12 @@ $PickUpRadius = 40
 # Library.Stat numbers for health and the stats that decide how fast the character kills and how much it takes.
 $HealthStat = 2
 $CombatStats = @{ minAC = 4; maxAC = 5; minMR = 6; maxMR = 7; minDC = 8; maxDC = 9; minMC = 10; maxMC = 11; minSC = 12; maxSC = 13; accuracy = 14; agility = 15; attackSpeed = 16 }
+# The % stats, which multiply what they're for (HealthPercent 54, MCPercent 67, DCPercent 84, SCPercent 85,
+# MagicDefencePercent 92, PhysicalDefencePercent 93, ManaPercent 94, ACPercent 10031, MRPercent 10032), and the most
+# weight that may be worn on the body and in hand (WearWeight 74, HandWeight 75).
+$PercentStats = @(54, 67, 84, 85, 92, 93, 94, 10031, 10032)
+$WearWeightStat = 74
+$HandWeightStat = 75
 
 # One of the player's stats: Stats.Values is a SortedDictionary, i.e. a binary search tree keyed by stat number.
 function Read-Stat($userObject, [int]$stat) {
@@ -575,6 +581,46 @@ function Read-AllStats($stats) {
   }
   return $out
 }
+# The first of these fields the object has (names differ between versions of the game), or null.
+function Find-FieldName($obj, [string[]]$names) {
+  foreach ($name in $names) { if ($obj.Type.GetFieldByName($name)) { return $name } }
+  return $null
+}
+# Items of a List<T>, an array, or a BindingList / Collection<T> (its inner list is `items`).
+function Read-AnyList($list) {
+  if ($list.IsNull) { return ,[System.Collections.Generic.List[object]]::new() }
+  if (-not $list.IsArray -and -not $list.Type.GetFieldByName('_size') -and $list.Type.GetFieldByName('items')) { return Read-AnyList ($list.ReadObjectField('items')) }
+  return Read-List $list
+}
+# The set an item is part of (its own rolled set, else its ItemInfo's): the set's name and each bonus with the pieces it
+# needs worn (all of the set's pieces when the game doesn't say). Not every field name here is confirmed in game: those
+# missing leave the set out.
+function Read-ItemSet($item, $info) {
+  $set = $null
+  foreach ($pair in @(@($item, '<GeneratedSet>k__BackingField'), @($item, 'GeneratedSet'), @($info, '_Set'), @($info, 'Set'))) {
+    if (-not $pair[0].Type.GetFieldByName($pair[1])) { continue }
+    $read = $pair[0].ReadObjectField($pair[1])
+    if (-not $read.IsNull) { $set = $read; break }
+  }
+  if (-not $set) { return $null }
+  $nameField = Find-FieldName $set @('_SetName', 'SetName', '_Name', 'Name')
+  $itemsField = Find-FieldName $set @('Items', '_Items')
+  $all = $(if ($itemsField) { (Read-AnyList ($set.ReadObjectField($itemsField))).Count } else { 0 })
+  $statsField = Find-FieldName $set @('SetStats', '_SetStats', 'Stats')
+  if (-not $statsField) { return $null }
+  $bonuses = @{}
+  foreach ($entry in (Read-AnyList ($set.ReadObjectField($statsField)))) {
+    if ($entry.IsNull) { continue }
+    $statField = Find-FieldName $entry @('_Stat', 'Stat', '<Stat>k__BackingField')
+    $amountField = Find-FieldName $entry @('_Amount', 'Amount', '<Amount>k__BackingField')
+    if (-not $statField -or -not $amountField) { continue }
+    $countField = Find-FieldName $entry @('_Count', 'Count', '_Pieces', 'Pieces', '_RequiredCount', 'RequiredCount')
+    $pieces = $(if ($countField) { Read-EnumField $entry $countField } else { $all })
+    if (-not $bonuses.ContainsKey("$pieces")) { $bonuses["$pieces"] = @{} }
+    $bonuses["$pieces"]["$(Read-EnumField $entry $statField)"] = Read-EnumField $entry $amountField
+  }
+  return @{ name = $(if ($nameField) { $set.ReadStringField($nameField) } else { '' }); bonuses = @($bonuses.Keys | ForEach-Object { @{ pieces = [int]$_; stats = $bonuses[$_] } }) }
+}
 function Read-Item($item, [int]$slot) {
   $info = $item.ReadObjectField('Info')
   if ($info.IsNull) { return $null }
@@ -589,6 +635,8 @@ function Read-Item($item, [int]$slot) {
     flags = Read-EnumField $item '<Flags>k__BackingField'; canSell = $info.ReadField[bool]('_CanSell')
     durability = $item.ReadField[int]('<CurrentDurability>k__BackingField'); maxDurability = $item.ReadField[int]('<MaxDurability>k__BackingField')
     base = Read-AllStats ($info.ReadObjectField('Stats')); added = Read-AllStats ($item.ReadObjectField('<AddedStats>k__BackingField'))
+    weight = $(try { $info.ReadField[int]('_Weight') } catch { $null })
+    set = $(try { Read-ItemSet $item $info } catch { $null })
   }
 }
 function Read-Gear($scene) {
@@ -699,6 +747,20 @@ function Read-Professions($scene) {
   return ,$out
 }
 
+# Weight worn on the body and in hand (the user object's WearWeight and HandWeight, else the scene's), and the most of each.
+function Read-Weights($userObject, $scene) {
+  try {
+    $worn = @{}
+    foreach ($name in 'WearWeight', 'HandWeight') {
+      $field = $null
+      foreach ($obj in $userObject, $scene) { $f = Find-FieldName $obj @($name, "<$name>k__BackingField", "_$name"); if ($f) { $field = @($obj, $f); break } }
+      if (-not $field) { return $null }
+      $worn[$name] = $field[0].ReadField[int]($field[1])
+    }
+    return @{ wear = $worn.WearWeight; wearMax = (Read-Stat $userObject $WearWeightStat); hand = $worn.HandWeight; handMax = (Read-Stat $userObject $HandWeightStat) }
+  } catch { return $null }
+}
+
 # Seconds since the player was last in combat (the game counts you out of combat 10 s after).
 function Read-CombatAgo($userObject, $module, $domain) {
   $mask = [uint64]0x3FFFFFFFFFFFFFFF
@@ -769,7 +831,7 @@ while ($true) {
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           if ($me -and ([math]::Abs($x - $me[0]) -gt $ObjectRange -or [math]::Abs($y - $me[1]) -gt $ObjectRange) -and $o.Type.Name -ne 'Client.Models.NPCObject' -and $o.Type.Name -ne 'Client.Models.UserObject') { continue }
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); percents = $(try { $p = @{}; foreach ($n in $PercentStats) { $p["$n"] = Read-Stat $o $n }; $p } catch { $null }); weights = (Read-Weights $o $scene); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{

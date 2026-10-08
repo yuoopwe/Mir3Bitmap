@@ -119,7 +119,7 @@ export function focusWeights(grind: readonly GrindSession[], bosses: readonly Bo
 }
 
 /** What the character does is worth: Grind's best exp/h among the maps, and the circuit's haul per hour (exp, stones as exp). */
-interface Worth {
+export interface Worth {
   grind: number;
   bosses: number;
 }
@@ -183,8 +183,19 @@ function worth(input: GuideInput, fights: Fights, open: ReadonlySet<string> = ne
   return { grind, bosses: seconds > 0 ? (exp / seconds) * 3600 : 0 };
 }
 
+/**
+ * What the character does is worth with these stats (another loadout's, say):
+ * Grind's best exp/h and the circuit's haul an hour; and the circuit's bosses
+ * that can be survived (lower-case names).
+ */
+export function worthOf(input: GuideInput, me: Fighter): Worth & { survivable: string[] } {
+  const fights = new Fights(input, me);
+  const survivable = input.bosses.filter((b) => fights.of(b.name)?.outcome.survives).map((b) => b.name.toLowerCase());
+  return { ...worth(input, fights), survivable: [...new Set(survivable)] };
+}
+
 /** How much better `now` is than `before`, weighted: a share (an activity going from nothing to something counts as 1). */
-function gain(input: GuideInput, before: Worth, now: Worth): number {
+export function gain(input: GuideInput, before: Worth, now: Worth): number {
   const rel = (n: number, b: number) => (b > 0 ? n / b - 1 : n > 0 ? 1 : 0);
   return input.weights.grind * rel(now.grind, before.grind) + input.weights.bosses * rel(now.bosses, before.bosses);
 }

@@ -95,7 +95,7 @@ alone monsters it can't walk to (walled off), and gives up on a target after 6 s
 
 Selling with the memory reader (Grind, Quests, Gather trips, and Hunt with "Sell items") uses Ludvik's Select All,
 which would take everything on the bag's Main tab. So first, with the bag open, the loot judge
-(`src/main/loot-judge.ts`) looks at every wearable bag item: its own stats and what it rolled on top, scored by what
+(`src/main/loot-judge.ts`) keeps what the best gear wants (below), and looks at every wearable bag item: its own stats and what it rolled on top, scored by what
 each stat is worth to your character for what they do (the stat guide, below), or until that's been worked out, by
 fixed weights for your class (DC for Warriors, MC for Wizards, SC for Taoists... all in one table, `LOOT.weights`,
 min/max pairs at their average), against what you wear where it would go (for rings and bracelets, the weaker of the two). Items you
@@ -143,6 +143,29 @@ unless ticked) each kind with a belt key set is drunk while grinding and on the 
 the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run). Luck,
 crits and the server's level-difference rules aren't modelled yet; the corrections from your fights cover them as
 far as they go.
+
+### Best gear
+
+`src/main/loadout.ts` picks the best set of gear from what's worn and the bag. Adding up items doesn't give the game's
+totals (on one character worn items and bloodline came to DC 144–222, AC 98–115, Attack Speed 16 against the game's
+138–194, 109–129 and 15): broken items give nothing, nor do the profession tools, nor the horse on foot; the class's
+own stats and the bloodline add; % stats (DCPercent, ACPercent, HealthPercent...) multiply. So it never rebuilds
+them: it starts from the totals the game shows and changes them by what each swap takes away and adds, a % stat applied
+to the sum it multiplies (worked back from the total and the % now, rounded down as the game does), with set bonuses
+counted by pieces worn. Each time what's worn changes in game, the totals read once they settle are compared with that
+prediction ("Gear check: DC 138–194 predicted 158–223, read 158–222"), kept in the grind log, and fitted into per-stat
+corrections as the fights' are. Candidates are what's worn and the wearable bag items the class and level allow; rings
+and bracelets fill two places each; stat requirements and the weight limits (WearWeight, HandWeight for the weapon) are
+checked in the order the swaps would be made, so an item needing more DC goes on after the ring that gives it. Loadouts
+are scored by the stat guide (exp/h with the combat model, and the bosses that can be survived), not flat weights, and
+searched by the best one or two swaps at a time, from what's worn and from the best of a beam over each slot's top
+few, so a pair that only together makes a boss survivable shows. The loot judge keeps what the best gear wants, and what
+the best gear for each boss the circuit wants would need to make it survivable; it says which worn items are broken
+("Steelforge Blade is broken: −22–51 DC, repair it"). "Put on clear upgrades" puts the best gear on, one swap at a
+time, checked in the game's memory, when it does 2% better. The Stat guide card shows the swaps, what they bring and
+what to repair. Item weights and sets are read from the game's ItemInfo and the item's set as far as their fields are
+found; a double-click puts a ring or bracelet where the game chooses, so a plan that needs the other place can stop
+short ("went round in circles").
 
 ## Training
 
@@ -328,6 +351,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/combat-model.ts` – one fight from both sides' stats: kill time, health and potions it costs, survival and the gap
 - `src/main/calibration.ts` – the model checked against the character's fights, and what's learned of their potions
 - `src/main/stat-values.ts` – the stat guide: each stat's and elixir's worth for Grind and the Boss circuit, what's out of reach
+- `src/main/loadout.ts` – the best gear: totals changed by each swap from the game's own, the search, checks against the game
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses

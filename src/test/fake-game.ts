@@ -146,8 +146,11 @@ export interface FakeGameSetup {
   /** damage: what each blow takes off a monster (else monsters die in their `hits`); hp: the player's health (default 1000, all of it). */
   player: {
     map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number;
-    /** The stats the reader sends (user.combat): none unless given. */
+    /** The stats the reader sends (user.combat): none unless given. Putting gear on changes them by what it gives (and takes off), plainly added. */
     combat?: NonNullable<MemoryState['user']>['combat'];
+    /** The % stats' sums and the weights worn and allowed, as the reader sends them. */
+    percents?: Record<string, number>;
+    weights?: { wear: number; wearMax: number; hand: number; handMax: number };
   };
   monsters?: FakeMonster[];
   /** NPCs to place, by travel.json id; with `allNpcs`, every NPC on a map is placed when the player gets there too. */
@@ -271,6 +274,7 @@ export class FakeGame {
   readonly player: {
     map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number;
     damage: number | null; hp: number; maxHp: number; combat: NonNullable<MemoryState['user']>['combat'] | null;
+    percents: Record<string, number> | null; weights: { wear: number; wearMax: number; hand: number; handMax: number } | null;
   };
   bag: { used: number; slots: number; refuse: boolean };
   /** The bag window, and the tab showing (0 = Main). */
@@ -356,7 +360,7 @@ export class FakeGame {
     this.player = {
       map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true,
       dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0, damage: p.damage ?? null, hp: p.hp ?? 1000, maxHp: p.hp ?? 1000,
-      combat: p.combat ?? null,
+      combat: p.combat ?? null, percents: p.percents ?? null, weights: p.weights ?? null,
     };
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
@@ -1011,7 +1015,21 @@ export class FakeGame {
       this.gear.bag.push({ ...old, slot: item.slot });
     }
     this.gear.worn.push({ ...item, slot });
+    this.wearChanged(old ?? null, item);
     this.events.push({ t: this.t, type: 'equip', name: item.name, slot });
+  }
+
+  /** The combat stats, health and weight worn after `on` replaces `off`: what each gives (broken: nothing) plainly added and taken away. */
+  private wearChanged(off: MemoryItem | null, on: MemoryItem): void {
+    const p = this.player;
+    const gives = (item: MemoryItem | null, n: number) => (!item || (item.maxDurability > 0 && item.durability <= 0) ? 0 : (item.base[n] ?? 0) + (item.added[n] ?? 0));
+    const change = (n: number) => gives(on, n) - gives(off, n);
+    if (p.combat) {
+      const numbers: Record<string, number> = { minAC: 4, maxAC: 5, minMR: 6, maxMR: 7, minDC: 8, maxDC: 9, minMC: 10, maxMC: 11, minSC: 12, maxSC: 13, accuracy: 14, agility: 15, attackSpeed: 16 };
+      for (const [key, n] of Object.entries(numbers)) (p.combat as Record<string, number>)[key] += change(n);
+    }
+    p.maxHp += change(2);
+    if (p.weights) p.weights[on.type === 2 ? 'hand' : 'wear'] += (on.weight ?? 0) - (off?.weight ?? 0);
   }
 
   private windowBoxes(): { x: number; y: number; width: number; height: number; name: string }[] {
@@ -1192,6 +1210,7 @@ export class FakeGame {
       user: {
         name: p.name, x: p.x, y: p.y, pickUpRadius: p.pickUpRadius, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
         experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp, ...(p.combat && { combat: { ...p.combat } }),
+        ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
       },
       objects: [

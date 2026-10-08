@@ -34,6 +34,8 @@ export const LOOT = {
   upgradeMargin: 0.05,
   /** ...and this much more to be put on, with "Put on clear upgrades". */
   equipMargin: 0.15,
+  /** With the loadout optimiser's advice, "Put on clear upgrades" puts on its best gear when that does this much better (0.02: 2% more of what the character does). */
+  equipGearGain: 0.02,
   /** Items this rare or rarer (Library.Rarity: 3 Legendary) are kept whatever they score: they may be worth something. */
   keepRarity: 3,
   /**
@@ -59,7 +61,7 @@ export const ITEM_SLOTS: Record<number, number[]> = {
   2: [0], 3: [1], 4: [3], 5: [2], 6: [4], 7: [5, 6], 8: [7, 8], 9: [9], 10: [10], 11: [11], 26: [14], 27: [15], 28: [16], 30: [17],
 };
 
-const SLOT_NAMES: Record<number, string> = {
+export const SLOT_NAMES: Record<number, string> = {
   0: 'Weapon', 1: 'Armour', 2: 'Helmet', 3: 'Torch', 4: 'Necklace', 5: 'Bracelet', 6: 'Bracelet', 7: 'Ring', 8: 'Ring', 9: 'Shoes',
   10: 'Poison', 11: 'Amulet', 14: 'Emblem', 15: 'Shield', 16: 'Wings', 17: 'Belt',
 };
@@ -130,17 +132,25 @@ export function cantWear(item: MemoryItem, who: Wearer): string | null {
  * goes by LOOT.upgradeMargin (or nothing is worn there); with two places (rings,
  * bracelets), against the weaker. Kept too when it's LOOT.keepRarity or rarer.
  * Scored at the stat guide's `values` when given, else the class's weights.
+ * Kept also when `planned` says why the loadout optimiser wants it (part of the
+ * best gear, or of the best for a boss: loadout.ts), whatever it scores alone.
  */
-export function judgeItem(item: MemoryItem, worn: readonly MemoryItem[], who: Wearer, options: { margin?: number; keepRarity?: number; values?: PointValues | null } = {}): Verdict {
+export function judgeItem(
+  item: MemoryItem,
+  worn: readonly MemoryItem[],
+  who: Wearer,
+  options: { margin?: number; keepRarity?: number; values?: PointValues | null; planned?: string | null } = {},
+): Verdict {
   const margin = options.margin ?? LOOT.upgradeMargin;
   const rare = item.rarity >= (options.keepRarity ?? LOOT.keepRarity);
   const rarity = RARITY_NAMES[item.rarity] ?? `rarity ${item.rarity}`;
+  const planned = options.planned ?? null;
   const verdict = (upgrade: boolean, slot: number | null, gain: number, why: string): Verdict => ({
-    keep: upgrade || rare,
+    keep: upgrade || rare || !!planned,
     upgrade,
     slot,
     gain,
-    reason: upgrade || !rare ? why : `${rarity} (${why})`,
+    reason: upgrade ? why : planned ?? (rare ? `${rarity} (${why})` : why),
   });
   const slots = ITEM_SLOTS[item.type];
   if (!slots) return verdict(false, null, 0, 'not worn anywhere known');
@@ -160,6 +170,24 @@ export function judgeItem(item: MemoryItem, worn: readonly MemoryItem[], who: We
   const upgrade = gain > margin;
   const changes = describeChanges(weakest.item, item, who.cls);
   return verdict(upgrade, weakest.slot, gain, `${percent} ${upgrade ? 'over' : 'against'} ${weakest.item.name}${changes ? ` (${changes})` : ''}`);
+}
+
+/** Library.EquipmentSlot places worn for fighting (not the horse, nor the profession tools). */
+const FIGHT_SLOTS = new Set(Object.values(ITEM_SLOTS).flat());
+
+const STAT_WORDS: [number[], string][] = [[[8, 9], 'DC'], [[10, 11], 'MC'], [[12, 13], 'SC'], [[4, 5], 'AC'], [[6, 7], 'MR'], [[2], 'HP'], [[16], 'Attack Speed'], [[14], 'Accuracy'], [[15], 'Agility']];
+
+/** Worn items that are broken (worn out: they give nothing) and what that costs: "Steelforge Blade is broken: −22–51 DC, repair it". */
+export function brokenWorn(worn: readonly MemoryItem[]): string[] {
+  return worn
+    .filter((item) => FIGHT_SLOTS.has(item.slot) && item.maxDurability > 0 && item.durability <= 0)
+    .map((item) => {
+      const lost = STAT_WORDS.map(([numbers, word]) => {
+        const values = numbers.map((n) => stat(item, n));
+        return values.some((v) => v) ? `−${values.join('–')} ${word}` : '';
+      }).filter(Boolean);
+      return `${item.name} is broken: ${lost.length ? `${lost.join(', ')}, ` : ''}repair it`;
+    });
 }
 
 /** The stats the class cares about that differ: "DC 16–38 → 20–45, +3 Acc". */
