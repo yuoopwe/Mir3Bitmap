@@ -182,7 +182,7 @@ export interface MemoryState {
   view?: MapView | null;
   /**
    * What's worn (slot: Library.EquipmentSlot) and the wearable items in the bag (slot: bag slot), read once a second;
-   * counts: how many the bag holds of a few items by name (Forge Stone, Phoenix Tear).
+   * counts: how many the bag holds, by name, of every consumable (potions, elixirs, scrolls) and of a few other items (Forge Stone, Phoenix Tear).
    */
   gear?: { worn: MemoryItem[]; bag: MemoryItem[]; counts?: Record<string, number> } | null;
   /**

@@ -625,7 +625,8 @@ function Read-Gear($scene) {
       $info = $item.ReadObjectField('Info')
       if ($info.IsNull) { continue }
       $itemName = $info.ReadStringField('_ItemName')
-      if ($CountedItems -contains $itemName) { $counts[$itemName] += $(try { $item.ReadField[long]('<Count>k__BackingField') } catch { 1 }) }
+      # Consumables (potions, elixirs, scrolls) are counted too, whatever they are.
+      if ($CountedItems -contains $itemName -or (Read-EnumField $info '_ItemType') -eq 1) { $counts[$itemName] = [long]$counts[$itemName] + $(try { $item.ReadField[long]('<Count>k__BackingField') } catch { 1 }) }
       if ($WearableTypes -notcontains (Read-EnumField $info '_ItemType')) { continue }
       $read = Read-Item $item $i
       if ($read) { if ($cells.ContainsKey("$i")) { $read.cell = $cells["$i"] }; $bag += $read }
