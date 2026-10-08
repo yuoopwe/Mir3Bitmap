@@ -414,15 +414,22 @@ function Read-QuestTargets($scene) {
         $required = $(if ($p) { $p.ReadField[int]('<RequiredAmount>k__BackingField') } else { 0 })
         if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
         $have = $(if ($p) { $p.ReadField[long]('<Amount>k__BackingField') } else { 0 })
-        $tasks += ,@{ task = $task; required = $required; have = $have }
+        $tasks += ,@{ task = $task; required = $required; have = $have; stage = $task.ReadField[int]('_Stage'); mine = [bool]$p }
       }
     }
+    # A quest can hold the tasks of several versions of itself: the character's are the ones with entries (none yet: all count).
+    $mine = @($tasks | Where-Object { $_.mine })
+    if ($mine.Count -gt 0) { $tasks = $mine }
+    # A staged quest only counts the current stage's tasks (kills before reaching it don't count).
+    $staged = -not $info.IsNull -and $(try { $info.ReadField[bool]('_Staged') } catch { $false })
+    $stage = $quest.ReadField[int]('<CurrentStage>k__BackingField')
     # The log: each quest, whether it's been handed in, and whether every task is done (ready to hand in).
     $completed = $quest.ReadField[bool]('<Completed>k__BackingField')
     $ready = -not $completed -and @($tasks | Where-Object { $_.required -gt 0 -and $_.have -lt $_.required }).Count -eq 0
     $script:questLog += ,@{ name = $questName; completed = $completed; ready = $ready }
     if ($completed) { continue }
     foreach ($entry in $tasks) {
+      if ($staged -and $entry.stage -gt 0 -and $entry.stage -ne $stage) { continue }
       $task = $entry.task; $required = $entry.required; $have = $entry.have
       $kind = $task.ReadField[int]('_Task')
       if ($required -gt 0 -and $have -ge $required) { continue }
