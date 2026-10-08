@@ -19,8 +19,11 @@ export const COMBAT = {
   /** Milliseconds between swings: this, less swingPerAttackSpeedMs for each point of Attack Speed (measured in game)... */
   swingBaseMs: 1500,
   swingPerAttackSpeedMs: 47,
-  /** ...never quicker than this. */
-  minSwingMs: 300,
+  /**
+   * ...never quicker than this (the client's floor: Attack Speed past 15 does nothing, 1500 - 47 x 15 = 795; the game
+   * shows a character with 16 from gear as 15).
+   */
+  minSwingMs: 800,
   /** Spell casters (Wizard: MC, Taoist: SC, against MR) cast about this often, whatever their Attack Speed; spells don't miss. A guess. */
   castMs: 1200,
   /** A blow (its roll less the defence's roll) does at least this much: 0, as fights where nothing gets through show. */
