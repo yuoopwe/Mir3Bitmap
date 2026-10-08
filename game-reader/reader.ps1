@@ -597,29 +597,28 @@ function Read-AnyList($list) {
 # missing leave the set out.
 function Read-ItemSet($item, $info) {
   $set = $null
-  foreach ($pair in @(@($item, '<GeneratedSet>k__BackingField'), @($item, 'GeneratedSet'), @($info, '_Set'), @($info, 'Set'))) {
+  foreach ($pair in @(@($item, '<GeneratedSet>k__BackingField'), @($info, '_Set'))) {
     if (-not $pair[0].Type.GetFieldByName($pair[1])) { continue }
     $read = $pair[0].ReadObjectField($pair[1])
     if (-not $read.IsNull) { $set = $read; break }
   }
   if (-not $set) { return $null }
-  $nameField = Find-FieldName $set @('_SetName', 'SetName', '_Name', 'Name')
-  $itemsField = Find-FieldName $set @('Items', '_Items')
-  $all = $(if ($itemsField) { (Read-AnyList ($set.ReadObjectField($itemsField))).Count } else { 0 })
-  $statsField = Find-FieldName $set @('SetStats', '_SetStats', 'Stats')
-  if (-not $statsField) { return $null }
+  $all = (Read-AnyList ($set.ReadObjectField('<Items>k__BackingField'))).Count
   $bonuses = @{}
-  foreach ($entry in (Read-AnyList ($set.ReadObjectField($statsField)))) {
-    if ($entry.IsNull) { continue }
-    $statField = Find-FieldName $entry @('_Stat', 'Stat', '<Stat>k__BackingField')
-    $amountField = Find-FieldName $entry @('_Amount', 'Amount', '<Amount>k__BackingField')
-    if (-not $statField -or -not $amountField) { continue }
-    $countField = Find-FieldName $entry @('_Count', 'Count', '_Pieces', 'Pieces', '_RequiredCount', 'RequiredCount')
-    $pieces = $(if ($countField) { Read-EnumField $entry $countField } else { $all })
-    if (-not $bonuses.ContainsKey("$pieces")) { $bonuses["$pieces"] = @{} }
-    $bonuses["$pieces"]["$(Read-EnumField $entry $statField)"] = Read-EnumField $entry $amountField
+  $add = { param([int]$pieces, $stat, [int]$amount) if (-not $stat -or -not $amount) { return }; if (-not $bonuses.ContainsKey("$pieces")) { $bonuses["$pieces"] = @{} }; $bonuses["$pieces"]["$stat"] = [int]$bonuses["$pieces"]["$stat"] + $amount }
+  # Library.RequiredClass of the character (1 Warrior, 2 Wizard, 4 Taoist...): bonuses for other classes don't count.
+  $mine = $script:classFlag
+  $forMe = { param($entry) $c = Read-EnumField $entry '_RequiredClass'; if ($null -eq $c) { $c = Read-EnumField $entry '_Class' }; -not $c -or -not $mine -or ($c -band $mine) }
+  # The full set's stats (SetInfoStat), and bonuses at a number of pieces (SetBonusInfo: stat bonuses only).
+  foreach ($entry in (Read-AnyList ($set.ReadObjectField('<SetStats>k__BackingField')))) {
+    if ($entry.IsNull -or -not (& $forMe $entry)) { continue }
+    & $add $all (Read-EnumField $entry '_Stat') (Read-EnumField $entry '_Amount')
   }
-  return @{ name = $(if ($nameField) { $set.ReadStringField($nameField) } else { '' }); bonuses = @($bonuses.Keys | ForEach-Object { @{ pieces = [int]$_; stats = $bonuses[$_] } }) }
+  foreach ($entry in (Read-AnyList ($set.ReadObjectField('<Bonuses>k__BackingField')))) {
+    if ($entry.IsNull -or -not (& $forMe $entry)) { continue }
+    & $add (Read-EnumField $entry '_RequiredPieces') (Read-EnumField $entry '_Stat') (Read-EnumField $entry '_Amount')
+  }
+  return @{ name = $set.ReadStringField('_SetName'); pieces = $all; bonuses = @($bonuses.Keys | ForEach-Object { @{ pieces = [int]$_; stats = $bonuses[$_] } }) }
 }
 function Read-Item($item, [int]$slot) {
   $info = $item.ReadObjectField('Info')
@@ -640,6 +639,8 @@ function Read-Item($item, [int]$slot) {
   }
 }
 function Read-Gear($scene) {
+  # The character's class as a Library.RequiredClass flag, for set bonuses (Read-ItemSet).
+  $script:classFlag = $(try { $c = [int]$scene.ReadObjectField('_User').ReadField[byte]('_Class'); if ($c -le 7) { 1 -shl $c } elseif ($c -eq 8) { 256 } else { 512 } } catch { 0 })
   $worn = @()
   $equipment = $scene.ReadObjectField('Equipment')
   if (-not $equipment.IsNull) {

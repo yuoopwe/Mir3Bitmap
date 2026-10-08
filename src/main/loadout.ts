@@ -14,7 +14,7 @@
  * that take two items (both rings, a ring and a bracelet) show. Pure: no game,
  * no screen.
  */
-import { elementOf, type Combat, type Fighter } from './combat-model';
+import { elementAttackOf, type Combat, type Fighter } from './combat-model';
 import type { MemoryItem, MemoryState } from './game-memory';
 import { ITEM_SLOTS, SLOT_NAMES, cantWear } from './loot-judge';
 
@@ -181,8 +181,8 @@ export function predict(char: Character, from: readonly Worn[], to: readonly Wor
 /** The character with these totals, for the combat model; the weapon's element from what's worn. */
 export function fighterFrom(char: Character, totals: Stats, worn: readonly Worn[]): Fighter {
   const combat = Object.fromEntries(Object.entries(COMBAT_STATS).map(([key, n]) => [key, totals[n] ?? 0])) as Combat;
-  const element = elementOf(worn.filter((w) => !givesNothing(w.item, w.slot, char.mounted)).map((w) => w.item));
-  return { ...combat, cls: char.cls, level: char.level, maxHp: totals[HEALTH] ?? 0, ...(element && { element }) };
+  const element = elementAttackOf(worn.filter((w) => !givesNothing(w.item, w.slot, char.mounted)).map((w) => w.item));
+  return { ...combat, cls: char.cls, level: char.level, maxHp: totals[HEALTH] ?? 0, ...(element && { element: element.element, elementAttack: element.amount }) };
 }
 
 /** Why the character can't put the item on with these totals (class, level, a stat requirement), or null. */

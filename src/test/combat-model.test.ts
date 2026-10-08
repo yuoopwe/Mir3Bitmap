@@ -104,11 +104,19 @@ test("the character from the game's memory: stats, class, level, and the weapon'
   const user = { name: 'A', x: 0, y: 0, level: 48, class: 0, hp: 1000, maxHp: 1500, combat: { ...WARRIOR } };
   const sword = { slot: 0, name: 'Fire Sword', type: 2, rarity: 0, lootLevel: 0, cls: 1, needs: 0, needsAmount: 1, flags: 0, canSell: true, durability: 1, maxDurability: 1, base: { 20: 5 }, added: {} };
   assert.equal(fighterOf(user, [sword])!.element, 'Fire');
+  assert.equal(fighterOf(user, [sword])!.elementAttack, 5);
+  // Added up over what's worn: two pieces of Lightning beat one bigger piece of Fire.
+  const ring = { ...sword, slot: 7, name: 'Spark Ring', base: { 24: 4 } };
+  assert.deepEqual([fighterOf(user, [sword, ring, { ...ring, slot: 8 }])!.element, fighterOf(user, [sword, ring, { ...ring, slot: 8 }])!.elementAttack], ['Lightning', 8]);
   assert.equal(fighterOf(user)!.maxHp, 1500);
   assert.equal(fighterOf({ ...user, combat: null }), null);
-  // The Zuma Guardian resists Fire at -50: a fire weapon hits it half as hard again.
-  const fire = fight({ ...WARRIOR, element: 'Fire' }, guardian).damagePerSecond / fight(WARRIOR, guardian).damagePerSecond;
-  assert.ok(Math.abs(fire - 1.5) < 1e-9);
+  // Elemental attack is extra damage on each blow, less the resistance: the Zuma Guardian resists Fire at -50, so
+  // 10 Fire attack adds 15 a blow; its Lightning resistance of 50 halves 10 Lightning attack to 5. The blow itself is
+  // untouched (Lightning gear didn't halve kills there: measured).
+  const per = (element?: string) => fight({ ...WARRIOR, ...(element && { element, elementAttack: 10 }) }, guardian).perSwing;
+  const hit = fight(WARRIOR, guardian).hitChance;
+  assert.ok(Math.abs(per('Fire') - per() - 15 * hit) < 1e-9);
+  assert.ok(Math.abs(per('Lightning') - per() - 5 * hit) < 1e-9);
   assert.deepEqual(potionInBag(data, { 'Health Potion (L)': 5, 'Health Potion (XL)': 0, 'Health Potion (M)': 9 }, 48), { name: 'Health Potion (L)', heal: 300, price: 200, count: 5 });
   // As learned: the M on the key, though bigger ones are in the bag.
   assert.equal(potionInBag(data, { 'Health Potion (L)': 5, 'Health Potion (M)': 9 }, 48, 'Health Potion (M)')!.name, 'Health Potion (M)');

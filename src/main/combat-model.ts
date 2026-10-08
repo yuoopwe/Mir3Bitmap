@@ -25,7 +25,12 @@ export const COMBAT = {
   castMs: 1200,
   /** A blow (its roll less the defence's roll) does at least this much: 0, as fights where nothing gets through show. */
   minDamage: 0,
-  /** The weapon's element against the monster's resistance to it: each point takes this share off a blow. A guess. */
+  /**
+   * Elemental attack (FireAttack...) is extra damage of that element on each blow, as much as the stat; each point of the
+   * monster's resistance to it takes this share off that extra (negative: adds). The blow itself isn't touched: kills
+   * measured against Zuma monsters (Lightning resistance 50) with Lightning gear took the time the plain blow says, not
+   * twice it. How big the extra really is isn't known: small next to the blow either way.
+   */
   resistancePerPoint: 0.01,
   /** A kill shows this many swings before the last would end: the last blow lands N-1 swings on, its death is seen a moment later. */
   lastSwingShare: 0.5,
@@ -53,7 +58,7 @@ export const CLASS_NAMES = ['Warrior', 'Wizard', 'Taoist', 'Assassin', 'Summoner
 export type Combat = NonNullable<NonNullable<MemoryState['user']>['combat']>;
 
 /** The character: their stats with gear, class (Library.MirClass), level, most health, and their weapon's element ('Fire'...), if any. */
-export type Fighter = Combat & { cls: number; level: number; maxHp: number; element?: string };
+export type Fighter = Combat & { cls: number; level: number; maxHp: number; element?: string; elementAttack?: number };
 
 /** A monster: its stats (travel.json's monsterCombat), level and health, the milliseconds between its attacks, and its resistances by element. */
 export type Foe = Combat & { name: string; level: number; health: number; attackDelay: number; resist: Record<string, number> };
@@ -112,24 +117,23 @@ const ELEMENTS = ['Fire', 'Ice', 'Lightning', 'Wind', 'Holy', 'Dark', 'Shadow'];
 /** Library.Stat numbers of the elements' attack stats, in ELEMENTS' order. */
 const ELEMENT_ATTACKS = [20, 22, 24, 26, 28, 30, 32];
 
-/** The element of the strongest elemental attack among what's worn ('Fire'...), if any. */
+/** The strongest elemental attack in all that's worn, added up by element ('Fire'...), and how much; null with none. */
+export function elementAttackOf(worn: readonly MemoryItem[]): { element: string; amount: number } | null {
+  const totals = ELEMENT_ATTACKS.map((n) => worn.reduce((sum, item) => sum + (item.base[n] ?? 0) + (item.added[n] ?? 0), 0));
+  const best = totals.reduce((b, amount, i) => (amount > totals[b] ? i : b), 0);
+  return totals[best] > 0 ? { element: ELEMENTS[best], amount: totals[best] } : null;
+}
+
+/** The element of the strongest elemental attack in what's worn ('Fire'...), if any. */
 export function elementOf(worn: readonly MemoryItem[]): string | undefined {
-  let element: string | undefined;
-  let best = 0;
-  for (const item of worn) {
-    ELEMENT_ATTACKS.forEach((n, i) => {
-      const amount = (item.base[n] ?? 0) + (item.added[n] ?? 0);
-      if (amount > best) [best, element] = [amount, ELEMENTS[i]];
-    });
-  }
-  return element;
+  return elementAttackOf(worn)?.element;
 }
 
 /** The character from the game's memory, or null without their stats. `worn` gives the weapon's element. */
 export function fighterOf(user: MemoryState['user'], worn: readonly MemoryItem[] = []): Fighter | null {
   if (!user?.combat || !user.maxHp || user.class === undefined || user.level === undefined) return null;
-  const element = elementOf(worn);
-  return { ...user.combat, cls: user.class, level: user.level, maxHp: user.maxHp, ...(element && { element }) };
+  const element = elementAttackOf(worn);
+  return { ...user.combat, cls: user.class, level: user.level, maxHp: user.maxHp, ...(element && { element: element.element, elementAttack: element.amount }) };
 }
 
 /** The Combat stats in a fixed order, for a kill's note of the character's stats then (grind-log.ts Kill.stats). */
@@ -284,11 +288,13 @@ export function fight(me: Fighter, foe: Foe, options: { supplies?: Supplies; fac
   // The character's blows.
   const physical = physicalClass(me);
   const hitChance = physical ? Math.min(1, me.accuracy / Math.max(1, foe.agility)) : 1;
+  // Elemental attack: extra damage on each blow, less the monster's resistance to that element.
   const resist = me.element ? (foe.resist[me.element] ?? 0) : 0;
-  const scale = Math.max(0, 1 - resist * COMBAT.resistancePerPoint) * factors.damage;
+  const extra = me.element ? (me.elementAttack ?? 0) * Math.max(0, 1 - resist * COMBAT.resistancePerPoint) : 0;
+  const scale = factors.damage;
   const blow = blowMoments(attackOf(me, physical), physical ? [foe.minAC, foe.maxAC] : [foe.minMR, foe.maxMR]);
-  const perSwing = hitChance * blow.mean * scale;
-  const variance = (hitChance * blow.square - (hitChance * blow.mean) ** 2) * scale * scale;
+  const perSwing = hitChance * (blow.mean + extra) * scale;
+  const variance = (hitChance * (blow.square + 2 * extra * blow.mean + extra * extra) - (hitChance * (blow.mean + extra)) ** 2) * scale * scale;
   const swing = swingMs(me) / 1000;
   const hits = hitsToKill(perSwing, Math.max(0, variance), foe.health);
   const seconds = Math.max(hits.mean - COMBAT.lastSwingShare, COMBAT.lastSwingShare) * swing;
