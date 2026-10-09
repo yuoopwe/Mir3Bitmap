@@ -11,6 +11,7 @@ import type { MapGrid } from './map-grid';
 import { LabelTracker, isFloating, type Sighting } from './sightings';
 import type { MemoryObject, MemoryState } from './game-memory';
 import { FightTimer } from './grind-log';
+import { AreaMeter } from './area-damage';
 import { readBar, signatureDifference, targetHpFill, viewSignature } from './vision';
 import { AIM_SPOTS, FLOOR_CLICKS, FLOOR_CLICK_GAP_MS, type HuntTarget, ITEM_CLICK_EVERY_MS, LOOT_GIVE_UP_MS, LOOT_SKIP_MS, LOOT_WALK_GIVE_UP_MS, ROAM_DIRECTIONS, ROAM_DISTANCE, RUN_TICK_MS, STEER_ROUND_TILES, hostile, nameIn, wholeSecondsSince } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -182,6 +183,8 @@ export class Hunting {
     let stopping: string | null = null;
     /** Each fight timed, for Grind's measurements (kept in the grind log, by character). */
     const fights = new FightTimer(isBoss);
+    /** The damage landing round the character, for Grind's area damage (area-damage.ts). */
+    const area = new AreaMeter();
     this.huntDist = null;
     this.seek = null;
     this.visitedSpots.clear();
@@ -228,6 +231,8 @@ export class Hunting {
         const name = memory.user?.name ?? '';
         for (const kill of kills) this.bot.options.grindLog.addKill(name, kill);
         if (death) this.bot.options.grindLog.addDeath(name, death);
+        const sample = area.update(memory, now);
+        if (sample) this.bot.options.grindLog.addAreaSample(name, sample);
       }
       const candidates = memory ? this.memoryTargets(memory) : this.screenTargets(sightings, now);
       const live = candidates.filter((c) => !skipped.has(c.key));

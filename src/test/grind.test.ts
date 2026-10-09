@@ -3,8 +3,9 @@ import path from 'node:path';
 import { test } from 'node:test';
 import {
   autoLevelsAbove, blendMeasurements, characterDamage, chooseGrindMap, damagePerSecond, damageTrust, dangerByGap, describeChoice, GRIND, levelAllows, measuredDamage, rateMap, rateMaps,
-  type GrindChoice, type MapRating, type QuestTarget,
+  type GrindChoice, type GrindOptions, type MapRating, type QuestTarget,
 } from '../main/grind';
+import { NO_AREA, type AreaDamage, type Crowding } from '../main/area-damage';
 import type { Fights, GrindSession, Kill } from '../main/grind-log';
 import { loadTravelData, planRoute, type Start, type TravelData } from '../main/travel';
 
@@ -405,4 +406,49 @@ test("no double counting: a stint that went well because of harder hits doesn't 
 test('the status line says how far above the level it fights', () => {
   assert.match(describeChoice(choices.get(35)!, 35, { levels: 4, capped: false }), /\); fighting up to \+4 \(auto\)$/);
   assert.match(describeChoice(choices.get(35)!, 35, { levels: 5, capped: true }), /; fighting up to \+5 \(cap\)$/);
+});
+
+// ---- Area damage ----
+
+const ZUMA_5 = 37;
+const PRAJNA_9E = 28;
+/** Learned: three at once take 2.6 times what one does (0.8 of a target each beyond the first), fully trusted. */
+const AREA_ATTACK: AreaDamage = { gain: 0.8, trust: 1, measured: 0.8, seconds: 3600, aloneSeconds: 1800, crowdSeconds: 1800 };
+/** Zuma Temple Lv 5 is ground in crowds of 3; Prajna Temple Lv 9 East alone. */
+const crowding: Crowding = { maps: new Map([[ZUMA_5, { crowd: 3, seconds: 600 }], [PRAJNA_9E, { crowd: 1, seconds: 600 }]]), pull: 1, trust: 1 };
+const level30 = { level: 30, cls: 0 };
+const ratedAt = (map: number, more: Partial<GrindOptions> = {}) => rateMap(data, map, level30, { ...options, ...more }) as MapRating;
+
+test('area damage: a packed map rises with a learned gain, one ground alone does not, and none learned changes nothing', () => {
+  const plain = ratedAt(ZUMA_5);
+  const area = ratedAt(ZUMA_5, { area: { damage: AREA_ATTACK, crowding } });
+  assert.equal(area.crowd, 3);
+  assert.ok(Math.abs(area.areaSpeedUp - 2.6) < 1e-9);
+  // Kills there 2.6 times as quick: the rate up by much (not 2.6 times: the walk between monsters is the same).
+  assert.ok(area.rate > plain.rate * 1.3, `${area.rate} against ${plain.rate}`);
+  // Prajna Temple Lv 9 East, fought one at a time: no change.
+  assert.deepEqual(ratedAt(PRAJNA_9E, { area: { damage: AREA_ATTACK, crowding } }).rate, ratedAt(PRAJNA_9E).rate);
+  // No area attack learned (or nothing measured): every map's rating exactly as without (the crowd expected there aside).
+  const ratings = (more: Partial<GrindOptions>) => rateMaps(data, level30, { ...options, ...more }).map(({ crowd: _crowd, ...r }) => r);
+  for (const damage of [NO_AREA, { ...AREA_ATTACK, gain: 0 }, { ...AREA_ATTACK, trust: 0 }]) assert.deepEqual(ratings({ area: { damage, crowding } }), ratings({}));
+  // With it, a packed map is the best there is, and Zuma Temple Lv 5 leaves Prajna Temple Lv 9 East further behind.
+  const top = rateMaps(data, level30, { ...options, area: { damage: AREA_ATTACK, crowding } })[0];
+  assert.ok(top.crowd >= 3, `${top.name}: ${top.crowd}`);
+  const lead = (more: Partial<GrindOptions>) => ratedAt(ZUMA_5, more).rate / ratedAt(PRAJNA_9E, more).rate;
+  assert.ok(lead({ area: { damage: AREA_ATTACK, crowding } }) > lead({}) * 1.3);
+});
+
+test("area damage and measured stints: a stint's experience already has its area damage in it, so it isn't counted twice", () => {
+  const area = { damage: AREA_ATTACK, crowding };
+  const estimate = ratedAt(ZUMA_5, { area }).estimate;
+  // An hour there that made just what the estimate with area damage says, with the speed-up it measured itself.
+  const hour: GrindSession = { map: ZUMA_5, level: 30, ms: 3_600_000, exp: estimate, at: 1, crowd: 3, area: 2.6, areaTrust: 1 };
+  const measured = ratedAt(ZUMA_5, { area, measured: [hour] });
+  assert.ok(Math.abs(measured.measured!.rate / estimate - 1) < 1e-9, `${measured.measured!.rate} against ${estimate}`);
+  // An older stint without the fields goes by today's speed-up: the same.
+  const { crowd: _c, area: _a, areaTrust: _t, ...old } = hour;
+  assert.ok(Math.abs(ratedAt(ZUMA_5, { area, measured: [old] }).measured!.rate / estimate - 1) < 1e-9);
+  // A stint from before the area attack (none measured then: speed-up 1) that made the plain estimate: today's rate keeps the area damage, once.
+  const before: GrindSession = { ...hour, exp: ratedAt(ZUMA_5).estimate, area: 1 };
+  assert.ok(Math.abs(ratedAt(ZUMA_5, { area, measured: [before] }).measured!.rate / estimate - 1) < 1e-9);
 });

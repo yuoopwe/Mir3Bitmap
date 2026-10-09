@@ -14,7 +14,8 @@
 import type { StatGuideView } from '../shared/types';
 import { calibrate, describeCalibration, drinkMs, PotionWatch, type Calibration } from './calibration';
 import { CLASS_NAMES, fighterOf, foeOf, potionInBag, type Fighter, type Supplies } from './combat-model';
-import { autoLevelsAbove, rateMaps } from './grind';
+import { autoLevelsAbove, rateMaps, spawnDensity } from './grind';
+import { describeArea, expectedCrowd, learnAreaDamage, learnCrowding } from './area-damage';
 import { cantSurvive, circuitBosses, focusWeights, gain, statValues, worthOf, type ElixirAdvice, type GuideInput, type StatValues } from './stat-values';
 import { GearWatch, LOADOUT, characterOf, describeCheck, describeSwap, fighterFrom, gearCorrections, optimise, type LoadoutPlan } from './loadout';
 import { brokenWorn } from './loot-judge';
@@ -62,6 +63,8 @@ export class StatGuide {
   /** What the guide was last worked out with, for scoring gear; and the gear advice from it. */
   private input: GuideInput | null = null;
   private gear: GearAdvice | null = null;
+  /** The area damage line for the card, at the crowd expected on Grind's map (area-damage.ts describeArea). */
+  private areaLine = 'Area damage: not measured yet';
 
   constructor(private readonly bot: BotContext) {}
 
@@ -123,9 +126,14 @@ export class StatGuide {
     const { me } = model;
     const band = autoLevelsAbove(log.fights(user.name), this.bot.settings.grind.maxLevelsAbove, Date.now());
     const grinder = { level: me.level, cls: me.cls };
-    const grindOptions = { maxLevelsAbove: band.levels, quests: reading?.questTargets ?? undefined };
+    // Grind's maps rated as Grind rates them: with the area damage learned, crowds going down faster.
+    const samples = log.areaSamples(user.name);
+    const area = { damage: learnAreaDamage(samples, me.level), crowding: learnCrowding(samples, (m) => spawnDensity(data, m)) };
+    const grindOptions = { maxLevelsAbove: band.levels, quests: reading?.questTargets ?? undefined, area };
     const best = rateMaps(data, grinder, grindOptions).slice(0, GRIND_CANDIDATES).map((r) => r.map);
     const maps = [...new Set([...(grinding !== undefined ? [grinding] : []), ...best])];
+    const top = maps[0];
+    this.areaLine = describeArea(area.damage, top === undefined ? 1 : expectedCrowd(area.crowding, top, spawnDensity(data, top)));
     const quests = (this.bot.settings.circuit?.quests ?? [])
       .map((id) => data.quests?.find((q) => q.id === id))
       .filter((q): q is TravelQuest => !!q && (q.level ?? 0) <= me.level);
@@ -224,6 +232,7 @@ export class StatGuide {
       elixirs: values.elixirs.map((e) => ({ line: e.line, pays: e.pays })),
       potions,
       calibration: describeCalibration(model.calibration),
+      area: this.areaLine,
       gear: {
         swaps: this.gear?.plan.swaps.map((swap) => describeSwap(swap, this.bot.options.memory.latest()?.gear?.columns)) ?? [],
         gain: this.gear ? (this.gear.plan.swaps.length ? describeGain(this.gear.plan.score, this.gear.expGain, this.gear.opens, this.input!) : "what's worn is the best found") : 'not worked out (the gear and stats not read yet)',

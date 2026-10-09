@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.renderer.json && tsc -p tsconfig.json",
     "start": "npm run build && node scripts/start.js",
-    "test": "npm run build && node --test dist/test/vision.test.js dist/test/hunting.test.js dist/test/triad.test.js dist/test/triad-player.test.js dist/test/triad-deck.test.js dist/test/map-grid.test.js dist/test/travel.test.js dist/test/grind.test.js dist/test/grind-log.test.js dist/test/quest-planner.test.js dist/test/gather-planner.test.js dist/test/loot-judge.test.js dist/test/combat-model.test.js dist/test/calibration.test.js dist/test/stat-values.test.js dist/test/loadout.test.js dist/test/map-view.test.js dist/test/boss-planner.test.js dist/test/random-teleport.test.js dist/test/bot-scenarios.test.js dist/test/map-explorer.test.js dist/test/session-stats.test.js",
+    "test": "npm run build && node --test dist/test/vision.test.js dist/test/hunting.test.js dist/test/triad.test.js dist/test/triad-player.test.js dist/test/triad-deck.test.js dist/test/map-grid.test.js dist/test/travel.test.js dist/test/grind.test.js dist/test/grind-log.test.js dist/test/quest-planner.test.js dist/test/gather-planner.test.js dist/test/loot-judge.test.js dist/test/combat-model.test.js dist/test/calibration.test.js dist/test/stat-values.test.js dist/test/loadout.test.js dist/test/area-damage.test.js dist/test/map-view.test.js dist/test/boss-planner.test.js dist/test/random-teleport.test.js dist/test/bot-scenarios.test.js dist/test/map-explorer.test.js dist/test/session-stats.test.js",
     "record": "npm run build && node scripts/start-script.js scripts/record-frames.js",
     "ui-harness": "npm run build && node scripts/ui-harness.js"
   },

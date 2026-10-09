@@ -166,3 +166,24 @@ test("the combat model's notes: a kill's newer fields, Boss circuit time and wha
   assert.equal(junk.potions('Alice'), null);
   assert.deepEqual(junk.gearChecks('Alice'), []);
 });
+
+test('area damage samples are saved as versioned rows and loaded back; another version, junk rows and bad stint fields are dropped', () => {
+  const log = new GrindLog(() => {});
+  const sample = { at: 5, map: 37, level: 30, seconds: 5, damage: 900, crowd: 2.4 };
+  log.addAreaSample('Alice', sample);
+  log.add('Alice', { map: 37, level: 30, ms: 60_000, exp: 10, at: 6, crowd: 2.4, area: 1.9, areaTrust: 0.3 });
+  const saved = JSON.parse(JSON.stringify(log.toJSON()));
+  assert.deepEqual(saved.area, { Alice: { v: 1, samples: [[5, 37, 30, 5, 900, 2.4]] } });
+  const again = new GrindLog(() => {});
+  again.load(saved);
+  assert.deepEqual(again.areaSamples('Alice'), [sample]);
+  assert.deepEqual(again.sessions('Alice')[0], { map: 37, level: 30, ms: 60_000, exp: 10, at: 6, crowd: 2.4, area: 1.9, areaTrust: 0.3 });
+  assert.deepEqual(again.toJSON(), log.toJSON());
+  // A file from before area damage loads as before; a later version's samples, and broken rows, aren't taken.
+  const old = new GrindLog(() => {});
+  old.load({ characters: { Alice: [{ map: 37, level: 30, ms: 60_000, exp: 10, at: 6, crowd: 'x', area: 2, areaTrust: 1 }] } });
+  assert.deepEqual([old.areaSamples('Alice'), old.sessions('Alice')[0]], [[], { map: 37, level: 30, ms: 60_000, exp: 10, at: 6 }]);
+  const junk = new GrindLog(() => {});
+  junk.load({ characters: {}, area: { Alice: { v: 2, samples: [[5, 37, 30, 5, 900, 2.4]] }, Bob: { v: 1, samples: [[1, 2, 3], [5, 37, 30, 5, 'x', 2], [5, 37, 30, 5, 900, 1]] } } });
+  assert.deepEqual([junk.areaSamples('Alice'), junk.areaSamples('Bob')], [[], [{ at: 5, map: 37, level: 30, seconds: 5, damage: 900, crowd: 1 }]]);
+});

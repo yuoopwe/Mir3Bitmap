@@ -167,6 +167,21 @@ what to repair. Item weights and sets are read from the game's ItemInfo and the 
 found; a double-click puts a ring or bracelet where the game chooses, so a plan that needs the other place can stop
 short ("went round in circles").
 
+### Area damage
+
+Grind favours packed maps once the character's attacks are seen to hit several monsters at once
+(`src/main/area-damage.ts`). Rather than model skills, it measures: while hunting, the damage landing on every hostile
+monster within 3 tiles (the reach of a Half Moon or a 3x3 spell cast a tile or two off), whether it was clicked or
+not, over the time spent fighting (damage landed in the last 2 s), as 5 s samples kept in the grind log. Monsters
+next to a pet or another player are theirs, and nothing is measured with another player within 9 tiles (they could be
+shooting from range). From the samples: the damage rate in a crowd over the rate alone gives the extra targets' worth
+(effective targets = 1 + gain x (crowd − 1), at most 5), trusted as 10 minutes each alone and in crowds build up;
+gains under 0.15 are noise, so a character with no area attack plans exactly as before. How crowded each map gets is
+learned too (monsters chase, so more than the spawn density says), and how that relates to spawn density, so maps
+never ground on get an expected crowd. Kills on a map then go quicker by the speed-up at its crowd; measured stints
+are estimated with the speed-up they measured themselves (as with the damage), so it isn't counted twice. Grind says
+it after each plan ("Area damage: ~3 monsters at once clear 1.8x as fast (40 min measured)"), as does the Stat guide.
+
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and
@@ -352,6 +367,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/calibration.ts` – the model checked against the character's fights, and what's learned of their potions
 - `src/main/stat-values.ts` – the stat guide: each stat's and elixir's worth for Grind and the Boss circuit, what's out of reach
 - `src/main/loadout.ts` – the best gear: totals changed by each swap from the game's own, the search, checks against the game
+- `src/main/area-damage.ts` – area damage: measured round the character, the speed-up in crowds and how crowded maps get
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses

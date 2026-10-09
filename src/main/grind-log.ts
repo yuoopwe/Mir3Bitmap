@@ -1,13 +1,14 @@
 /**
  * Grind's measurements: the experience each character really gained hunting
  * on each map, and for how long; and their fights (each kill timed, the health
- * it cost, and deaths). Kept between runs (saved by main.ts as
+ * it cost, and deaths; and the damage landing round them, for area damage). Kept between runs (saved by main.ts as
  * userData/grind.json). The planner (grind.ts) blends them with its estimates.
  */
 import type { MemoryState } from './game-memory';
 import { packFighter } from './combat-model';
 import { potionNotesFrom, type PotionNotes } from './calibration';
 import type { GearCheck } from './loadout';
+import type { AreaSample } from './area-damage';
 
 /** One stint of hunting on a map: how long (not travelling, not paused), and the experience it brought. */
 export interface GrindSession {
@@ -21,6 +22,13 @@ export interface GrindSession {
   /** The kills timed during it, and the damage per second they took: what its estimate is worked out with (grind.ts). */
   kills?: number;
   dps?: number;
+  /**
+   * Its area damage (area-damage.ts stintArea), for its estimate too: the crowd fought, the speed-up measured at it,
+   * and how far that's trusted. Older stints lack them.
+   */
+  crowd?: number;
+  area?: number;
+  areaTrust?: number;
 }
 
 /** A kill, timed from the first blow to its death. */
@@ -85,6 +93,11 @@ const MAX_KILLS = 300;
 const MAX_DEATHS = 50;
 /** ...and this many Boss circuit stints. */
 const MAX_BOSS_STINTS = 200;
+/** ...and this many area damage samples (5 s of fighting each: over an hour and a half). */
+const MAX_AREA_SAMPLES = 1000;
+/** Area samples are saved as rows of numbers in this order, under this version (a file with another loads none). */
+const AREA_FIELDS = ['at', 'map', 'level', 'seconds', 'damage', 'crowd'] as const;
+const AREA_VERSION = 1;
 /** Kills quicker than this (seconds) can't be timed; slower ones weren't one fight (out of reach, run off). */
 const MIN_KILL_SECONDS = 0.3;
 const MAX_KILL_SECONDS = 120;
@@ -147,7 +160,9 @@ interface Fight {
  * click, it doesn't count. The character's health lost meanwhile goes to the
  * monster being fought (rises, from regeneration or potions, only move the
  * mark, and count as put back), as do the potions drunk. Kills too quick or
- * too slow to time, and bosses, don't count.
+ * too slow to time, and bosses, don't count. So kills hurt first by the
+ * character's own area blows are dropped too: these times are one monster at a
+ * time, and area damage is measured on its own (area-damage.ts AreaMeter).
  */
 export class FightTimer {
   /** Monsters attacked, by id. */
@@ -240,6 +255,7 @@ export class GrindLog {
   private readonly bossStints = new Map<string, BossStint[]>();
   private readonly potionNotes = new Map<string, PotionNotes>();
   private readonly gearCheckLog = new Map<string, GearCheck[]>();
+  private readonly areaLog = new Map<string, AreaSample[]>();
 
   constructor(private readonly onChange: () => void) {}
 
@@ -308,17 +324,33 @@ export class GrindLog {
     this.onChange();
   }
 
+  /** A character's area damage samples (area-damage.ts), oldest first. */
+  areaSamples(character: string): AreaSample[] {
+    return this.areaLog.get(character) ?? [];
+  }
+
+  addAreaSample(character: string, sample: AreaSample): void {
+    if (!character) return;
+    this.areaLog.set(character, [...this.areaSamples(character), sample].slice(-MAX_AREA_SAMPLES));
+    this.onChange();
+  }
+
   /** Takes what toJSON saved (fights are newer than stints: a file without them loads as before). */
   load(saved: unknown): void {
     const data = saved as {
       characters?: Record<string, unknown>; fights?: Record<string, unknown>; bossTime?: Record<string, unknown>; potions?: Record<string, unknown>; gearChecks?: Record<string, unknown>;
+      area?: Record<string, unknown>;
     } | null;
     if (!data || typeof data.characters !== 'object' || !data.characters) return;
     for (const [name, list] of Object.entries(data.characters)) {
       if (!Array.isArray(list)) continue;
       const valid = list
         .filter((s): s is GrindSession => finite(s, ['map', 'level', 'ms', 'exp', 'at']))
-        .map(({ kills, dps, ...s }) => (Number.isFinite(kills) && Number.isFinite(dps) ? { ...s, kills, dps } : s));
+        .map(({ kills, dps, crowd, area, areaTrust, ...s }) => ({
+          ...s,
+          ...(Number.isFinite(kills) && Number.isFinite(dps) && { kills, dps }),
+          ...(Number.isFinite(crowd) && Number.isFinite(area) && Number.isFinite(areaTrust) && { crowd, area, areaTrust }),
+        }));
       this.characters.set(name, valid.slice(-MAX_SESSIONS));
     }
     for (const [name, fights] of Object.entries(data.fights && typeof data.fights === 'object' ? data.fights : {})) {
@@ -346,11 +378,17 @@ export class GrindLog {
       if (!Array.isArray(list)) continue;
       this.gearCheckLog.set(name, list.filter((c): c is GearCheck => finite(c, ['at']) && Array.isArray((c as GearCheck).stats) && (c as GearCheck).stats.every(row)));
     }
+    for (const [name, saved] of Object.entries(data.area && typeof data.area === 'object' ? data.area : {})) {
+      const { v, samples } = (saved ?? {}) as { v?: unknown; samples?: unknown };
+      if (v !== AREA_VERSION || !Array.isArray(samples)) continue;
+      const rows = samples.filter((r): r is number[] => Array.isArray(r) && r.length === AREA_FIELDS.length && r.every((x) => Number.isFinite(x)));
+      this.areaLog.set(name, rows.map((r) => Object.fromEntries(AREA_FIELDS.map((f, i) => [f, r[i]])) as unknown as AreaSample).slice(-MAX_AREA_SAMPLES));
+    }
   }
 
   toJSON(): {
     characters: Record<string, GrindSession[]>; fights?: Record<string, Fights>; bossTime?: Record<string, BossStint[]>; potions?: Record<string, PotionNotes>;
-    gearChecks?: Record<string, GearCheck[]>;
+    gearChecks?: Record<string, GearCheck[]>; area?: Record<string, { v: number; samples: number[][] }>;
   } {
     return {
       characters: Object.fromEntries(this.characters),
@@ -358,6 +396,7 @@ export class GrindLog {
       ...(this.bossStints.size ? { bossTime: Object.fromEntries(this.bossStints) } : {}),
       ...(this.potionNotes.size ? { potions: Object.fromEntries(this.potionNotes) } : {}),
       ...(this.gearCheckLog.size ? { gearChecks: Object.fromEntries(this.gearCheckLog) } : {}),
+      ...(this.areaLog.size ? { area: Object.fromEntries([...this.areaLog].map(([name, list]) => [name, { v: AREA_VERSION, samples: list.map((x) => AREA_FIELDS.map((f) => x[f])) }])) } : {}),
     };
   }
 }

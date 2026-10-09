@@ -758,7 +758,7 @@ function showStatGuide(view: StatGuideView): void {
   guideSwaps.replaceChildren(...view.gear.swaps.map((swap) => item(swap)));
   guideBroken.replaceChildren(...view.gear.broken.map((line) => item(line, 'skipped')));
   guidePotions.textContent = view.potions;
-  guideCalibration.textContent = `Measured fights: ${view.calibration}.`;
+  guideCalibration.textContent = `Measured fights: ${view.calibration}. ${view.area}.`;
 }
 
 async function init(): Promise<void> {

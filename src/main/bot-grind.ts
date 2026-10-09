@@ -2,7 +2,8 @@
 
 import { walkDistances } from './map-path';
 import { loadTravelData, mapName } from './travel';
-import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage, rateMap, rateMaps, type GrindOptions } from './grind';
+import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage, rateMap, rateMaps, spawnDensity, type GrindOptions } from './grind';
+import { describeArea, learnAreaDamage, learnCrowding, stintArea } from './area-damage';
 import { ExperienceMeter, damageDealt } from './grind-log';
 import { BotError, MEMORY_START_MS } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -60,6 +61,11 @@ export class Grinding {
         danger: dangerByGap(fights),
         measured: log.sessions(user.name),
         quests: reading.questTargets ?? undefined,
+        // How much faster crowds go down (none seen: one at a time, as before), and how crowded each map gets.
+        area: {
+          damage: learnAreaDamage(log.areaSamples(user.name), level),
+          crowding: learnCrowding(log.areaSamples(user.name), (m) => spawnDensity(data, m)),
+        },
       };
       // Maps the combat model says can't be survived even with potions are left out (once they can, they're back).
       const cantSurvive: GrindOptions['cantSurvive'] = (m) => this.bot.guide.cantSurvive(m.name);
@@ -75,6 +81,7 @@ export class Grinding {
       this.bot.guide.update(choice.map);
       const plan = describeChoice(choice, level, band);
       this.bot.status(plan);
+      this.bot.status(describeArea(options.area?.damage, choice.crowd));
       if (map.index !== choice.map) {
         this.bot.status(await this.bot.travel.travelTo(`map:${choice.map}`));
         this.bot.status(plan);
@@ -104,7 +111,9 @@ export class Grinding {
       const ms = this.bot.clock.now() - huntStart - (this.bot.pausedMs - pausedBefore);
       // With the damage the kills timed on it took: the estimate it's checked against goes by that.
       const timed = damageDealt(log.fights(user.name).kills.filter((k) => k.at >= huntStartAt));
-      log.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now(), ...(timed && { kills: timed.kills, dps: timed.dps }) });
+      // ...and with the area damage it measured, which its experience has in it too.
+      const own = stintArea(log.areaSamples(user.name).filter((s) => s.at >= huntStartAt && s.map === choice.map), level);
+      log.add(user.name, { map: choice.map, level, ms, exp: meter.gained, at: Date.now(), ...(timed && { kills: timed.kills, dps: timed.dps }), ...own });
       if (why === 'dead') {
         await this.bot.survival.reviveInArcadia();
         continue;

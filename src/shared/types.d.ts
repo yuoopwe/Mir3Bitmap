@@ -232,6 +232,8 @@ export interface StatGuideView {
   /** The potion the bot drinks and what a kill costs in them; how the model compares with the fights measured. */
   potions: string;
   calibration: string;
+  /** What area damage has been seen: "Area damage: ~3 monsters at once clear 1.8x as fast (40 min measured)". */
+  area: string;
   /** The best gear from what's worn and the bag (src/main/loadout.ts): the swaps, what they bring, and worn items to repair. */
   gear: { swaps: string[]; gain: string; broken: string[] };
 }

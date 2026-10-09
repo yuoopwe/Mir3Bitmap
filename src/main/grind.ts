@@ -6,6 +6,7 @@
  * the current map unless another is clearly better. Pure: no game, no screen.
  */
 import type { Fights, GrindSession, Kill } from './grind-log';
+import { expectedCrowd, speedUp, type AreaDamage, type Crowding } from './area-damage';
 import { mapName, planRoute, spawnShare, type Route, type Start, type TravelData, type TravelMap, type Traveller } from './travel';
 
 /**
@@ -116,6 +117,11 @@ export interface GrindOptions {
   killSeconds?: (monster: MapMonster) => number | null;
   /** Why the combat model says a monster can't be survived even with potions (null: it can): it's worth nothing, and maps with too many such are left out. */
   cantSurvive?: (monster: MapMonster) => string | null;
+  /**
+   * The character's area damage and how crowded maps get (area-damage.ts), as learned from their fights: kills on a
+   * map go quicker by the speed-up at the crowd expected there. None: one monster at a time, as before.
+   */
+  area?: { damage: AreaDamage; crowding: Crowding };
 }
 
 /** A monster hunted on a map, as the combat model is asked about it: its name (lower case), level and health. */
@@ -143,6 +149,9 @@ export interface MapRating {
   monsterLevel: number;
   /** Share of them above the allowed level. */
   tooStrong: number;
+  /** The crowd expected round the character fighting there, and how many times as fast area damage clears it (1: none). */
+  crowd: number;
+  areaSpeedUp: number;
 }
 
 export interface GrindChoice extends MapRating {
@@ -222,7 +231,9 @@ export function rateMap(data: TravelData, mapIndex: number, who: Grinder, option
     .filter((d) => d.why);
   const deadlyShare = deadly.reduce((sum, d) => sum + d.m.n, 0) / monsters;
   if (deadlyShare > GRIND.tooStrongShare) return { skip: `can't be survived (${deadly[0].m.name}: ${deadly[0].why})` };
-  const estimate = estimateRate(data, mapIndex, hunted, level, characterDamage(data, level, who.cls, options.damage), options);
+  const crowd = expectedCrowd(options.area?.crowding, mapIndex, spawnDensity(data, mapIndex));
+  const areaSpeedUp = speedUp(options.area?.damage, crowd);
+  const estimate = estimateRate(data, mapIndex, hunted, level, characterDamage(data, level, who.cls, options.damage), options, areaSpeedUp);
 
   // Measured here: how it compared with its estimate (newest first), trusted as far as it goes. What's not
   // trusted goes by how the other maps compared with theirs, trusted less (elsewhereTrust).
@@ -242,7 +253,7 @@ export function rateMap(data: TravelData, mapIndex: number, who: Grinder, option
   const byLevel = [...hunted].sort((a, b) => a.level - b.level);
   let seen = 0;
   const median = byLevel.find((m) => (seen += m.n) >= monsters / 2)!.level;
-  return { map: mapIndex, name: map.name, rate: blended * questFactor, estimate, measured, quests, questFactor, monsters, monsterLevel: median, tooStrong };
+  return { map: mapIndex, name: map.name, rate: blended * questFactor, estimate, measured, quests, questFactor, monsters, monsterLevel: median, tooStrong, crowd, areaSpeedUp };
 }
 
 interface Hunted {
@@ -291,6 +302,17 @@ function huntedOn(data: TravelData, mapIndex: number): Hunted[] | null {
 /** The monsters hunted on a map (lower-case names) and how many of each to expect, as rateMap goes by them; null without spawn data. */
 export function mapMonsters(data: TravelData, mapIndex: number): readonly (MapMonster & { exp: number; n: number })[] | null {
   return huntedOn(data, mapIndex);
+}
+
+/**
+ * How densely monsters spawn on a map: those hunted there (rateMap's, bosses
+ * left out) over the tiles their spawn spots stand for. Null without spawn data.
+ */
+export function spawnDensity(data: TravelData, mapIndex: number): number | null {
+  const hunted = huntedOn(data, mapIndex);
+  const spots = data.spawns?.[mapIndex]?.length ?? 0;
+  if (!hunted || !spots) return null;
+  return hunted.reduce((sum, m) => sum + m.n, 0) / (spots * GRIND.spawnCellTiles ** 2);
 }
 
 /** The character's damage per second, as the estimates have it: the typical health at their level, killed in sameLevelKillSeconds. */
@@ -423,7 +445,10 @@ type EstimatedStint = GrindSession & { estimate: number };
  * out with the damage the character dealt then: its own kills' as far as they
  * go, else today's (as a share of the estimate's, at its level). So measuring
  * harder hits now doesn't count twice: a stint that went well because of them
- * doesn't add its ratio on top.
+ * doesn't add its ratio on top. Area damage the same way: the speed-up the
+ * stint measured itself (at the crowd it fought) as far as it's trusted, else
+ * today's at that crowd; the stint's experience already has its area damage
+ * in it, so the estimate it's compared with must too.
  */
 function estimatedStints(data: TravelData, who: Grinder, options: GrindOptions): EstimatedStint[] {
   const share = characterDamage(data, who.level, who.cls, options.damage) / damagePerSecond(data, who.level, who.cls);
@@ -435,16 +460,20 @@ function estimatedStints(data: TravelData, who: Grinder, options: GrindOptions):
       const today = damagePerSecond(data, s.level, who.cls) * share;
       const trust = s.kills && s.dps ? damageTrust(s.kills) : 0;
       const damage = today * (1 - trust) + (s.dps ?? 0) * trust;
-      return [{ ...s, estimate: estimateRate(data, s.map, hunted, s.level, damage, options) }];
+      const crowd = s.crowd ?? expectedCrowd(options.area?.crowding, s.map, spawnDensity(data, s.map));
+      const areaTrust = s.area !== undefined ? (s.areaTrust ?? 0) : 0;
+      const speed = speedUp(options.area?.damage, crowd) * (1 - areaTrust) + (s.area ?? 1) * areaTrust;
+      return [{ ...s, estimate: estimateRate(data, s.map, hunted, s.level, damage, options, speed) }];
     });
 }
 
 /**
  * The estimated exp/h from the game data for a character of this level
  * dealing `damage` a second: the monsters' total experience over the total time
- * to find and kill them.
+ * to find and kill them, the killing `speed` times as fast for area damage on
+ * the crowd there (1: one at a time).
  */
-function estimateRate(data: TravelData, mapIndex: number, hunted: Hunted[], level: number, damage: number, options: GrindOptions): number {
+function estimateRate(data: TravelData, mapIndex: number, hunted: Hunted[], level: number, damage: number, options: GrindOptions, speed = 1): number {
   const monsters = hunted.reduce((sum, m) => sum + m.n, 0);
   if (!monsters) return 0;
   // Between kills: the walk to the next monster, from how thinly they're spread over the spawn area.
@@ -462,7 +491,7 @@ function estimateRate(data: TravelData, mapIndex: number, hunted: Hunted[], leve
       : below > 0 ? Math.max(GRIND.outlevelFloor, 1 - below * GRIND.outlevelPerLevel)
       : 1;
     exp += m.n * m.exp * worth;
-    seconds += m.n * ((options.killSeconds?.(m) ?? m.health / damage) + GRIND.killOverheadSeconds + seekSeconds);
+    seconds += m.n * ((options.killSeconds?.(m) ?? m.health / damage) / speed + GRIND.killOverheadSeconds + seekSeconds);
   }
   return (exp / seconds) * 3600;
 }

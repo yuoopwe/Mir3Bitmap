@@ -334,6 +334,7 @@
     elixirs: [{ line: 'Haste (II): +6.3% exp/h for an hour, you have 25', pays: true }, { line: 'Destruction (IV): +3.4% exp/h for an hour, you have 0', pays: false }],
     potions: 'Health Potion (XL), 100 in the bag, one every 1.5 s at most. Potions a kill: Zuma Keeper 2.4 (970 gold).',
     calibration: '6% quicker kills than the model says (42 kills)',
+    area: 'Area damage: ~3 monsters at once clear 1.8x as fast (40 min measured)',
     gear: {
       swaps: ['Iron Sword for Steelforge Blade (Weapon)', 'Guard Ring for Old Ring (Ring)'],
       gain: '+18% exp/h; makes Zuma Keeper survivable',
