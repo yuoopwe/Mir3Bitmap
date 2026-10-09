@@ -431,6 +431,16 @@ test('Return to Arcadia: still in combat after a minute, the Town Portal scroll,
   checkAlways(game);
 });
 
+test('Return to Arcadia: broken off every time on the map, the Town Portal scroll, then Arcadia from town', async () => {
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, arcadiaBroken: 99 });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold in the end');
+  assert.equal(keyDowns(game, 0x33).length, 1, 'the scroll read once');
+  assert.equal(buttons(game, 'Return to Arcadia').filter((b) => b.t < keyDowns(game, 0x33)[0].t).length, 3, 'three tries first');
+  assert.deepEqual(of(game, 'mapChange').slice(0, 2).map((c) => [c.from, c.to, c.via]), [[BICHON, 6, 'portal'], [6, ARCADIA, 'arcadia']]);
+  checkAlways(game);
+});
+
 test("Pickups refused: three items in a row that won't pick up count as a full bag (Hunt, standing)", async () => {
   // The bag says 20 of 40, but takes nothing more until something is sold. Hunt without seeking stays put by the items.
   // (In Grind and Quests seeking runs off between tries: see the pull request.)

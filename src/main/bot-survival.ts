@@ -17,6 +17,8 @@ const ARCADIA_MAP = 563;
 
 /** How long to wait for Return to Arcadia (it may take a moment's channelling) and for coming back to life. */
 const ARCADIA_WAIT_MS = 20_000;
+/** Return to Arcadia is pressed this many times before the Town Portal scroll is tried (and then once more from town). */
+const ARCADIA_TRIES = 3;
 
 /** Return to Arcadia only works out of combat: this long after the last combat (the game's own 10 s, and a little). */
 const OUT_OF_COMBAT_S = 10.5;
@@ -175,13 +177,18 @@ export class Survival {
     return away();
   }
 
-  /** Presses Return to Arcadia (out of combat) and waits to arrive; tries a few times. */
+  /**
+   * Presses Return to Arcadia (out of combat) and waits to arrive; tries a few times. A fight starting meanwhile (a
+   * monster walking up on a busy map) stops the wait. When it still hasn't worked, the Town Portal scroll to a town,
+   * and Return to Arcadia from there.
+   */
   async returnToArcadia(why: string): Promise<void> {
     const memory = this.bot.options.memory;
     this.bot.stopRunning();
     this.bot.releaseHold();
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < ARCADIA_TRIES + 1; attempt++) {
       if (memory.latest()?.map?.index === ARCADIA_MAP) return;
+      if (attempt === ARCADIA_TRIES) await this.townPortal(`${why}: Return to Arcadia keeps failing; reading a Town Portal scroll`);
       await this.getOutOfCombat(why);
       const button = memory.latest()?.survival?.arcadia;
       if (button?.enabled) {
@@ -192,11 +199,28 @@ export class Survival {
       }
       for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ARCADIA_WAIT_MS; ) {
         await this.bot.yieldToEvents();
-        if (memory.latest()?.map?.index === ARCADIA_MAP) return;
+        const reading = memory.latest();
+        if (reading?.map?.index === ARCADIA_MAP) return;
+        // In combat again: that's the return broken off.
+        if ((reading?.user?.combatAgo ?? Infinity) < OUT_OF_COMBAT_S - 1 && this.bot.clock.now() - since > 1000) break;
         await this.bot.sleep(300);
       }
     }
     throw new BotError(`${why}, but Return to Arcadia didn't take me there (in combat?).`);
+  }
+
+  /** Reads the Town Portal scroll (when it has a key) and waits for the move to town. */
+  private async townPortal(status: string): Promise<void> {
+    const vk = keyCode(this.bot.settings.hunt.townPortalKey ?? '3');
+    if (vk === null) return;
+    const memory = this.bot.options.memory;
+    const from = memory.latest()?.map?.index;
+    this.bot.stopRunning();
+    this.bot.releaseHold();
+    this.bot.status(status);
+    await this.bot.moves.waitUntilStill();
+    this.bot.key(vk);
+    for (const start = this.bot.clock.now(); this.bot.clock.now() - start < TOWN_PORTAL_WAIT_MS && memory.latest()?.map?.index === from; ) await this.bot.sleep(300);
   }
 
   /**
@@ -209,16 +233,9 @@ export class Survival {
     for (let since = this.bot.clock.now(); ; ) {
       if (this.bot.clock.now() - since >= OUT_OF_COMBAT_GIVE_UP_MS) {
         // Still in combat after a minute: the Town Portal scroll, then wait out the 10 s in town.
-        const vk = keyCode(this.bot.settings.hunt.townPortalKey ?? '3');
-        if (portalled || vk === null) return;
+        if (portalled || keyCode(this.bot.settings.hunt.townPortalKey ?? '3') === null) return;
         portalled = true;
-        this.bot.stopRunning();
-        this.bot.releaseHold();
-        const from = memory.latest()?.map?.index;
-        this.bot.status(`${why}: can't get out of combat; reading a Town Portal scroll`);
-        await this.bot.moves.waitUntilStill();
-        this.bot.key(vk);
-        for (const start = this.bot.clock.now(); this.bot.clock.now() - start < TOWN_PORTAL_WAIT_MS && memory.latest()?.map?.index === from; ) await this.bot.sleep(300);
+        await this.townPortal(`${why}: can't get out of combat; reading a Town Portal scroll`);
         since = this.bot.clock.now();
         continue;
       }

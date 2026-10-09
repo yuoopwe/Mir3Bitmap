@@ -181,6 +181,8 @@ export interface FakeGameSetup {
   players?: { name: string; x: number; y: number; map?: number }[];
   /** Where the Town Portal scroll takes you, and its key (default '3'). */
   townPortal?: { map: number; x: number; y: number; key?: number };
+  /** Return to Arcadia's casts broken off (as by a monster walking up) this many times on maps other than the town portal's. */
+  arcadiaBroken?: number;
   /** Random teleport scrolls on `key`: each read lands on the next of `landings` (on the map the player is on), while `scrolls` last. */
   randomTeleport?: { key: number; landings: [number, number][]; scrolls?: number };
   /**
@@ -342,6 +344,7 @@ export class FakeGame {
   private chasing: Monster | null = null;
   private lastMoveEnd = -Infinity;
   private arcadiaAt: number | null = null;
+  private arcadiaBroken: number;
   private reviveAt: number | null = null;
 
   // Windows.
@@ -371,6 +374,7 @@ export class FakeGame {
     this.shopShutsOnBag = !!setup.shopShutsOnBag;
     const confirm = setup.sellConfirm;
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
+    this.arcadiaBroken = setup.arcadiaBroken ?? 0;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
     this.randomTeleport = setup.randomTeleport ? { scrolls: Infinity, ...setup.randomTeleport } : null;
     for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
@@ -537,6 +541,10 @@ export class FakeGame {
       if (!this.move && this.rightHeld && !this.player.dead && this.t >= this.loadedAt && this.startStride()) continue;
       if (!this.move && this.chasing && this.chaseStep()) continue;
       break;
+    }
+    if (this.arcadiaAt !== null && this.t >= this.arcadiaAt && this.arcadiaBroken > 0 && this.player.map !== ARCADIA.map && this.player.map !== this.townPortal.map) {
+      this.arcadiaAt = null;
+      this.arcadiaBroken--;
     }
     if (this.arcadiaAt !== null && this.t >= this.arcadiaAt) {
       this.arcadiaAt = null;
