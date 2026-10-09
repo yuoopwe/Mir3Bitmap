@@ -106,7 +106,7 @@ export class BossCircuit {
       const take = quests.find((q) => questStatus(q, log) === 'none' && !notOffered.has(q.id));
       if (take) {
         await this.toNpcMap(take.start, `Taking ${take.name}`);
-        await this.bot.quests.atQuestNpc(take.start, 'accept', `Taking ${take.name}`);
+        await this.bot.quests.atQuestNpc(take.start, 'accept', `Taking ${take.name}`, take);
         if (questStatus(take, memory.latest()?.questLog ?? []) === 'none') {
           notOffered.set(take.id, this.bot.clock.now() + NOT_OFFERED_RETRY_MS);
           this.bot.status(`${take.name} isn't on offer (done today?)`);
@@ -331,7 +331,7 @@ export class BossCircuit {
     const memory = this.bot.options.memory;
     const before = this.stones(memory.latest());
     await this.toNpcMap(quest.finish, `Handing in ${quest.name}`);
-    const n = await this.bot.quests.atQuestNpc(quest.finish, 'handIn', `Handing in ${quest.name}`);
+    const n = await this.bot.quests.atQuestNpc(quest.finish, 'handIn', `Handing in ${quest.name}`, quest);
     if (!n) return false;
     // The bag is read once a second.
     let after = this.stones(memory.latest());

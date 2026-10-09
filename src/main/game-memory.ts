@@ -221,8 +221,16 @@ export interface MemoryState {
     npcDialog?: boolean;
     /** The Talk / Quests menu some NPCs show when clicked. */
     npcMenu?: { quests: MemoryButton | null; talk: MemoryButton | null; waypoints?: MemoryButton | null };
-    /** An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists. */
-    questList?: { npc: number | null; acceptAll: MemoryButton | null; handIn: MemoryButton | null; quests: string[] };
+    /**
+     * An NPC's quest list while open: whose (NPC index), Accept All, Hand In, and the quests it lists; and its rows (where
+     * each is, whether the character has it, and the one picked), to take one at a time.
+     */
+    questList?: {
+      npc: number | null; acceptAll: MemoryButton | null; handIn: MemoryButton | null; quests: string[];
+      rows?: (MemoryBox & { name: string; taken: boolean; selected: boolean })[];
+    };
+    /** The quest picked from the list, in its own window: its name, Accept, and Complete (to hand it in). */
+    questBox?: { quest: string | null; accept: MemoryButton | null; complete: MemoryButton | null };
     /** The game's message boxes showing, with their buttons (by field name, e.g. YesButton). */
     messages?: { text: string; buttons: (MemoryButton & { name: string })[]; cooldownMs?: number | null }[];
   } | null;

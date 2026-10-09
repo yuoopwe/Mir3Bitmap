@@ -531,6 +531,35 @@ function Read-Survival($scene) {
         handIn = (Read-Button ($list.ReadObjectField('HandInAllButton')))
         quests = @(foreach ($q in (Read-List ($list.ReadObjectField('Quests')))) { $q.ReadStringField('_QuestName') })
       }
+      # Its rows, to pick one quest at a time (some, as the Seasonal Supply Hunts, are left out of Accept All).
+      $rows = @()
+      $cells = $list.ReadObjectField('Rows')
+      if (-not $cells.IsNull) {
+        $cells = $cells.AsArray()
+        for ($i = 0; $i -lt $cells.Length; $i++) {
+          $row = $cells.GetObjectValue($i)
+          if ($row.IsNull -or -not $row.ReadField[bool]('_IsVisible')) { continue }
+          $info = $row.ReadObjectField('_QuestInfo')
+          if ($info.IsNull) { continue }
+          $box = Read-Box $row
+          $box.name = $info.ReadStringField('_QuestName')
+          $box.taken = -not $row.ReadObjectField('_UserQuest').IsNull
+          $box.selected = $row.ReadField[bool]('_Selected')
+          $rows += ,$box
+        }
+      }
+      $out.questList.rows = $rows
+    }
+    # The chosen quest's window: Accept, and Complete to hand it in.
+    $quest = $scene.ReadObjectField('NPCQuestBox')
+    if (-not $quest.IsNull -and $quest.ReadField[bool]('_IsVisible')) {
+      $chosen = $quest.ReadObjectField('_SelectedQuest')
+      $info = if ($chosen.IsNull) { $null } else { $chosen.ReadObjectField('_QuestInfo') }
+      $out.questBox = @{
+        quest = $(if ($null -eq $info -or $info.IsNull) { $null } else { $info.ReadStringField('_QuestName') })
+        accept = (Read-Button ($quest.ReadObjectField('AcceptButton')))
+        complete = (Read-Button ($quest.ReadObjectField('CompleteButton')))
+      }
     }
   } catch {}
   try {

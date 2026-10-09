@@ -351,6 +351,8 @@ export class FakeGame {
   private readonly open = new Set<Window>();
   private menuNpc: Npc | null = null;
   private listNpc: Npc | null = null;
+  /** The quest picked from the list (its key), shown in its own window with Accept / Complete. */
+  private pickedQuest: string | null = null;
   private waypointScroll = 0;
 
   readonly input: GameInput;
@@ -778,7 +780,10 @@ export class FakeGame {
   private close(name: Window): void {
     if (!this.open.delete(name)) return;
     if (name === 'npcMenu') this.menuNpc = null;
-    if (name === 'questList') this.listNpc = null;
+    if (name === 'questList') {
+      this.listNpc = null;
+      this.pickedQuest = null;
+    }
     if (name === 'sell') {
       this.selected = 0;
       this.confirming = false;
@@ -935,6 +940,11 @@ export class FakeGame {
     if (reading.questList) {
       out.push(['Accept All', reading.questList.acceptAll, () => this.acceptAll(this.listNpc!.npc)]);
       out.push(['Hand In', reading.questList.handIn, () => this.handIn(this.listNpc!.npc)]);
+      for (const row of reading.questList.rows ?? []) out.push([`Quest row ${row.name}`, { ...row, enabled: true, text: row.name }, () => (this.pickedQuest = row.name)]);
+    }
+    if (reading.questBox) {
+      out.push(['Accept', reading.questBox.accept, () => this.acceptAll(this.listNpc!.npc, this.pickedQuest)]);
+      out.push(['Complete', reading.questBox.complete, () => this.handIn(this.listNpc!.npc, this.pickedQuest)]);
     }
     // Yes sells (once past the box's cooldown: before, the click does nothing); No calls the sale off.
     for (const message of reading.messages ?? []) {
@@ -1096,16 +1106,19 @@ export class FakeGame {
     return left.filter((t) => t.stage === stage).map((t) => t.i);
   }
 
-  private acceptAll(npc: number): void {
+  /** Accept All (seasonal quests left out, as the game's), or one quest picked from the list (by key). */
+  private acceptAll(npc: number, only: string | null = null): void {
     for (const quest of this.questsAt(npc).offered) {
+      if (only === null ? quest.seasonal : (quest.key ?? quest.name) !== only) continue;
       const key = quest.key ?? quest.name;
       this.quests.set(key, { quest, done: quest.tasks.map(() => 0), completed: false });
       this.events.push({ t: this.t, type: 'quest', key, what: 'accepted' });
     }
   }
 
-  private handIn(npc: number): void {
+  private handIn(npc: number, only: string | null = null): void {
     for (const q of this.questsAt(npc).ready) {
+      if (only === null ? q.quest.seasonal : (q.quest.key ?? q.quest.name) !== only) continue;
       q.completed = true;
       this.player.experience += q.quest.exp ?? 0;
       for (const [item, amount] of q.quest.items ?? []) if (this.itemCounts.has(item)) this.itemCounts.set(item, this.itemCounts.get(item)! + amount);
@@ -1191,9 +1204,18 @@ export class FakeGame {
       questList: this.open.has('questList') && this.listNpc && atList
         ? {
             npc: this.listNpc.npc,
-            acceptAll: button(QUEST_BOX.x + 20, QUEST_BOX.y + 440, 'Accept All', atList.offered.length > 0),
-            handIn: button(QUEST_BOX.x + 140, QUEST_BOX.y + 440, 'Hand In', atList.ready.length > 0),
+            acceptAll: button(QUEST_BOX.x + 20, QUEST_BOX.y + 440, 'Accept All', atList.offered.some((q) => !q.seasonal)),
+            handIn: button(QUEST_BOX.x + 140, QUEST_BOX.y + 440, 'Hand In', atList.ready.some((q) => !q.quest.seasonal)),
             quests: [...atList.offered.map((q) => q.name), ...atList.ready.map((q) => q.quest.name)],
+            rows: [...atList.offered.map((q) => ({ key: q.key ?? q.name, taken: false })), ...atList.ready.map((q) => ({ key: q.quest.key ?? q.quest.name, taken: true }))]
+              .map((r, i) => ({ x: QUEST_BOX.x + 10, y: QUEST_BOX.y + 40 + i * 25, width: 300, height: 22, name: r.key, taken: r.taken, selected: r.key === this.pickedQuest })),
+          }
+        : undefined,
+      questBox: this.open.has('questList') && this.listNpc && atList && this.pickedQuest
+        ? {
+            quest: this.pickedQuest,
+            accept: button(QUEST_BOX.x + QUEST_BOX.width + 250, QUEST_BOX.y + 440, 'Accept', atList.offered.some((q) => (q.key ?? q.name) === this.pickedQuest)),
+            complete: button(QUEST_BOX.x + QUEST_BOX.width + 250, QUEST_BOX.y + 440, 'Complete', atList.ready.some((q) => (q.quest.key ?? q.quest.name) === this.pickedQuest)),
           }
         : undefined,
       messages: this.confirmShowing()

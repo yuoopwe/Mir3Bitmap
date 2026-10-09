@@ -1074,6 +1074,9 @@ test('Boss circuit: takes the Supply Hunt at the Soul Evolution Quests, kills 3 
     const { met, statuses } = await play(game, (bot) => bot.startCircuit(), { until: handedIn, limitMs: 40 * 60_000, onCircuit: (v) => (view = v) });
     assert.ok(met, `handed in (${statuses.at(-1)?.message})`);
     assert.deepEqual(of(game, 'quest').map((q) => [q.key, q.what]), [[SUPPLY_HUNT, 'accepted'], [SUPPLY_HUNT, 'ready'], [SUPPLY_HUNT, 'handedIn']]);
+    // Left out of Accept All and Hand In (as the game's seasonal quests are): picked from the list, its own Accept and Complete.
+    const pressed = of(game, 'button').map((b) => b.name).filter((n) => n !== 'Quests');
+    assert.deepEqual(pressed.filter((n) => /Accept|Hand In|Complete|Quest row/.test(n)), [`Quest row ${SUPPLY_HUNT}`, 'Accept', `Quest row ${SUPPLY_HUNT}`, 'Complete']);
     // Three each (and any fought for being in the way).
     assert.ok(killsOf(game, GUARDIAN.name).length >= 3 && killsOf(game, WARLORD.name).length >= 3);
     // Both maps visited; the status said what was next, with the count.

@@ -1,11 +1,17 @@
 /** Quests mode: what the quest planner says next, done with the NPCs (quest lists, talking) and the hunt loop. */
 
-import { loadTravelData } from './travel';
+import { loadTravelData, type TravelQuest } from './travel';
 import { RouteCosts, nextQuestAction, questKey } from './quest-planner';
 import type { MemoryState } from './game-memory';
 import { VK } from './input';
 import { BotError, MEMORY_START_MS, Stopped, boxCentre } from './bot-shared';
 import type { BotContext } from './bot-context';
+
+/** The quest log shows a quest taken or handed in within this long (the server's answer). */
+const QUEST_TAKEN_MS = 4000;
+/** A quest picked from the list shows in its own window within this long; picked this many times at most. */
+const QUEST_BOX_MS = 2000;
+const QUEST_ROW_TRIES = 3;
 
 export class Questing {
   constructor(private readonly bot: BotContext) {}
@@ -138,10 +144,12 @@ export class Questing {
 
   /**
    * Goes to a quest NPC, opens their quest list (pressing Quests if they show
-   * the Talk / Quests menu) and presses Accept All or Hand In. Returns how many
-   * quests that took (0 if the list didn't open or the button was off).
+   * the Talk / Quests menu) and presses Accept All or Hand In; then, when
+   * `quest` is still to take (or hand in), picks it from the list and presses
+   * its own Accept (or Complete). Returns how many quests that took (0 if the
+   * list didn't open or nothing was taken).
    */
-  async atQuestNpc(npcId: number, action: 'accept' | 'handIn', why: string): Promise<number> {
+  async atQuestNpc(npcId: number, action: 'accept' | 'handIn', why: string, quest?: TravelQuest): Promise<number> {
     const memory = this.bot.options.memory;
     const data = loadTravelData();
     const npc = data.npcs.find((n) => n.id === npcId);
@@ -155,27 +163,74 @@ export class Questing {
     }
     const list = await this.openQuestList(npc.name);
     if (!list) return 0;
-    const before = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? 0;
+    const count = () => memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length;
+    const before = count() ?? 0;
     const button = action === 'accept' ? list.acceptAll : list.handIn;
-    if (!button?.enabled) {
-      this.bot.key(VK.ESCAPE);
-      return 0;
+    if (button?.enabled) {
+      await this.bot.click(boxCentre(button), this.bot.delay('menu'));
+      await this.confirmQuest();
+      await this.waitFor(() => (count() ?? before) !== before, QUEST_TAKEN_MS);
     }
+    // Some quests are left out of Accept All and Hand In (the Seasonal Supply Hunts: one a day, of your choice): the
+    // one wanted is picked from the list and taken (or handed in) with its own button.
+    if (quest && !this.questDone(quest, action)) await this.oneQuest(quest, action);
+    const after = count() ?? before;
+    // Escape shuts the quest's window first, then the list.
+    for (let i = 0; i < 2; i++) {
+      this.bot.key(VK.ESCAPE);
+      await this.bot.sleep(300);
+      const survival = memory.latest()?.survival;
+      if (!survival?.questList && !survival?.questBox) break;
+    }
+    return Math.max(0, after - before);
+  }
+
+  /** Whether the quest log has `quest` taken (accept) or handed in (handIn). */
+  private questDone(quest: TravelQuest, action: 'accept' | 'handIn'): boolean {
+    const entry = this.bot.options.memory.latest()?.questLog?.find((q) => q.name === questKey(quest) || q.name === quest.name);
+    return action === 'accept' ? !!entry : !!entry?.completed;
+  }
+
+  /** With the quest list open: clicks `quest`'s row, then its window's Accept (or Complete), and waits for the quest log to show it. */
+  private async oneQuest(quest: TravelQuest, action: 'accept' | 'handIn'): Promise<void> {
+    const memory = this.bot.options.memory;
+    const named = (name: string | null | undefined) => name === quest.name || name === questKey(quest);
+    const row = memory.latest()?.survival?.questList?.rows?.find((r) => named(r.name));
+    if (!row) return;
+    const shown = () => {
+      const box = memory.latest()?.survival?.questBox;
+      const button = action === 'accept' ? box?.accept : box?.complete;
+      return box && named(box.quest) && button?.enabled ? button : null;
+    };
+    for (let tries = 0; tries < QUEST_ROW_TRIES && !shown(); tries++) {
+      this.bot.status(`Picking ${quest.name} from the list`);
+      // The last try a double-click, should single clicks not pick it.
+      const point = boxCentre(row);
+      if (tries < QUEST_ROW_TRIES - 1) await this.bot.click(point, this.bot.delay('menu'));
+      else this.bot.input.doubleClick(this.bot.hwnd, point.x, point.y);
+      await this.waitFor(() => !!shown(), QUEST_BOX_MS);
+    }
+    const button = shown();
+    if (!button) return;
     await this.bot.click(boxCentre(button), this.bot.delay('menu'));
+    await this.confirmQuest();
+    await this.waitFor(() => this.questDone(quest, action), QUEST_TAKEN_MS);
+  }
+
+  /** An "are you sure?" or a reward choice after taking or handing in: press its Yes / OK. */
+  private async confirmQuest(): Promise<void> {
     await this.bot.sleep(500);
-    // An "are you sure?" or a reward choice: press its Yes / OK.
-    const ask = memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+    const ask = this.bot.options.memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
     const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
     if (yes) await this.bot.click(boxCentre(yes), this.bot.delay('menu'));
-    // The quest log changes once the server has taken it.
-    let after = before;
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < 4000 && after === before; ) {
+  }
+
+  private async waitFor(ok: () => boolean, ms: number): Promise<boolean> {
+    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ms; ) {
+      if (ok()) return true;
       await this.bot.sleep(300);
-      after = memory.latest()?.questLog?.filter((q) => (action === 'accept' ? true : q.completed)).length ?? before;
     }
-    this.bot.key(VK.ESCAPE);
-    await this.bot.sleep(300);
-    return Math.max(0, after - before);
+    return ok();
   }
 
   /** Clicks an NPC (standing next to them) and opens their quest list; null if it didn't open. */
