@@ -38,6 +38,11 @@ const SUMMON_GIVE_UP_MS = 60 * 60_000;
 const TRACKERS = { 1: 'elite', 2: 'boss', 3: 'behemoth' } as const;
 /** Arrived on a tracked boss's map: the markers are given this long to show them (the reader reads them once a second). */
 const MARKERS_SETTLE_MS = 3000;
+/**
+ * With the tracker, no damage landing on what's wanted for this long while the map's markers show one alive: off to it
+ * (out of sight, or in sight but walled off).
+ */
+const MARKED_ELSEWHERE_MS = 15_000;
 
 export class BossCircuit {
   constructor(private readonly bot: BotContext) {}
@@ -62,6 +67,8 @@ export class BossCircuit {
     const tooHard = new Set<string>();
     /** Bosses summoned by kills that were given up on (too long, too hard, nowhere to summon them), for this run. */
     const summonsGivenUp = new Set<string>();
+    /** Marked bosses (object ids) found out of reach this run: not headed for again. */
+    const outOfReach = new Set<number>();
     /** Quests the NPC didn't give, until when; hand-ins that didn't take. */
     const notOffered = new Map<number, number>();
     let handInFailures = 0;
@@ -191,9 +198,19 @@ export class BossCircuit {
         if (!tracked) this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${stop.spawn.x}:${stop.spawn.y}`));
         else {
           if (memory.latest()?.map?.index !== stop.spawn.map) this.bot.status(await this.bot.travel.travelTo(`map:${stop.spawn.map}`));
-          const live = await this.marked(stop.spawn.map, stop.spawn.monster);
-          if (live) this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${live.x}:${live.y}`));
-          else if (plan.stops.some((s) => s.spawn.map !== stop.spawn.map && s.readyAt <= this.bot.clock.now())) {
+          const live = await this.marked(stop.spawn.map, stop.spawn.monster, outOfReach);
+          if (live) {
+            try {
+              this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${live.x}:${live.y}`));
+            } catch (error) {
+              if (error instanceof Stopped || !(error instanceof BotError)) throw error;
+              // That one can't be got to: the others the markers show (or the spawn) next time round.
+              outOfReach.add(live.id);
+              this.bot.status(`Couldn't get to the ${stop.spawn.monster} at ${live.x},${live.y} (${error.message}); trying another`);
+              logTrip();
+              continue;
+            }
+          } else if (plan.stops.some((s) => s.spawn.map !== stop.spawn.map && s.readyAt <= this.bot.clock.now())) {
             clearedAt.set(stop.spawn.key, this.bot.clock.now());
             this.bot.status(`No ${stop.spawn.monster} alive on ${stop.spawn.mapName} (the map's markers); on to the next`);
             logTrip();
@@ -212,6 +229,7 @@ export class BossCircuit {
       const why = await this.fightAt(stop, farming ? null : need, settings.retreatHpPercent, progress);
       logTrip();
       if (why === 'empty') clearedAt.set(stop.spawn.key, this.bot.clock.now());
+      if (why === 'marked') this.bot.status(`None about here; off to a ${stop.spawn.monster} the map's markers show`);
       if (why === 'stalled') {
         clearedAt.set(stop.spawn.key, this.bot.clock.now());
         this.bot.status(`Nothing happening at ${stop.spawn.mapName} for ${CIRCUIT.watchdogMinutes} minutes; planning again`);
@@ -236,10 +254,10 @@ export class BossCircuit {
    * On `map`, the live `monster` the map's markers show nearest (to walk to, else as the crow flies), once they've had
    * a moment to come in; null when none is alive.
    */
-  private async marked(map: number, monster: string): Promise<{ x: number; y: number } | null> {
+  private async marked(map: number, monster: string, outOfReach: ReadonlySet<number> = new Set()): Promise<{ id: number; x: number; y: number } | null> {
     const memory = this.bot.options.memory;
     const name = monster.toLowerCase();
-    const shown = () => (memory.latest()?.known ?? []).filter((k) => k.map === map && sameName(k.name, name));
+    const shown = () => (memory.latest()?.known ?? []).filter((k) => k.map === map && sameName(k.name, name) && !outOfReach.has(k.id));
     for (const since = this.bot.clock.now(); this.bot.clock.now() - since < MARKERS_SETTLE_MS && !shown().some((k) => !k.dead); ) await this.bot.sleep(300);
     const live = shown().filter((k) => !k.dead);
     const user = memory.latest()?.user;
@@ -309,6 +327,10 @@ export class BossCircuit {
         const about = (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name)) ||
           (tracked && (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name)));
         if (about) seenAt = Math.max(seenAt, now);
+        // With the tracker: nothing landing on what's wanted here, but the markers show one alive on the map: off to it
+        // (the circuit travels there, through the map's teleports if need be; the hunt's seeking only walks).
+        const marked = tracked && (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name));
+        if (marked && now - Math.max(progressAt, start) > MARKED_ELSEWHERE_MS) return 'marked';
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;
       },
