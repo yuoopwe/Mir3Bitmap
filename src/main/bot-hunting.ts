@@ -64,10 +64,17 @@ const TARGET_GIVE_UP_MS = 20_000;
 const TARGET_SKIP_MS = 30_000;
 
 /**
- * A target that stays more than a tile or two away while neither it nor the player gets any closer for this
- * long can't be reached (round a wall, say): it's left alone for TARGET_UNREACHABLE_SKIP_MS.
+ * A target that stays more than a tile or two away while the player neither moves nor gets any closer to it than
+ * before for this long can't be reached (round a wall, say; it wandering about doesn't count as getting anywhere):
+ * it's left alone for TARGET_UNREACHABLE_SKIP_MS.
  */
 const TARGET_NO_PROGRESS_MS = 6000;
+
+/**
+ * A target whose way round is this many steps longer than the straight line (a wall between) is walked to along
+ * that way first: clicked from here, the game would walk straight at it, into the wall.
+ */
+const TARGET_DETOUR_STEPS = 4;
 
 const TARGET_UNREACHABLE_SKIP_MS = 2 * 60_000;
 
@@ -182,7 +189,7 @@ export class Hunting {
     const inReachSince = new Map<string, number>();
     let nextItemClickAt = 0;
     /** The current target's distance and the player's tile, and since when they've stayed the same. */
-    let approach: { state: string; since: number } | null = null;
+    let approach: { state: string; since: number; best: number } | null = null;
     let stopping: string | null = null;
     /** Each fight timed, for Grind's measurements (kept in the grind log, by character). */
     const fights = new FightTimer(isBoss);
@@ -353,8 +360,8 @@ export class Hunting {
       // Neither the player nor the target getting any closer for a while, with it still out of reach: walled off.
       if (target?.at && memory?.user) {
         const gap = Math.max(Math.abs(target.at.x - memory.user.x), Math.abs(target.at.y - memory.user.y));
-        const state = `${target.key} ${memory.user.x},${memory.user.y} ${gap}`;
-        if (!approach || approach.state !== state) approach = { state, since: now };
+        const state = `${target.key} ${memory.user.x},${memory.user.y}`;
+        if (!approach || approach.state !== state || gap < approach.best) approach = { state, since: now, best: gap };
         else if (gap > 2 && now - approach.since > TARGET_NO_PROGRESS_MS) {
           skipped.set(target.key, now + TARGET_UNREACHABLE_SKIP_MS);
           this.bot.status(`Can't get at ${target.name ?? 'that one'}; trying another`);
@@ -383,6 +390,26 @@ export class Hunting {
         if (target) {
           current = { key: target.key, since: now };
           misses = 0;
+        }
+      }
+
+      // A wall between (the way round much longer than the straight line): walk the way round first, clicking it only
+      // once the way is straight; the game walks straight at whatever's clicked.
+      const map = memory ? this.bot.options.memory.map() : null;
+      const hunted = this.huntDist as Hunting['huntDist'];
+      if (target?.at && target.steps !== undefined && memory?.user && map && hunted?.map === map.index && this.bot.holding?.id !== target.key) {
+        const user = memory.user;
+        const gap = Math.max(Math.abs(target.at.x - user.x), Math.abs(target.at.y - user.y));
+        const near = gap > 1 && target.steps > gap + TARGET_DETOUR_STEPS ? nearestApproach(map, hunted.dist, [target.at]) : null;
+        const path = near ? pathBack(map, hunted.dist, near.tile) : null;
+        if (path && path.length >= 2) {
+          // Getting somewhere (and stuck, the no-progress check above leaves it): not "taking too long" on it.
+          if (current) current.since = now;
+          this.bot.releaseHold();
+          await this.bot.moves.driveAlong({ x: user.x, y: user.y }, path, now, path.length - 1 > SEEK_RIDE_STEPS);
+          this.bot.statusEvery(`Going round to ${target.name ?? 'a monster'}`);
+          await this.bot.sleep(RUN_TICK_MS);
+          continue;
         }
       }
 

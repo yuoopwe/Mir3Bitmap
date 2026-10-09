@@ -273,6 +273,23 @@ test('Hunt: the hostile monsters are attacked, never a guard among them', async 
   checkAlways(game);
 });
 
+test('Hunt: a monster just over a wall is gone round to (the gap at the far end), not walked into the wall at', async () => {
+  // The wall runs along y = 20 from x = 0 to 49; the player above it, the wolf just below.
+  const map = openMapWithWall();
+  const game = new FakeGame({ maps: [map], monsters: [{ name: 'Wolf', map: map.index, x: 12, y: 23, level: 1 }], player: { map: map.index, x: 12, y: 16, level: 24 } });
+  const { met, statuses } = await play(game, (bot) => bot.startAttack(), {
+    settings: { hunt: { ...testSettings().hunt, roam: true } },
+    until: () => of(game, 'attack').some((a) => a.killed),
+    limitMs: 3 * 60_000,
+  });
+  const lines = statuses.map((s) => s.message);
+  assert.ok(met, lines.slice(-8).join(' | '));
+  assert.ok(lines.includes('Going round to Wolf'), lines.join(' | '));
+  // Round the end of the wall.
+  assert.ok(of(game, 'move').some((m) => m.to.x >= 50), 'went round the end of the wall');
+  checkAlways(game);
+});
+
 test('Explore: uncovers a small map', async () => {
   // 60 x 40 tiles with a wall across the middle, open at one end.
   const map = openMapWithWall();
