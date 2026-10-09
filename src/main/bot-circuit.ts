@@ -256,7 +256,10 @@ export class BossCircuit {
           damage = seen;
           progressAt = now;
         }
-        if ((reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name))) seenAt = Math.max(seenAt, now);
+        // About, or alive somewhere else on the map as far as the game knows (walked to by the hunt's seeking).
+        const about = (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name)) ||
+          (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name));
+        if (about) seenAt = Math.max(seenAt, now);
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;
       },

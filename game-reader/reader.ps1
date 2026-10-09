@@ -484,6 +484,30 @@ function Find-Button($control, [string]$text, [int]$depth = 0) {
   }
   return $null
 }
+# Every monster the game knows of on the map, near or far (GameScene.DataDictionary: what the map's markers are drawn
+# from, sub-bosses included wherever they are): which, where, its health, and whether it's dead.
+function Read-Known($scene) {
+  $out = @()
+  $set = $scene.ReadObjectField('DataDictionary').ReadObjectField('_set')
+  $stack = [System.Collections.Generic.Stack[object]]::new()
+  $stack.Push($set.ReadObjectField('root'))
+  while ($stack.Count -gt 0) {
+    $node = $stack.Pop()
+    if ($node.IsNull) { continue }
+    $stack.Push($node.ReadObjectField('<Left>k__BackingField'))
+    $stack.Push($node.ReadObjectField('<Right>k__BackingField'))
+    $data = $node.ReadValueTypeField('<Item>k__BackingField').ReadObjectField('value')
+    if ($data.IsNull) { continue }
+    $info = $data.ReadObjectField('MonsterInfo')
+    if ($info.IsNull -or $data.ReadStringField('PetOwner')) { continue }
+    $at = $data.ReadValueTypeField('Location')
+    $out += ,@{
+      id = $data.ReadField[uint32]('ObjectID'); name = $info.ReadStringField('_MonsterName'); map = $data.ReadField[int]('MapIndex')
+      x = $at.ReadField[int]('x'); y = $at.ReadField[int]('y'); hp = $data.ReadField[int]('Health'); maxHp = $data.ReadField[int]('MaxHealth'); dead = $data.ReadField[bool]('Dead')
+    }
+  }
+  return $out
+}
 # The game's message boxes showing (a "sell these?" check, say): their text and buttons.
 function Read-MessageBoxes($module, $domain) {
   $out = @()
@@ -904,12 +928,13 @@ while ($true) {
           try { $script:gear = Read-Gear $scene } catch { $script:gear = $null }
           try { $script:bloodline = Read-Bloodline $scene } catch { $script:bloodline = $null }
           try { $script:autoPotion = Read-AutoPotion $scene } catch { $script:autoPotion = $null }
+          try { $script:known = @(Read-Known $scene) } catch { $script:known = $null }
           $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
-        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; autoPotion = $script:autoPotion; survival = $survival }
+        Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; autoPotion = $script:autoPotion; known = $script:known; survival = $survival }
       }
       Start-Sleep -Milliseconds $IntervalMs
     }

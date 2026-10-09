@@ -175,6 +175,11 @@ export interface MemoryState {
     weights?: { wear: number; wearMax: number; hand: number; handMax: number } | null;
   };
   objects?: MemoryObject[];
+  /**
+   * Every monster the game knows of on the map, however far (what the map's markers are drawn from: sub-bosses
+   * wherever they are), read once a second: its object id (as in objects), name, map, tile, health and whether it's dead.
+   */
+  known?: { id: number; name: string; map: number; x: number; y: number; hp: number; maxHp: number; dead: boolean }[] | null;
   /** The map: walls and explored blocks come only when they change (see GameMemory.map). */
   map?: MapReading | null;
   waypoints?: MemoryWaypoints | null;

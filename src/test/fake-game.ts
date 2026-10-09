@@ -173,6 +173,12 @@ export interface FakeGameSetup {
    * (`showMs`) and ignore clicks for a while once shown (`cooldownMs`): `true` is neither.
    */
   sellConfirm?: boolean | { showMs?: number; cooldownMs?: number; text?: string };
+  /**
+   * Monsters further than this from the player (tiles) aren't among the objects, as the reader leaves them out; with
+   * `known`, every monster on the map is in MemoryState.known all the same (the map's markers). Default: all objects, no known.
+   */
+  objectRange?: number;
+  known?: boolean;
   /** Opening the bag (W) with the shop open shuts the shop, the first time. */
   shopShutsOnBag?: boolean;
   /** Items on the ground. */
@@ -291,6 +297,8 @@ export class FakeGame {
   private readonly sellPerRound: number;
   private readonly sellConfirm: { showMs: number; cooldownMs: number; text: string } | null;
   private shopShutsOnBag: boolean;
+  private readonly objectRange: number;
+  private readonly known: boolean;
   /** When the player was last in combat (hitting a monster, or hit by one). */
   private lastCombatAt = -Infinity;
   /** Where Return to Arcadia was pressed from: pressed again in Arcadia, it takes you back there. */
@@ -374,6 +382,8 @@ export class FakeGame {
     this.bagWindow = { open: setup.bagWindow?.open ?? false, section: setup.bagWindow?.section ?? 0 };
     this.sellPerRound = setup.sellPerRound ?? 30;
     this.shopShutsOnBag = !!setup.shopShutsOnBag;
+    this.objectRange = setup.objectRange ?? Infinity;
+    this.known = !!setup.known;
     const confirm = setup.sellConfirm;
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.arcadiaBroken = setup.arcadiaBroken ?? 0;
@@ -1254,12 +1264,15 @@ export class FakeGame {
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
       },
       objects: [
-        ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS)),
+        ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS) && chebyshev(m, p) <= this.objectRange),
         ...this.npcs.filter((n) => n.map === p.map),
         ...this.people.filter((o) => o.map === p.map),
         ...this.items.filter((i) => i.map === p.map),
         ...this.nodes.filter((n) => n.map === p.map),
       ].map(strip),
+      known: this.known
+        ? this.monsters.filter((m) => m.map === p.map).map((m) => ({ id: m.id, name: m.name, map: m.map, x: m.x, y: m.y, hp: 1, maxHp: 1, dead: m.dead }))
+        : undefined,
       map: { index: map.index, name: map.name, width: map.width, height: map.height },
       waypoints: {
         unlocked: this.waypointsKnown ? (this.data.waypoints ?? []).filter((w) => this.unlocked.has(w.name)).map((w) => ({ name: w.name, map: w.map })) : [],

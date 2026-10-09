@@ -1091,6 +1091,21 @@ test('Boss circuit: takes the Supply Hunt at the Soul Evolution Quests, kills 3 
   });
 });
 
+test("Boss circuit: sub-bosses out of sight of the spawn point are found from the map's markers (the game's known monsters) and killed", async () => {
+  await withSupplyHunt([WARLORD.name], async () => {
+    // The reader sees only 2 tiles round the player here; the warlords stand 3 off their spawn point.
+    const setup = (known: boolean) => inArcadia({ monsters: bossesAt(WARLORD, 3), objectRange: 2, known });
+    const game = setup(true);
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), { until: () => killsOf(game, WARLORD.name).length >= 3, limitMs: 30 * 60_000 });
+    assert.ok(met, statuses.map((s) => s.message).slice(-8).join(' | '));
+    checkAlways(game);
+    // Without the markers they aren't all found (only one stumbled on, if any): the spawn soon looks empty.
+    const blind = setup(false);
+    await play(blind, (bot) => bot.startCircuit(), { until: (lines) => lines.some((s) => s.message.startsWith('Nothing on the circuit')), limitMs: 10 * 60_000 });
+    assert.ok(killsOf(blind, WARLORD.name).length < 3);
+  });
+});
+
 test('Boss circuit: a spawn found empty is left for the other, and visited again once it is due back (15 minutes on)', async () => {
   await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
     // At the Prajna Guardians' spawn, none there; Warlords at Jinchon Palace Lv 6. The Guardians are back once the bot has left.

@@ -386,7 +386,9 @@ export class Hunting {
       let point = this.bot.holding && this.bot.holding.id === target?.key ? this.bot.holding.point : target?.point;
       // (An archer already holding the button on this target keeps holding.)
       if (target?.tile && target.name && this.bot.holding?.id !== target.key) {
-        // Only click where the game confirms the monster is under the mouse: a miss is a "walk here".
+        // Only click where the game confirms the monster is under the mouse: a miss is a "walk here". (Not running
+        // meanwhile: the hovering would steer the run.)
+        if (this.bot.running) this.bot.stopRunning();
         point = (await this.bot.aimAt(target)) ?? undefined;
         if (!point && ++misses >= AIM_MISSES) {
           skipped.set(target.key, now + AIM_MISS_SKIP_MS);
@@ -568,11 +570,18 @@ export class Hunting {
       await this.bot.sleep(500);
       return true;
     }
-    const monsters = (reading.objects ?? []).filter(
+    const monsters: { id: number; name: string; x: number; y: number }[] = (reading.objects ?? []).filter(
       (o) =>
         o.kind === 'monster' && !o.pet && !o.dead && hostile(o) && o.name && !nameIn(o.name, skip) && (!wanted || nameIn(o.name, wanted)) &&
         !skipped.has(`m${o.id}`) && nearestApproach(map, dist, [{ x: o.x, y: o.y }]),
     );
+    // Looking for certain monsters: those the game knows of further off too (the map's markers), wherever they are on the map.
+    if (wanted) {
+      const near = new Set((reading.objects ?? []).map((o) => o.id));
+      monsters.push(...(reading.known ?? []).filter(
+        (k) => k.map === map.index && !k.dead && !near.has(k.id) && nameIn(k.name, wanted) && !nameIn(k.name, skip) && !skipped.has(`m${k.id}`) && nearestApproach(map, dist, [{ x: k.x, y: k.y }]),
+      ));
+    }
     const chased = goal?.kind === 'monster' ? monsters.find((m) => `m${m.id}` === goal!.key) : undefined;
     if (chased) goal!.target = { x: chased.x, y: chased.y };
     else if (monsters.length) {
