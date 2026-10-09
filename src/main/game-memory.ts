@@ -167,6 +167,8 @@ export interface MemoryState {
     name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; combatAgo?: number | null; experience?: number | null; maxExperience?: number | null;
     /** Health now and at most. */
     hp?: number; maxHp?: number;
+    /** The tracker stats (an item or a scroll): over 0, the map's markers (MemoryState.known) show elites, bosses or behemoths anywhere on it. */
+    trackers?: { elite: number; boss: number; behemoth: number } | null;
     /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */
     combat?: { minAC: number; maxAC: number; minMR: number; maxMR: number; minDC: number; maxDC: number; minMC: number; maxMC: number; minSC: number; maxSC: number; accuracy: number; agility: number; attackSpeed: number } | null;
     /** The % stats' totals (by Library.Stat number: DCPercent 84, ACPercent 10031, HealthPercent 54...), which multiply the stats they're for. */

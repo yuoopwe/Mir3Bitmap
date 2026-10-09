@@ -13,6 +13,7 @@ import { RouteCosts } from './quest-planner';
 import { autoLevelsAbove, levelAllows } from './grind';
 import { CIRCUIT, bossSpawns, describeStop, planCircuit, questStatus, questTasks, summonFor, type CircuitPlan, type CircuitStop, type Summon } from './boss-planner';
 import type { MemoryState } from './game-memory';
+import { nearestApproach, walkDistances } from './map-path';
 import { BotError, MEMORY_START_MS, Stopped, sameName } from './bot-shared';
 import type { BotContext } from './bot-context';
 
@@ -32,6 +33,11 @@ const DEFAULTS = { quests: [1840], keepHunting: false, retreatHpPercent: 35 };
 
 /** Summoning a boss (killing what brings it) is given up after this long, and that boss left for the run. */
 const SUMMON_GIVE_UP_MS = 60 * 60_000;
+
+/** The tracker that puts a spawn's kind (1 sub-boss, 2 boss, 3 behemoth) on the map's markers wherever they are. */
+const TRACKERS = { 1: 'elite', 2: 'boss', 3: 'behemoth' } as const;
+/** Arrived on a tracked boss's map: the markers are given this long to show them (the reader reads them once a second). */
+const MARKERS_SETTLE_MS = 3000;
 
 export class BossCircuit {
   constructor(private readonly bot: BotContext) {}
@@ -176,10 +182,24 @@ export class BossCircuit {
       const tripStart = this.bot.clock.now();
       const tripPaused = this.bot.pausedMs;
       const logTrip = () => this.bot.options.grindLog.addBossTime(user.name, { ms: this.bot.clock.now() - tripStart - (this.bot.pausedMs - tripPaused), at: Date.now() });
+      // With the tracker for its kind (an item or a scroll), the map's markers say where they are: to the map, then
+      // straight to a live one; none alive, on to the next ready elsewhere, or (nowhere else) waiting here for them.
+      const tracked = this.tracks(stop.spawn.kind);
       try {
         if (stop.viaArcadia && map.index !== CIRCUIT.arcadia) await this.bot.survival.returnToArcadia(`On to ${stop.spawn.monster}`);
         if (memory.latest()?.user?.dead) continue;
-        this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${stop.spawn.x}:${stop.spawn.y}`));
+        if (!tracked) this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${stop.spawn.x}:${stop.spawn.y}`));
+        else {
+          if (memory.latest()?.map?.index !== stop.spawn.map) this.bot.status(await this.bot.travel.travelTo(`map:${stop.spawn.map}`));
+          const live = await this.marked(stop.spawn.map, stop.spawn.monster);
+          if (live) this.bot.status(await this.bot.travel.travelTo(`spot:${stop.spawn.map}:${live.x}:${live.y}`));
+          else if (plan.stops.some((s) => s.spawn.map !== stop.spawn.map && s.readyAt <= this.bot.clock.now())) {
+            clearedAt.set(stop.spawn.key, this.bot.clock.now());
+            this.bot.status(`No ${stop.spawn.monster} alive on ${stop.spawn.mapName} (the map's markers); on to the next`);
+            logTrip();
+            continue;
+          } else this.bot.status(`No ${stop.spawn.monster} alive on ${stop.spawn.mapName} (the map's markers), and nowhere else to go: waiting here`);
+        }
       } catch (error) {
         if (error instanceof Stopped || !(error instanceof BotError)) throw error;
         clearedAt.set(stop.spawn.key, this.bot.clock.now());
@@ -205,6 +225,34 @@ export class BossCircuit {
     }
   }
 
+  /** Whether the character has the tracker (an item or a scroll) that puts this kind of spawn on the map's markers. */
+  private tracks(kind: number): boolean {
+    const trackers = this.bot.options.memory.latest()?.user?.trackers;
+    const which = TRACKERS[kind as keyof typeof TRACKERS];
+    return !!trackers && !!which && trackers[which] > 0;
+  }
+
+  /**
+   * On `map`, the live `monster` the map's markers show nearest (to walk to, else as the crow flies), once they've had
+   * a moment to come in; null when none is alive.
+   */
+  private async marked(map: number, monster: string): Promise<{ x: number; y: number } | null> {
+    const memory = this.bot.options.memory;
+    const name = monster.toLowerCase();
+    const shown = () => (memory.latest()?.known ?? []).filter((k) => k.map === map && sameName(k.name, name));
+    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < MARKERS_SETTLE_MS && !shown().some((k) => !k.dead); ) await this.bot.sleep(300);
+    const live = shown().filter((k) => !k.dead);
+    const user = memory.latest()?.user;
+    const grid = memory.map();
+    if (!live.length || !user) return live[0] ?? null;
+    const dist = grid?.index === map ? walkDistances(grid, { x: user.x, y: user.y }) : null;
+    const cost = (k: { x: number; y: number }) => {
+      const near = dist && grid ? nearestApproach(grid, dist, [k]) : null;
+      return near ? near.steps : 1e6 + Math.max(Math.abs(k.x - user.x), Math.abs(k.y - user.y));
+    };
+    return live.reduce((best, k) => (cost(k) < cost(best) ? k : best));
+  }
+
   /**
    * Fights the stop's monster at its spawn until it's done there: the task is
    * finished ('done'), none have been about for CIRCUIT.emptySeconds ('empty'),
@@ -217,6 +265,7 @@ export class BossCircuit {
     const data = loadTravelData();
     const { spawn } = stop;
     const name = spawn.monster.toLowerCase();
+    const tracked = this.tracks(spawn.kind);
     const start = this.bot.clock.now();
     let seenAt = Math.max(start, stop.readyAt);
     let progressAt = start;
@@ -256,9 +305,9 @@ export class BossCircuit {
           damage = seen;
           progressAt = now;
         }
-        // About, or alive somewhere else on the map as far as the game knows (walked to by the hunt's seeking).
+        // About, or (with the tracker for them) alive somewhere else on the map, as its markers show (walked to by the hunt's seeking).
         const about = (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name)) ||
-          (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name));
+          (tracked && (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name)));
         if (about) seenAt = Math.max(seenAt, now);
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;

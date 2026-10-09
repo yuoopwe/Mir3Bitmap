@@ -27,6 +27,11 @@ function Write-State($state) {
 # Library.Stat.PickUpRadius: how far (in tiles) clicking at the feet picks things up.
 $PickUpRadius = 40
 
+# Library.Stat: the trackers (an item or a scroll) that put elites, bosses and behemoths anywhere on the map on its markers.
+$BossTrackerStat = 88
+$EliteTrackerStat = 20108
+$BehemothTrackerStat = 20109
+
 # Library.Stat numbers for health and the stats that decide how fast the character kills and how much it takes.
 $HealthStat = 2
 $CombatStats = @{ minAC = 4; maxAC = 5; minMR = 6; maxMR = 7; minDC = 8; maxDC = 9; minMC = 10; maxMC = 11; minSC = 12; maxSC = 13; accuracy = 14; agility = 15; attackSpeed = 16 }
@@ -890,7 +895,7 @@ while ($true) {
           $x = $location.ReadField[int]('x'); $y = $location.ReadField[int]('y')
           if ($me -and ([math]::Abs($x - $me[0]) -gt $ObjectRange -or [math]::Abs($y - $me[1]) -gt $ObjectRange) -and $o.Type.Name -ne 'Client.Models.NPCObject' -and $o.Type.Name -ne 'Client.Models.UserObject') { continue }
           $name = $o.ReadStringField('_Name')
-          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); percents = $(try { $p = @{}; foreach ($n in $PercentStats) { $p["$n"] = Read-Stat $o $n }; $p } catch { $null }); weights = (Read-Weights $o $scene); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
+          if ($o.Type.Name -eq 'Client.Models.UserObject') { $user = @{ name = $name; x = $x; y = $y; pickUpRadius = (Read-Stat $o $PickUpRadius); level = $o.ReadField[int]('_level'); class = [int]$o.ReadField[byte]('_Class'); mounted = $o.ReadField[byte]('horse') -ne 0; dead = $o.ReadField[bool]('_Dead'); experience = $(try { [double]$o.ReadField[decimal]('_Experience') } catch { $null }); maxExperience = $(try { [double]$o.ReadField[decimal]('_MaxExperience') } catch { $null }); hasMount = (Read-HasMount $scene); hp = $o.ReadField[int]('_CurrentHP'); maxHp = (Read-Stat $o $HealthStat); combat = $(try { $c = @{}; foreach ($k in $CombatStats.Keys) { $c[$k] = Read-Stat $o $CombatStats[$k] }; $c } catch { $null }); percents = $(try { $p = @{}; foreach ($n in $PercentStats) { $p["$n"] = Read-Stat $o $n }; $p } catch { $null }); weights = (Read-Weights $o $scene); combatAgo = $(try { Read-CombatAgo $o $module $domain } catch { $null }); trackers = $(try { @{ elite = (Read-Stat $o $EliteTrackerStat); boss = (Read-Stat $o $BossTrackerStat); behemoth = (Read-Stat $o $BehemothTrackerStat) } } catch { $null }); mouseTile = $(try { $ml = $scene.ReadObjectField('MapControl').ReadValueTypeField('MapLocation'); @{ x = $ml.ReadField[int]('x'); y = $ml.ReadField[int]('y') } } catch { $null }) }; continue }
           $kind = $kinds[$o.Type.Name]
           if (-not $kind) { continue }
           $objects.Add(@{

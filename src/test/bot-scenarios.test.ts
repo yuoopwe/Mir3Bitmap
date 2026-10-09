@@ -1091,10 +1091,10 @@ test('Boss circuit: takes the Supply Hunt at the Soul Evolution Quests, kills 3 
   });
 });
 
-test("Boss circuit: sub-bosses out of sight of the spawn point are found from the map's markers (the game's known monsters) and killed", async () => {
+test("Boss circuit: with the elite tracker, sub-bosses out of sight of the spawn point are found from the map's markers and killed", async () => {
   await withSupplyHunt([WARLORD.name], async () => {
     // The reader sees only 2 tiles round the player here; the warlords stand 3 off their spawn point.
-    const setup = (known: boolean) => inArcadia({ monsters: bossesAt(WARLORD, 3), objectRange: 2, known });
+    const setup = (known: boolean) => inArcadia({ monsters: bossesAt(WARLORD, 3), objectRange: 2, known, trackers: { elite: known ? 1 : 0 } });
     const game = setup(true);
     const { met, statuses } = await play(game, (bot) => bot.startCircuit(), { until: () => killsOf(game, WARLORD.name).length >= 3, limitMs: 30 * 60_000 });
     assert.ok(met, statuses.map((s) => s.message).slice(-8).join(' | '));
@@ -1103,6 +1103,35 @@ test("Boss circuit: sub-bosses out of sight of the spawn point are found from th
     const blind = setup(false);
     await play(blind, (bot) => bot.startCircuit(), { until: (lines) => lines.some((s) => s.message.startsWith('Nothing on the circuit')), limitMs: 10 * 60_000 });
     assert.ok(killsOf(blind, WARLORD.name).length < 3);
+  });
+});
+
+test("Boss circuit: with the elite tracker, a map whose markers show none alive is left at once for one elsewhere; the last is waited on", async () => {
+  await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
+    // Warlords about, no guardians anywhere: Prajna Temple Lv 10 is passed over while the warlords are there to kill.
+    const game = inArcadia({ monsters: bossesAt(WARLORD, 4), known: true, trackers: { elite: 1 } });
+    const none = 'No Prajna Guardian alive on Prajna Temple Lv 10 (the map';
+    // Then three minutes on, still there.
+    let waitingAt: number | null = null;
+    const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+      until: (lines) => {
+        if (waitingAt === null && lines.some((s) => s.message.includes('nowhere else to go: waiting here'))) waitingAt = game.now;
+        return killsOf(game, WARLORD.name).length >= 3 && waitingAt !== null && game.now > waitingAt + 3 * 60_000;
+      },
+      limitMs: 60 * 60_000,
+    });
+    const lines = statuses.map((s) => s.message);
+    assert.ok(met, lines.slice(-8).join(' | '));
+    // Never waited out at Prajna Temple Lv 10 while the warlords were still wanted: straight on, or done with them first.
+    const moved = lines.findIndex((m) => m.startsWith(`${none}'s markers); on to the next`));
+    const waiting = lines.findIndex((m) => m.startsWith(none) && m.includes('waiting here'));
+    assert.ok(waiting >= 0, lines.join(' | '));
+    assert.ok(moved === -1 || moved < waiting);
+    // The last one wanted: waited for on its map, not off round the others.
+    assert.equal(game.player.map, PRAJNA_TEMPLE_10);
+    const left = game.events.filter((e) => e.type === 'mapChange' && e.t > waitingAt!);
+    assert.deepEqual(left, []);
+    checkAlways(game);
   });
 });
 

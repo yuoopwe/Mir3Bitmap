@@ -179,6 +179,8 @@ export interface FakeGameSetup {
    */
   objectRange?: number;
   known?: boolean;
+  /** The character's tracker stats (an item or a scroll): elites, bosses, behemoths on the map's markers. */
+  trackers?: { elite?: number; boss?: number; behemoth?: number };
   /** Opening the bag (W) with the shop open shuts the shop, the first time. */
   shopShutsOnBag?: boolean;
   /** Items on the ground. */
@@ -299,6 +301,7 @@ export class FakeGame {
   private shopShutsOnBag: boolean;
   private readonly objectRange: number;
   private readonly known: boolean;
+  private readonly trackers: { elite: number; boss: number; behemoth: number };
   /** When the player was last in combat (hitting a monster, or hit by one). */
   private lastCombatAt = -Infinity;
   /** Where Return to Arcadia was pressed from: pressed again in Arcadia, it takes you back there. */
@@ -384,6 +387,7 @@ export class FakeGame {
     this.shopShutsOnBag = !!setup.shopShutsOnBag;
     this.objectRange = setup.objectRange ?? Infinity;
     this.known = !!setup.known;
+    this.trackers = { elite: 0, boss: 0, behemoth: 0, ...setup.trackers };
     const confirm = setup.sellConfirm;
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.arcadiaBroken = setup.arcadiaBroken ?? 0;
@@ -1262,6 +1266,7 @@ export class FakeGame {
         experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp, ...(p.combat && { combat: { ...p.combat } }),
         ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
+        trackers: { ...this.trackers },
       },
       objects: [
         ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS) && chebyshev(m, p) <= this.objectRange),
