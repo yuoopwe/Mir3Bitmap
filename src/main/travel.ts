@@ -289,11 +289,13 @@ export interface Start {
   /** Their tile, for guessing steps where none were worked out. */
   at?: { x: number; y: number };
   /**
-   * On the place's map, the place found out of reach on foot from here (with the walls): not guessed then. And the
-   * links into this map that land where it's out of reach too (somewhere walkable from here): no way there either.
+   * On the place's map, the place found out of reach on foot from here (with the walls): not guessed then. And for
+   * the links into this map, the walk from where each lands to the place, worked out with the walls (Infinity: out
+   * of reach from there), rather than guessed (a straight-line guess made leaving and coming straight back in look
+   * quicker than the long walk round).
    */
   unreachable?: boolean;
-  cutOff?: ReadonlySet<number>;
+  landSteps?: ReadonlyMap<number, number>;
 }
 
 export interface Route {
@@ -362,11 +364,13 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
     done.add(at);
     const link = byId.get(at)!;
     const land = { x: link.land[0], y: link.land[1] };
-    if (link.to === place.map && !start.cutOff?.has(link.id)) {
-      // A spot (no NPC id: a quest's "go to", a boss spawn) is never among the landing's steps: guessed from the landing,
-      // not a flat 100 (which made leaving and coming straight back in look quicker than the walk there).
+    const measured = start.landSteps?.get(link.id);
+    if (link.to === place.map && measured !== Infinity) {
+      // A spot (no NPC id: a quest's "go to", a boss spawn) is never among the landing's steps: measured from the
+      // landing when on its map already, else guessed from the landing (not a flat 100, which made leaving and coming
+      // straight back in look quicker than the walk there).
       const spot = place.npc !== undefined && place.npc.id < 0;
-      const total = cost + finish(place.npc ? link.npcSteps?.[place.npc.id] : undefined, link.steps && !spot ? undefined : land);
+      const total = cost + (measured ?? finish(place.npc ? link.npcSteps?.[place.npc.id] : undefined, link.steps && !spot ? undefined : land));
       if (!arrived || total < arrived.cost) arrived = { cost: total, via: at };
     }
     for (const e of exits.get(link.to) ?? []) {

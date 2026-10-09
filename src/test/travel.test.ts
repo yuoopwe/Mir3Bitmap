@@ -102,10 +102,18 @@ test("a spot out of reach on foot (Zuma Temple Lv 5's keeper room): through the 
   const place = findPlace(data, `spot:${ZUMA_5}:142:144`)!;
   // Just in from Lv 4: the way back is a step off, the teleport some 390.
   const start: Start = { map: ZUMA_5, steps: new Map([[2588, 2], [2907, 390], [2589, 538]]), npcSteps: new Map(), at: { x: 14, y: 44 } };
-  // Found out of reach from here, and from where coming back in from Lv 4 lands (walkable from here).
-  const cutOff = new Set(data.links.filter((l) => l.to === ZUMA_5 && l.id !== 2907).map((l) => l.id));
-  const route = planRoute(data, { ...start, unreachable: true, cutOff }, place, { level: 41 })!;
+  // Found out of reach from here, and from where coming back in from Lv 4 lands (the same tile); the teleport lands on it.
+  const landSteps = new Map(data.links.filter((l) => l.to === ZUMA_5).map((l) => [l.id, l.id === 2907 ? 0 : Infinity]));
+  const route = planRoute(data, { ...start, unreachable: true, landSteps }, place, { level: 41 })!;
   assert.deepEqual(route.links.map((l) => l.id), [2907]);
+  // Within reach on foot, however long the walk round: never out to Lv 4 and back in to land on the same tile.
+  const walk = new Map(data.links.filter((l) => l.to === ZUMA_5).map((l) => [l.id, l.id === 2907 ? 0 : 600]));
+  const onFoot = planRoute(data, { ...start, npcSteps: new Map([[place.npc!.id, 600]]), landSteps: walk }, place, { level: 41 })!;
+  assert.ok(!onFoot.links.some((l) => l.to !== ZUMA_5), onFoot.links.map((l) => l.id).join(','));
+  // With no teleport to take, walked.
+  const noTeleport = new Map([...walk].map(([id, steps]) => [id, id === 2907 ? Infinity : steps]));
+  const walked = planRoute(data, { ...start, steps: new Map([[2588, 2], [2589, 538]]), npcSteps: new Map([[place.npc!.id, 600]]), landSteps: noTeleport }, place, { level: 41 })!;
+  assert.deepEqual(walked.links, []);
   // Without knowing, the walk is guessed from here.
   assert.deepEqual(planRoute(data, start, place, { level: 41 })!.links, []);
 });

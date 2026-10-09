@@ -160,21 +160,27 @@ export class Travel {
         const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
         const steps = this.exitSteps(data, map, dist);
         const npcSteps = new Map<number, number>();
-        // A spot out of reach on foot from here (a boss room behind a teleport): nor from where the ways onto this map
-        // land, when they land somewhere walkable from here (leaving and coming back in would only land there again).
+        // A spot on this map: the walk there from here, and from where each way onto this map lands, with the walls
+        // (out of reach from here, a boss room behind a teleport, say: not guessed).
         let unreachable = false;
-        const cutOff = new Set<number>();
+        const landSteps = new Map<number, number>();
         if (place.npc?.at && place.map === map.index) {
-          const near = nearestApproach(map, dist, [tile(place.npc.at)]);
+          const spot = tile(place.npc.at);
+          const near = nearestApproach(map, dist, [spot]);
           if (near) npcSteps.set(place.npc.id, near.steps);
-          else if (place.npc.id < 0) {
-            unreachable = true;
-            for (const l of data.links) if (l.to === map.index && nearestApproach(map, dist, [tile(l.land)])) cutOff.add(l.id);
+          else unreachable = place.npc.id < 0;
+          if (place.npc.id < 0) {
+            for (const l of data.links) {
+              if (l.to !== map.index) continue;
+              const land = tile(l.land);
+              const from = nearestApproach(map, walkDistances(map, land, this.exitsToAvoid(map, land)), [spot]);
+              landSteps.set(l.id, from ? from.steps : Infinity);
+            }
           }
         }
         // The game lists the waypoints unlocked once its window has been opened; until then every one is tried.
         const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
-        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here, unreachable, cutOff }, place, { level: user.level, cls: user.class, waypoints: unlocked, badWaypoints });
+        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here, unreachable, landSteps }, place, { level: user.level, cls: user.class, waypoints: unlocked, badWaypoints });
         if (!planned) throw new BotError(`No way found from ${mapName(data, map.index)} to ${place.label} (your level or class may not allow it).`);
         route = { map: map.index, links: planned.links, blocked: 0 };
         this.bot.status(
