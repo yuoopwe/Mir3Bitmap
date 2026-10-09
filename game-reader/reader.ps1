@@ -412,20 +412,23 @@ function Read-QuestTargets($scene) {
       if (-not $t.IsNull) { $progressOf["$($t.Address)"] = $p }
     }
     $tasks = @()
+    # A quest can hold the tasks of several versions of itself: the character's are those of the version they took it at
+    # (brought in at or before it, and not retired by then; 0: always).
+    $accepted = $(try { $quest.ReadField[int]('<AcceptedContentRevision>k__BackingField') } catch { 0 })
     if (-not $info.IsNull) {
       foreach ($task in (Read-BindingList ($info.ReadObjectField('<Tasks>k__BackingField')))) {
         if ($task.IsNull) { continue }
+        $introduced = $(try { $task.ReadField[int]('_IntroducedRevision') } catch { 0 })
+        $retired = $(try { $task.ReadField[int]('_RetiredRevision') } catch { 0 })
+        if ($accepted -gt 0 -and ($introduced -gt $accepted -or ($retired -gt 0 -and $retired -le $accepted))) { continue }
         $p = $progressOf["$($task.Address)"]
         # Some quests leave the per-character requirement at 0: the task's own amount is the target then.
         $required = $(if ($p) { $p.ReadField[int]('<RequiredAmount>k__BackingField') } else { 0 })
         if ($required -le 0) { $required = $task.ReadField[int]('_Amount') }
         $have = $(if ($p) { $p.ReadField[long]('<Amount>k__BackingField') } else { 0 })
-        $tasks += ,@{ task = $task; required = $required; have = $have; stage = $task.ReadField[int]('_Stage'); mine = [bool]$p }
+        $tasks += ,@{ task = $task; required = $required; have = $have; stage = $task.ReadField[int]('_Stage') }
       }
     }
-    # A quest can hold the tasks of several versions of itself: the character's are the ones with entries (none yet: all count).
-    $mine = @($tasks | Where-Object { $_.mine })
-    if ($mine.Count -gt 0) { $tasks = $mine }
     # A staged quest only counts the current stage's tasks (kills before reaching it don't count).
     $staged = -not $info.IsNull -and $(try { $info.ReadField[bool]('_Staged') } catch { $false })
     $stage = $quest.ReadField[int]('<CurrentStage>k__BackingField')
