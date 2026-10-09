@@ -43,6 +43,8 @@ const MARKERS_SETTLE_MS = 3000;
  * (out of sight, or in sight but walled off).
  */
 const MARKED_ELSEWHERE_MS = 15_000;
+/** With the tracker, a spawn is looked in on again after this long at most (its markers tell on arriving whether they're back). */
+const MARKED_RECHECK_MINUTES = 5;
 
 export class BossCircuit {
   constructor(private readonly bot: BotContext) {}
@@ -107,16 +109,18 @@ export class BossCircuit {
       const chosen = settings.quests.map((id) => data.quests?.find((q) => q.id === id)).filter((q): q is TravelQuest => !!q);
       const quests = chosen.filter((q) => (q.level ?? 0) <= user.level!);
       const log = reading.questLog;
+      // "Farm only": round those monsters' spawns for their drops, the quests left alone.
+      const farmOnly = (settings.farm ?? []).map((n) => n.trim().toLowerCase()).filter(Boolean);
 
       // 1. Hand in what's finished.
-      const ready = quests.find((q) => questStatus(q, log) === 'ready');
+      const ready = farmOnly.length ? undefined : quests.find((q) => questStatus(q, log) === 'ready');
       if (ready) {
         if (await this.handIn(ready)) handInFailures = 0;
         else if (++handInFailures >= HAND_IN_TRIES) throw new BotError(`Couldn't hand in ${ready.name} (${HAND_IN_TRIES} tries).`);
         continue;
       }
       // 2. Take what's on offer.
-      const take = quests.find((q) => questStatus(q, log) === 'none' && !notOffered.has(q.id));
+      const take = farmOnly.length ? undefined : quests.find((q) => questStatus(q, log) === 'none' && !notOffered.has(q.id));
       if (take) {
         await this.toNpcMap(take.start, `Taking ${take.name}`);
         await this.bot.quests.atQuestNpc(take.start, 'accept', `Taking ${take.name}`, take);
@@ -132,15 +136,19 @@ export class BossCircuit {
       const tasks = active.flatMap((q) => questTasks(q, reading.questTargets ?? []));
       const need = new Map<string, number>();
       for (const t of tasks) need.set(t.monster.toLowerCase(), (need.get(t.monster.toLowerCase()) ?? 0) + t.need - t.done);
-      const wanted = [...need].filter(([, n]) => n > 0).map(([name]) => name);
+      const wanted = farmOnly.length ? [] : [...need].filter(([, n]) => n > 0).map(([name]) => name);
       const farming = !wanted.length;
-      if (farming && !settings.keepHunting) {
+      if (farming && !settings.keepHunting && !farmOnly.length) {
         this.bot.stopRunning();
         if (!quests.length) return chosen.length ? `None of the circuit's quests is open to level ${user.level} yet.` : 'Tick a quest for the circuit first (Boss circuit tab).';
         return `${quests.map((q) => shortName(q)).join(', ')} done for today; next one after reset.`;
       }
-      const names = new Set(farming ? quests.flatMap((q) => questTasks(q, [])).map((t) => t.monster.toLowerCase()) : wanted);
-      const spawns = bossSpawns(data, names).filter((s) => !farming || CIRCUIT.farmKinds.includes(s.kind));
+      const names = new Set(farmOnly.length ? farmOnly : farming ? quests.flatMap((q) => questTasks(q, [])).map((t) => t.monster.toLowerCase()) : wanted);
+      // With the tracker for them, a spawn is looked in on sooner than it's due back: the markers say on arriving.
+      const spawns = bossSpawns(data, names)
+        .filter((s) => farmOnly.length || !farming || CIRCUIT.farmKinds.includes(s.kind))
+        .map((s) => (this.tracks(s.kind) ? { ...s, respawnMinutes: Math.min(s.respawnMinutes, MARKED_RECHECK_MINUTES) } : s));
+      if (farmOnly.length && !spawns.length) throw new BotError(`No spawns known for ${settings.farm!.join(', ')} (names as the game has them).`);
       const fights = this.bot.options.grindLog.fights(user.name);
       const band = autoLevelsAbove(fights, this.bot.settings.grind.maxLevelsAbove, Date.now());
       const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
@@ -171,7 +179,7 @@ export class BossCircuit {
         now, routes, clearedAt, tooHard, need: farming ? undefined : need, cantSurvive: (s) => this.bot.guide.cantSurvive(s.monster),
       });
       this.bot.guide.update();
-      const progress = farming ? 'Hunting bosses' : `${active.map(shortName).join(', ')} ${sum(tasks, 'done')}/${sum(tasks, 'need')}`;
+      const progress = farmOnly.length ? `Farming ${[...new Set(spawns.map((s) => s.monster))].join(', ')}` : farming ? 'Hunting bosses' : `${active.map(shortName).join(', ')} ${sum(tasks, 'done')}/${sum(tasks, 'need')}`;
       this.show(plan, tasks, farming ? null : active.map((q) => q.name).join(', '), reading, stonesAtStart, now);
       for (const { spawn, why } of plan.skipped) {
         if (said.has(`${spawn.key}:${why}`)) continue;

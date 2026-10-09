@@ -77,6 +77,7 @@ const checkGearButton = element<HTMLButtonElement>('check-gear-button');
 const circuitQuests = element<HTMLDivElement>('circuit-quests');
 const circuitLevelHint = element<HTMLParagraphElement>('circuit-level-hint');
 const circuitKeep = element<HTMLInputElement>('circuit-keep');
+const circuitFarm = element<HTMLInputElement>('circuit-farm');
 const circuitRetreat = element<HTMLInputElement>('circuit-retreat');
 const circuitSummary = element<HTMLParagraphElement>('circuit-summary');
 const circuitTasks = element<HTMLUListElement>('circuit-tasks');
@@ -342,6 +343,7 @@ function readSettings(): Settings {
     circuit: {
       quests: [...circuitQuestInputs].filter(([, input]) => input.checked).map(([id]) => id),
       keepHunting: circuitKeep.checked,
+      farm: circuitFarm.value.split(',').map((n) => n.trim()).filter(Boolean),
       retreatHpPercent: Math.min(Math.max(readNumber(circuitRetreat, DEFAULT_CIRCUIT.retreatHpPercent), 5), 90),
     },
     guide: { auto: guideAuto.checked, focus: Math.min(Math.max(readNumber(guideFocus, 50), 0), 100) },
@@ -406,6 +408,7 @@ function applySettings(settings: Partial<Settings>): void {
   if (settings.circuit) {
     for (const [id, input] of circuitQuestInputs) input.checked = settings.circuit.quests.includes(id);
     circuitKeep.checked = settings.circuit.keepHunting;
+    circuitFarm.value = (settings.circuit.farm ?? []).join(', ');
     circuitRetreat.value = String(settings.circuit.retreatHpPercent);
   }
   if (settings.guide) {

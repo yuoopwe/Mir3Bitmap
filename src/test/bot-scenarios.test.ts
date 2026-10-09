@@ -1135,6 +1135,23 @@ test("Boss circuit: with the elite tracker, a map whose markers show none alive 
   });
 });
 
+test('Boss circuit: "Farm only" goes round those monsters\' spawns (Oma Chiefs for Forge Stones), the quests left alone', async () => {
+  const BICHON_PROVINCE = 1;
+  const chiefs = bossesAt({ name: 'Oma Chief', map: BICHON_PROVINCE, x: 186, y: 123 }, 2);
+  const game = inArcadia({ monsters: chiefs, known: true, trackers: { elite: 1 } });
+  const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+    settings: { circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35, farm: ['Oma Chief'] } },
+    until: () => killsOf(game, 'Oma Chief').length >= 2,
+    limitMs: 30 * 60_000,
+  });
+  const lines = statuses.map((s) => s.message);
+  assert.ok(met, lines.slice(-8).join(' | '));
+  // No quest taken; said what it's farming.
+  assert.deepEqual(of(game, 'quest'), []);
+  assert.ok(lines.some((m) => m.startsWith('Farming Oma Chief · next: Oma Chief at ')), lines.join(' | '));
+  checkAlways(game);
+});
+
 test('Boss circuit: a spawn found empty is left for the other, and visited again once it is due back (15 minutes on)', async () => {
   await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
     // At the Prajna Guardians' spawn, none there; Warlords at Jinchon Palace Lv 6. The Guardians are back once the bot has left.

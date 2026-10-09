@@ -202,6 +202,8 @@ export interface CircuitSettings {
   keepHunting: boolean;
   /** Below this share of HP (%), with the monster not nearly dead: get away, and leave that spawn for the run. */
   retreatHpPercent: number;
+  /** Farm only these monsters (names): round their spawns for their drops, the quests left alone. Empty: the quests. */
+  farm?: string[];
 }
 
 /** The Boss circuit's plan, for its card. */

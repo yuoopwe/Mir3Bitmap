@@ -317,8 +317,14 @@ Returns to Arcadia once out of combat) and leaves that spawn for the run. A deat
 full bag is sold as Grind sells it; five minutes with nothing happening at a spawn plans again. Once every task is
 done it hands the quest in and says what it brought (the Forge Stones counted in the bag). With the quests done for
 the day it stops ("... done for today; next one after reset"), or with "Keep hunting bosses" goes round the same
-sub-boss and boss spawns for their drops until stopped. The Circuit card shows each task's count, the spawns in order
-with when each is back, and what's skipped.
+sub-boss and boss spawns for their drops until stopped. "Farm only" (names, commas between) leaves the quests alone
+and goes round just those monsters' spawns: Oma Chiefs (Bichon Province, Prajna Village, Lost Paradise; level 10,
+quick to kill) for Forge Stones, say. With the tracker for a spawn's kind (EliteTracker for sub-bosses, as the
+Mourning Ring gives; BossTracker, as a Scroll Of Boss Tracking gives; BehemothTracker) the map's markers show them
+anywhere on it: the circuit goes to the map and straight to the nearest live one (through the map's teleports if need
+be), moves on when the markers show none alive (or waits there when there's nowhere else to go), and looks in on a
+spawn again after 5 minutes rather than its full respawn. The Circuit card shows each task's count, the spawns in
+order with when each is back, and what's skipped.
 
 ## Travel
 
