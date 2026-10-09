@@ -288,6 +288,12 @@ export interface Start {
   npcSteps?: Map<number, number>;
   /** Their tile, for guessing steps where none were worked out. */
   at?: { x: number; y: number };
+  /**
+   * On the place's map, the place found out of reach on foot from here (with the walls): not guessed then. And the
+   * links into this map that land where it's out of reach too (somewhere walkable from here): no way there either.
+   */
+  unreachable?: boolean;
+  cutOff?: ReadonlySet<number>;
 }
 
 export interface Route {
@@ -336,7 +342,7 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
   const cameFrom = new Map<number, number | null>();
   const done = new Set<number>();
   let arrived: { cost: number; via: number | null } | null = null;
-  if (start.map === place.map) arrived = { cost: finish(start.npcSteps?.get(place.npc?.id ?? -1), start.at), via: null };
+  if (start.map === place.map && !start.unreachable) arrived = { cost: finish(start.npcSteps?.get(place.npc?.id ?? -1), start.at), via: null };
   for (const e of exits.get(start.map) ?? []) {
     const steps = start.steps.get(e.id) ?? (start.steps.size ? undefined : guess(start.at, e.exit));
     if (steps === undefined) continue;
@@ -356,7 +362,7 @@ export function planRoute(data: TravelData, start: Start, place: Place, who: Tra
     done.add(at);
     const link = byId.get(at)!;
     const land = { x: link.land[0], y: link.land[1] };
-    if (link.to === place.map) {
+    if (link.to === place.map && !start.cutOff?.has(link.id)) {
       // A spot (no NPC id: a quest's "go to", a boss spawn) is never among the landing's steps: guessed from the landing,
       // not a flat 100 (which made leaving and coming straight back in look quicker than the walk there).
       const spot = place.npc !== undefined && place.npc.id < 0;

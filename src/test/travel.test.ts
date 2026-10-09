@@ -96,3 +96,16 @@ test('avoided tiles are walked round', () => {
   const path2 = pathBack(map, round, target);
   assert.ok(path2.slice(1, -1).every((t) => !avoid.has(t.y * map.width + t.x)));
 });
+
+test("a spot out of reach on foot (Zuma Temple Lv 5's keeper room): through the map's own teleport, not out and back in", () => {
+  const ZUMA_5 = 37;
+  const place = findPlace(data, `spot:${ZUMA_5}:142:144`)!;
+  // Just in from Lv 4: the way back is a step off, the teleport some 390.
+  const start: Start = { map: ZUMA_5, steps: new Map([[2588, 2], [2907, 390], [2589, 538]]), npcSteps: new Map(), at: { x: 14, y: 44 } };
+  // Found out of reach from here, and from where coming back in from Lv 4 lands (walkable from here).
+  const cutOff = new Set(data.links.filter((l) => l.to === ZUMA_5 && l.id !== 2907).map((l) => l.id));
+  const route = planRoute(data, { ...start, unreachable: true, cutOff }, place, { level: 41 })!;
+  assert.deepEqual(route.links.map((l) => l.id), [2907]);
+  // Without knowing, the walk is guessed from here.
+  assert.deepEqual(planRoute(data, start, place, { level: 41 })!.links, []);
+});

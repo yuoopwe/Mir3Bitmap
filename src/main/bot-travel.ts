@@ -27,6 +27,9 @@ const NO_PATH_RETRY_MS = 10_000;
 
 const TRAVEL_BLOCKED_LIMIT = 8;
 
+/** Within this many tiles of where a way to elsewhere on the same map lands: through it. */
+const SAME_MAP_LANDED_TILES = 2;
+
 /** Waypoints: how long to wait for the window to open after clicking the stone, and for the teleport after Activate. */
 const WAYPOINT_OPEN_MS = 3000;
 
@@ -157,13 +160,21 @@ export class Travel {
         const dist = walkDistances(map, here, this.exitsToAvoid(map, here));
         const steps = this.exitSteps(data, map, dist);
         const npcSteps = new Map<number, number>();
+        // A spot out of reach on foot from here (a boss room behind a teleport): nor from where the ways onto this map
+        // land, when they land somewhere walkable from here (leaving and coming back in would only land there again).
+        let unreachable = false;
+        const cutOff = new Set<number>();
         if (place.npc?.at && place.map === map.index) {
           const near = nearestApproach(map, dist, [tile(place.npc.at)]);
           if (near) npcSteps.set(place.npc.id, near.steps);
+          else if (place.npc.id < 0) {
+            unreachable = true;
+            for (const l of data.links) if (l.to === map.index && nearestApproach(map, dist, [tile(l.land)])) cutOff.add(l.id);
+          }
         }
         // The game lists the waypoints unlocked once its window has been opened; until then every one is tried.
         const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
-        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here }, place, { level: user.level, cls: user.class, waypoints: unlocked, badWaypoints });
+        const planned = planRoute(data, { map: map.index, steps, npcSteps, at: here, unreachable, cutOff }, place, { level: user.level, cls: user.class, waypoints: unlocked, badWaypoints });
         if (!planned) throw new BotError(`No way found from ${mapName(data, map.index)} to ${place.label} (your level or class may not allow it).`);
         route = { map: map.index, links: planned.links, blocked: 0 };
         this.bot.status(
@@ -171,6 +182,13 @@ export class Travel {
             ? `Route: ${[map.index, ...planned.links.map((l) => l.to)].map((i) => mapName(data, i)).join(' > ')}`
             : `Heading for ${place.npc?.name}`,
         );
+      }
+
+      // Through a way that leads elsewhere on this same map (a teleport into a boss room): plan again from where it landed.
+      const through = route.links[0];
+      if (through && through.to === map.index && chebyshev(here, tile(through.land)) <= SAME_MAP_LANDED_TILES) {
+        route = null;
+        continue;
       }
 
       // Where to head on this map: the next exit, or the NPC (where the game shows it, else where it's placed).
