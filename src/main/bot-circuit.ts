@@ -43,6 +43,8 @@ const MARKERS_SETTLE_MS = 3000;
  * (out of sight, or in sight but walled off).
  */
 const MARKED_ELSEWHERE_MS = 15_000;
+/** ...and none wanted this close (tiles): off to the next marked one at once. */
+const MARKED_NEAR_TILES = 12;
 /** With the tracker, a spawn is looked in on again after this long at most (its markers tell on arriving whether they're back). */
 const MARKED_RECHECK_MINUTES = 5;
 
@@ -237,7 +239,7 @@ export class BossCircuit {
       const why = await this.fightAt(stop, farming ? null : need, settings.retreatHpPercent, progress);
       logTrip();
       if (why === 'empty') clearedAt.set(stop.spawn.key, this.bot.clock.now());
-      if (why === 'marked') this.bot.status(`None about here; off to a ${stop.spawn.monster} the map's markers show`);
+      if (why === 'marked') this.bot.status(`On to the next ${stop.spawn.monster} the map's markers show`);
       if (why === 'stalled') {
         clearedAt.set(stop.spawn.key, this.bot.clock.now());
         this.bot.status(`Nothing happening at ${stop.spawn.mapName} for ${CIRCUIT.watchdogMinutes} minutes; planning again`);
@@ -335,10 +337,15 @@ export class BossCircuit {
         const about = (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name)) ||
           (tracked && (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name)));
         if (about) seenAt = Math.max(seenAt, now);
-        // With the tracker: nothing landing on what's wanted here, but the markers show one alive on the map: off to it
-        // (the circuit travels there, through the map's teleports if need be; the hunt's seeking only walks).
-        const marked = tracked && (reading?.known ?? []).some((k) => k.map === spawn.map && !k.dead && sameName(k.name, name));
-        if (marked && now - Math.max(progressAt, start) > MARKED_ELSEWHERE_MS) return 'marked';
+        // With the tracker, and one alive on the map's markers: none wanted close (one killed, the next further off), or
+        // nothing landing on what's wanted here a while (walled off): off to it. The circuit's travel rides there (mounted,
+        // through the map's teleports if need be, fighting only what blocks the way); the hunt's seeking walks and fights.
+        const user = reading?.user;
+        const away = (p: { x: number; y: number }) => (user ? Math.max(Math.abs(p.x - user.x), Math.abs(p.y - user.y)) : Infinity);
+        const alive = tracked ? (reading?.known ?? []).filter((k) => k.map === spawn.map && !k.dead && sameName(k.name, name)) : [];
+        const near = alive.some((k) => away(k) <= MARKED_NEAR_TILES) ||
+          (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name) && away(o) <= MARKED_NEAR_TILES);
+        if (alive.length && (!near || now - Math.max(progressAt, start) > MARKED_ELSEWHERE_MS)) return 'marked';
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;
       },

@@ -1137,15 +1137,18 @@ test("Boss circuit: with the elite tracker, a map whose markers show none alive 
 
 test('Boss circuit: "Farm only" goes round those monsters\' spawns (Oma Chiefs for Forge Stones), the quests left alone', async () => {
   const BICHON_PROVINCE = 1;
-  const chiefs = bossesAt({ name: 'Oma Chief', map: BICHON_PROVINCE, x: 186, y: 123 }, 2);
+  // Two lots some 60 tiles apart (its two spawn spots).
+  const chiefs = [...bossesAt({ name: 'Oma Chief', map: BICHON_PROVINCE, x: 186, y: 123 }, 2), ...bossesAt({ name: 'Oma Chief', map: BICHON_PROVINCE, x: 172, y: 182 }, 2)];
   const game = inArcadia({ monsters: chiefs, known: true, trackers: { elite: 1 } });
   const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
     settings: { circuit: { quests: [1840], keepHunting: false, retreatHpPercent: 35, farm: ['Oma Chief'] } },
-    until: () => killsOf(game, 'Oma Chief').length >= 2,
+    until: () => killsOf(game, 'Oma Chief').length >= 4,
     limitMs: 30 * 60_000,
   });
   const lines = statuses.map((s) => s.message);
   assert.ok(met, lines.slice(-8).join(' | '));
+  // From one lot to the other by the circuit's travel (riding), not the hunt's walking.
+  assert.ok(lines.includes("On to the next Oma Chief the map's markers show"), lines.join(' | '));
   // No quest taken; said what it's farming.
   assert.deepEqual(of(game, 'quest'), []);
   assert.ok(lines.some((m) => m.startsWith('Farming Oma Chief · next: Oma Chief at ')), lines.join(' | '));
