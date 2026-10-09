@@ -327,6 +327,11 @@ test('Hunt, seeking: heads for a monster out of sight, and says so', async () =>
   const first = lines.findIndex((m) => m.startsWith('Attacking'));
   assert.ok(lines.slice(0, first).includes('Heading for Wolf'), lines.slice(0, first).join(' | '));
   assert.ok(!lines.slice(0, first).some((m) => m.startsWith('Waiting for monsters')), lines.slice(0, first).join(' | '));
+  // Some 28 tiles off: ridden there, and off the mount again to fight.
+  const mounts = of(game, 'mount');
+  const attackedAt = of(game, 'attack')[0].t;
+  assert.ok(mounts.some((m) => m.mounted && m.t < attackedAt), JSON.stringify(mounts));
+  assert.equal(mounts.filter((m) => m.t < attackedAt).at(-1)!.mounted, false);
   checkAlways(game);
 });
 

@@ -40,6 +40,9 @@ const SPOT_REVISIT_MS = 5 * 60_000;
 /** A spawn spot counts as visited this close. */
 const SPOT_REACH_TILES = 4;
 
+/** Seeking: further than this (steps left on the way) the character rides; nearer, it goes on foot (getting on takes a moment). */
+const SEEK_RIDE_STEPS = 15;
+
 const FLOOR_CLICK_EVERY_MS = 1000;
 
 const KILL_FLOOR_CLICKS = 3;
@@ -628,7 +631,8 @@ export class Hunting {
       goal.path = pathBack(map, dist, near.tile);
     }
     this.seek = goal;
-    await this.bot.moves.driveAlong(here, goal.path, now, false);
+    // A long way to go: on the mount (attacking gets off it again).
+    await this.bot.moves.driveAlong(here, goal.path, now, goal.path.length - 1 > SEEK_RIDE_STEPS);
     this.bot.statusEvery(goal.kind === 'monster' ? `Heading for ${goal.label}` : `Heading for where ${goal.label} spawn`);
     await this.bot.sleep(RUN_TICK_MS);
     return true;
