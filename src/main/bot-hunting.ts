@@ -151,7 +151,7 @@ export class Hunting {
    * `only`: just these monsters (by name), sought only where the game knows of them, or with `seekSpots` at their
    * spawn spots on the map too.
    */
-  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; breakOff?: () => string | null; questOnly?: boolean; only?: string[]; seekSpots?: boolean } = {}): Promise<string> {
+  async huntLoop(options: { seek?: boolean; stopWhen?: () => string | null; breakOff?: () => string | null; questOnly?: boolean; only?: string[]; seekSpots?: boolean; waiting?: () => string } = {}): Promise<string> {
     if (options.only) {
       this.onlyNames = new Set(options.only.map((n) => n.toLowerCase()));
       this.onlySeekSpots = !!options.seekSpots;
@@ -426,7 +426,7 @@ export class Hunting {
         } else if (seek && this.bot.screenReadable && !this.onlyNames) await this.seekOrRoam();
         else {
           await this.bot.sleep(150);
-          this.bot.statusEvery(`Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
+          this.bot.statusEvery(options.waiting?.() ?? `Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
         }
       }
 

@@ -1160,6 +1160,25 @@ test('Boss circuit: "Farm only" goes round those monsters\' spawns (Oma Chiefs f
   checkAlways(game);
 });
 
+test('Boss circuit, farming with the tracker: none alive anywhere, it says where it looks next, and goes when that is due', async () => {
+  const game = inArcadia({ known: true, trackers: { elite: 1 } });
+  let saidAt: number | null = null;
+  const { met, statuses } = await play(game, (bot) => bot.startCircuit(), {
+    settings: { circuit: { quests: [], keepHunting: false, retreatHpPercent: 35, farm: ['Oma Chief'] } },
+    until: (lines) => {
+      if (saidAt === null && lines.some((s) => / \(the map's markers\); next look: .+ in \d+ min$/.test(s.message))) saidAt = game.now;
+      return saidAt !== null && game.events.some((e) => e.type === 'mapChange' && e.t > saidAt!);
+    },
+    limitMs: 30 * 60_000,
+  });
+  const lines = statuses.map((s) => s.message);
+  assert.ok(met, lines.slice(-10).join(' | '));
+  // Off again within the re-check (3 minutes) and the trip, not sat out.
+  const left = game.events.find((e) => e.type === 'mapChange' && e.t > saidAt!)!;
+  assert.ok(left.t - saidAt! < 5 * 60_000, `${Math.round((left.t - saidAt!) / 1000)} s`);
+  checkAlways(game);
+});
+
 test('Boss circuit: a spawn found empty is left for the other, and visited again once it is due back (15 minutes on)', async () => {
   await withSupplyHunt([GUARDIAN.name, WARLORD.name], async () => {
     // At the Prajna Guardians' spawn, none there; Warlords at Jinchon Palace Lv 6. The Guardians are back once the bot has left.

@@ -46,7 +46,7 @@ const MARKED_ELSEWHERE_MS = 15_000;
 /** ...and none wanted this close (tiles): off to the next marked one at once. */
 const MARKED_NEAR_TILES = 12;
 /** With the tracker, a spawn is looked in on again after this long at most (its markers tell on arriving whether they're back). */
-const MARKED_RECHECK_MINUTES = 5;
+const MARKED_RECHECK_MINUTES = 3;
 
 export class BossCircuit {
   constructor(private readonly bot: BotContext) {}
@@ -236,7 +236,7 @@ export class BossCircuit {
       }
 
       // 6. Fight there (the time going to the stat guide's weighing of the circuit against Grind).
-      const why = await this.fightAt(stop, farming ? null : need, settings.retreatHpPercent, progress);
+      const why = await this.fightAt(stop, farming ? null : need, settings.retreatHpPercent, progress, plan.stops.filter((s) => s.spawn.map !== stop.spawn.map));
       logTrip();
       if (why === 'empty') clearedAt.set(stop.spawn.key, this.bot.clock.now());
       if (why === 'marked') this.bot.status(`On to the next ${stop.spawn.monster} the map's markers show`);
@@ -288,7 +288,7 @@ export class BossCircuit {
    * low ('danger'), or a death, a full bag or leaving the map. A spawn not back
    * yet is waited at (fighting any that turn up).
    */
-  private async fightAt(stop: CircuitStop, need: ReadonlyMap<string, number> | null, retreatHpPercent: number, progress: string): Promise<string> {
+  private async fightAt(stop: CircuitStop, need: ReadonlyMap<string, number> | null, retreatHpPercent: number, progress: string, elsewhere: readonly CircuitStop[] = []): Promise<string> {
     const memory = this.bot.options.memory;
     const data = loadTravelData();
     const { spawn } = stop;
@@ -302,9 +302,17 @@ export class BossCircuit {
     /** The damage seen on the monsters wanted here, added up: changing, the fight is going somewhere (a long one too). */
     let damage = 0;
     this.bot.status(`${progress} · ${spawn.monster} at ${spawn.mapName}${stop.readyAt > start ? `: waiting for them to come back` : ''}`);
+    // Nothing to fight: what it's waiting for, and (the markers showing none here) where it looks next.
+    const minutes = (at: number) => Math.max(1, Math.ceil((at - this.bot.clock.now()) / 60_000));
+    const waiting = () => {
+      const next = [...elsewhere].sort((a, b) => a.readyAt - b.readyAt)[0];
+      if (!tracked) return `Waiting for ${spawn.monster} at ${spawn.mapName}${stop.readyAt > this.bot.clock.now() ? ` (back in about ${minutes(stop.readyAt)} min)` : ''}`;
+      return `No ${spawn.monster} alive on ${spawn.mapName} (the map's markers); ${next ? `next look: ${next.spawn.mapName} in ${minutes(next.readyAt)} min` : 'waiting for them to come back'}`;
+    };
     return this.bot.hunting.huntLoop({
       seek: true,
       only: [spawn.monster],
+      waiting,
       // HP low fighting one, with none of them nearly dead: away, mid-fight.
       breakOff: () => {
         const reading = memory.latest();
@@ -346,6 +354,8 @@ export class BossCircuit {
         const near = alive.some((k) => away(k) <= MARKED_NEAR_TILES) ||
           (reading?.objects ?? []).some((o) => o.kind === 'monster' && !o.dead && sameName(o.name, name) && away(o) <= MARKED_NEAR_TILES);
         if (alive.length && (!near || now - Math.max(progressAt, start) > MARKED_ELSEWHERE_MS)) return 'marked';
+        // ...and none alive here at all, with another map due a look: no waiting this one out.
+        if (tracked && !alive.length && !near && elsewhere.some((s) => s.readyAt <= now)) return 'empty';
         if (now - seenAt > CIRCUIT.emptySeconds * 1000) return 'empty';
         return now - Math.max(progressAt, stop.readyAt) > CIRCUIT.watchdogMinutes * 60_000 ? 'stalled' : null;
       },
