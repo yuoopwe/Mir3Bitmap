@@ -339,6 +339,7 @@ export class GameMemory implements MemorySource {
   private grid: MapGrid | null = null;
   /** When the in-game readings of the last minute came. */
   private arrivals: number[] = [];
+  private speedAt: { at: number; speed: ReaderSpeed | null } | null = null;
   /** Who's waiting for the next reading (next()). */
   private waiting: ((came: boolean) => void)[] = [];
 
@@ -423,10 +424,16 @@ export class GameMemory implements MemorySource {
     this.state = null;
     this.grid = null;
     this.arrivals = [];
+    this.speedAt = null;
   }
 
   speed(): ReaderSpeed | null {
-    return readerSpeed(this.arrivals, performance.now());
+    // Worked out at most twice a second (it sorts a minute's gaps): asked every tick, it changes slowly.
+    const now = performance.now();
+    if (!this.speedAt || now - this.speedAt.at > 500) this.speedAt = { at: now, speed: readerSpeed(this.arrivals, now) };
+    // The age is now's, though.
+    const last = this.arrivals[this.arrivals.length - 1];
+    return this.speedAt.speed && last !== undefined ? { ...this.speedAt.speed, ageMs: now - last } : this.speedAt.speed;
   }
 
   /** The current map's walls and explored blocks, once known. */

@@ -13,6 +13,22 @@ import type { BotContext } from './bot-context';
  */
 const BLOCKED_RUNNING_MS = 1100;
 
+/**
+ * The blocked times (this one, and EXPLORE_BLOCKED_MS for stepping) allow for readings this far apart, as the old
+ * reader sent them (its p90 gap was 375 ms). A reader whose readings come closer shows a move sooner: see blockedAfter.
+ */
+const BLOCKED_READING_ALLOWANCE_MS = 400;
+
+/**
+ * How long without moving a tile counts as blocked, given the time for it with the old reader (`base`) and the
+ * reader's p90 gap between readings now (undefined: not known, `base` as it is): the allowance for readings shrinks
+ * to two gaps.
+ */
+export function blockedAfter(base: number, gapP90: number | undefined): number {
+  if (gapP90 === undefined) return base;
+  return base - Math.max(0, BLOCKED_READING_ALLOWANCE_MS - 2 * gapP90);
+}
+
 /** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
 const MOUNT_SETTLE_MS = 1500;
 
@@ -111,10 +127,11 @@ export class Movement {
 
   /**
    * How long without moving a tile counts as blocked: short while running (it
-   * covers ground quickly), longer while stepping by clicks.
+   * covers ground quickly), longer while stepping by clicks; shorter again with
+   * readings coming close together (blockedAfter).
    */
   blockedAfterMs(): number {
-    return this.bot.running ? BLOCKED_RUNNING_MS : EXPLORE_BLOCKED_MS;
+    return blockedAfter(this.bot.running ? BLOCKED_RUNNING_MS : EXPLORE_BLOCKED_MS, this.bot.options.memory.speed?.()?.gaps.p90);
   }
 
   /**

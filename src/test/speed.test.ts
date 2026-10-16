@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { performance } from 'node:perf_hooks';
+import { blockedAfter } from '../main/bot-movement';
 import { GameMemory, readerSpeed } from '../main/game-memory';
 import { play } from './bot-harness';
 import { FakeGame } from './fake-game';
@@ -75,4 +76,14 @@ test('Hunt, idle: a monster turning up is seen with the next reading, and checke
   // A reader that doesn't say what's under the mouse: the title, as before (100 ms a hover).
   const byTitle = await reaction(false);
   assert.ok(byTitle < 450 && byTitle > withMemory, `${Math.round(byTitle)} ms by the title`);
+});
+
+test('blocked sooner with readings close together: the allowance for readings (400 ms) shrinks to two p90 gaps', () => {
+  // Running (1100 ms with the old reader), readings 51 ms apart at p90: 802 ms.
+  assert.equal(blockedAfter(1100, 51), 802);
+  assert.equal(blockedAfter(1500, 51), 1202);
+  // Not known, or readings as far apart as the old reader's: as it was, never longer.
+  assert.equal(blockedAfter(1100, undefined), 1100);
+  assert.equal(blockedAfter(1100, 375), 1100);
+  assert.equal(blockedAfter(1100, 900), 1100);
 });
