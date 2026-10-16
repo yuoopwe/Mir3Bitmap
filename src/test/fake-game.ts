@@ -85,6 +85,8 @@ export type FakeEvent =
   /** Return to Arcadia pressed while still in combat: the game says no. */
   | { t: number; type: 'refused'; what: 'arcadia'; combatAgo: number }
   | { t: number; type: 'pickup'; items: number; refused: boolean }
+  /** A typed character (WM_CHAR). */
+  | { t: number; type: 'char'; code: number }
   /** The companion: an item it picked up, Companion Transfer's box shown (or nothing to move), an item moved into the bag, a transfer done. */
   | { t: number; type: 'companion'; what: 'pickup' | 'confirm' | 'nothing' | 'move' | 'done'; used: number }
   /** A monster hit the player. */
@@ -204,7 +206,7 @@ export interface FakeGameSetup {
    * bound to Companion Transfer, and whether anything matches its Transfer filter (default: all that isn't bound). It
    * picks up items near the player, one at a time, while its bag has room.
    */
-  companion?: { slots: number; used?: number; bound?: number; transferKey: number; filterMatches?: boolean };
+  companion?: { slots: number; used?: number; bound?: number; transferKey: number; filterMatches?: boolean; neverMoves?: boolean };
   /** Return to Arcadia's casts broken off (as by a monster walking up) this many times on maps other than the town portal's. */
   arcadiaBroken?: number;
   /** Random teleport scrolls on `key`: each read lands on the next of `landings` (on the map the player is on), while `scrolls` last. */
@@ -356,7 +358,7 @@ export class FakeGame {
   private readonly townPortal: { map: number; x: number; y: number; key: number };
   /** The companion (see FakeGameSetup), its confirmation box, and the transfer moving items one at a time. */
   readonly companion: {
-    slots: number; used: number; bound: number; transferKey: number; filterMatches: boolean;
+    slots: number; used: number; bound: number; transferKey: number; filterMatches: boolean; neverMoves?: boolean;
     confirm: boolean; transferring: boolean; nextMoveAt: number; nextPickAt: number; picked: number;
   } | null;
   private readonly randomTeleport: { key: number; landings: [number, number][]; scrolls: number } | null;
@@ -515,6 +517,7 @@ export class FakeGame {
       },
       keyDown: (_hwnd, vk) => game.key(vk, true),
       keyUp: (_hwnd, vk) => game.key(vk, false),
+      keyChar: (_hwnd, code) => game.char(code),
       keyChord: (_hwnd, modifiers, vk) => {
         for (const m of modifiers) game.key(m, true);
         game.key(vk, true);
@@ -824,8 +827,6 @@ export class FakeGame {
       if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       if (this.companion && vk === this.companion.transferKey && !this.player.dead) this.companionTransfer();
-      // Enter confirms Companion Transfer's box (as its button does).
-      if (vk === VK.RETURN && this.companion?.confirm) this.startCompanionTransfer();
       if (this.randomTeleport && vk === this.randomTeleport.key && !this.player.dead && this.randomTeleportsUsed < this.randomTeleport.scrolls) this.randomTeleportAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
       if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
@@ -982,6 +983,13 @@ export class FakeGame {
     this.events.push({ t: this.t, type: 'companion', what: c.confirm ? 'confirm' : 'nothing', used: c.used });
   }
 
+  /** A typed character: Enter (13) confirms Companion Transfer's box, as in the game (the key alone doesn't). */
+  private char(code: number): void {
+    this.update();
+    this.events.push({ t: this.t, type: 'char', code });
+    if (code === 13 && this.companion?.confirm) this.startCompanionTransfer();
+  }
+
   /** Companion Transfer's box confirmed: the items start moving. */
   private startCompanionTransfer(): void {
     const c = this.companion!;
@@ -995,7 +1003,7 @@ export class FakeGame {
     const c = this.companion;
     if (!c) return;
     while (c.transferring && this.t >= c.nextMoveAt) {
-      if (c.used - c.bound > 0 && !this.bag.refuse && this.bag.used < this.bag.slots) {
+      if (!c.neverMoves && c.used - c.bound > 0 && !this.bag.refuse && this.bag.used < this.bag.slots) {
         c.used--;
         this.bag.used++;
         c.nextMoveAt += COMPANION_MOVE_MS;

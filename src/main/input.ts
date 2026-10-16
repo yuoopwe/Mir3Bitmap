@@ -20,6 +20,8 @@ export interface GameInput {
   captureClient(hwnd: Handle, method: 'print' | 'blt', width: number, height: number, out: Uint8Array): void;
   keyDown(hwnd: Handle, vk: number): void;
   keyUp(hwnd: Handle, vk: number): void;
+  /** The character a key types (13 for Enter): what a control answering the typed character, not the key, needs (win32.ts keyChar). */
+  keyChar(hwnd: Handle, code: number): void;
   /** A key pressed and let go with `modifiers` (VK.CONTROL, VK.SHIFT) held, as the game reads them: Ctrl+Shift+P, say. */
   keyChord(hwnd: Handle, modifiers: number[], vk: number): void;
   /** `flags`: the MK_* buttons held while moving. */

@@ -513,6 +513,8 @@ test('Companion looting: the bot picks nothing up; the companion does, and its n
   assert.equal(keyDowns(game, Z).length, 1);
   assert.equal(keyDowns(game, VK.RETURN).length, 1);
   assert.ok(keyDowns(game, VK.RETURN)[0].t > of(game, 'companion').find((e) => e.what === 'confirm')!.t);
+  // With the character Enter types: the box answers that, not the key alone.
+  assert.deepEqual(of(game, 'char').map((c) => c.code), [13]);
   // Everything it held moved into ours (what it had, and all it picked up, the last of it while the transfer ran).
   const picked = of(game, 'companion').filter((e) => e.what === 'pickup').length;
   assert.equal(game.companion!.used, 0);
@@ -553,6 +555,21 @@ test('Companion looting while travelling (between Boss circuit spots, say): the 
   checkAlways(game);
 });
 
+test("Companion looting: the box confirmed, nothing moved, and our bag with room: no sell trip; the bot loots for itself and says why", async () => {
+  // (What the transfer leaves: locked, bound or outside the filter. The companion's items out of the bot's own reach.)
+  const game = onBichon({ allNpcs: true, items: dropsAround(2), companion: { slots: 10, used: 10, transferKey: Z, neverMoves: true } }, bichon.player, { level: 1, pickUpRadius: 1 });
+  game.companion!.slots = 10;
+  const { met, statuses } = await play(game, (bot) => bot.startAttack(), {
+    settings: { sellItems: true, ...companionHunt() },
+    until: () => of(game, 'pickup').length > 0,
+    limitMs: 60_000,
+  });
+  assert.ok(met, `the bot picked up for itself (${statuses.at(-1)?.message})`);
+  assert.ok(statuses.some((s) => /mine has room: what's in it is locked, bound or outside its Transfer filter/.test(s.message)));
+  assert.equal(sold(game), 0, 'no sell trip');
+  assert.ok(!of(game, 'mapChange').some((c) => c.to === ARCADIA));
+});
+
 test("Companion looting: no Transfer key set, or nothing matching the companion's filter: the bot loots for itself, and says why", async () => {
   const noKey = onBichon({ items: dropsAround(1), companion: { slots: 10, used: 0, transferKey: Z } }, bichon.player, { level: 1, pickUpRadius: 1 });
   // (The companion out of reach of the item: the bot's own pickup is what's checked.)
@@ -571,10 +588,10 @@ test("Companion looting: no Transfer key set, or nothing matching the companion'
 });
 
 test("Companion looting: our bag too full for the companion's: a sell trip first, then the transfer", async () => {
-  // The bag won't take anything (as when the game counts it full) until something is sold.
-  const game = onBichon({ allNpcs: true, items: dropsAround(2), bag: { used: 20, slots: 40, refuse: true }, companion: { slots: 10, used: 8, transferKey: Z } }, bichon.player, { level: 1 });
+  // Our bag full to the last slot (and set to sell only when it's that full, so the transfer comes first).
+  const game = onBichon({ allNpcs: true, items: dropsAround(2), bag: { used: 40, slots: 40 }, companion: { slots: 10, used: 8, transferKey: Z } }, bichon.player, { level: 1 });
   const { met, statuses } = await play(game, (bot) => bot.startAttack(), {
-    settings: { sellItems: true, ...companionHunt() },
+    settings: { sellItems: true, hunt: { ...companionHunt().hunt, bagFreeSlots: -1 } },
     until: () => sold(game) > 0 && of(game, 'companion').some((e) => e.what === 'move'),
     limitMs: 10 * 60_000,
   });

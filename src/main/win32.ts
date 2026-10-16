@@ -54,6 +54,7 @@ const DIB_RGB_COLORS = 0;
 const BI_RGB = 0;
 
 const WM_KEYDOWN = 0x0100;
+const WM_CHAR = 0x0102;
 const WM_MOUSEMOVE = 0x0200;
 const WM_LBUTTONDOWN = 0x0201;
 const WM_LBUTTONUP = 0x0202;
@@ -244,6 +245,15 @@ function pointParam(x: number, y: number): number {
 
 export function keyDown(hwnd: Handle, vk: number): void {
   SendMessageW(hwnd, WM_KEYDOWN, vk, 0);
+}
+
+/**
+ * The character a key types (13 for Enter), as Windows sends it after a key down. Sent keys don't go through the game's
+ * TranslateMessage, so a control that answers the typed character rather than the key (the companion's transfer box,
+ * on Enter) needs it sent as well.
+ */
+export function keyChar(hwnd: Handle, code: number): void {
+  SendMessageW(hwnd, WM_CHAR, code, 1);
 }
 
 export function keyUp(hwnd: Handle, vk: number): void {

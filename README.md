@@ -191,9 +191,9 @@ A companion only gains experience from what it picks up. With "Let my companion 
 ground) and a companion out, the bot picks nothing up itself, in every mode that hunts (`src/main/bot-companion.ts`).
 When the companion's bag is nearly full (a free slot or less, or 90% of its weight), between fights or mid-fight with 60% of your health or more (on a busy map there's always a next monster), it presses the key
 bound to the game's Companion Transfer (bind one in the game's key settings, and pick it on the Hunt tab), presses Enter
-on the box the game opens (only once the reading shows it: Enter with nothing up opens the chat), and waits while the items move one at a time into your bag. The game moves what matches the
+on the box the game opens (only once the reading shows it: Enter with nothing up opens the chat; sent with the character it types, which the box answers), and waits while the items move one at a time into your bag. The game moves what matches the
 companion's Transfer filter; locked and bound items stay with it. A transfer that moves nothing means your bag had no
-room: that counts as a full bag, so the usual sell trip runs, then the transfer again. No box at all means nothing
+room: that counts as a full bag, so the usual sell trip runs, then the transfer again (with room in your bag, it means what's left is what the transfer leaves: the bot loots for itself a while and says so, rather than sell). No box at all means nothing
 matches the filter: the bot loots for itself for ten minutes and says why; with no companion out, or no key, it loots as
 usual. `node scripts/companion-live.js` shows the companion as the bot reads it.
 

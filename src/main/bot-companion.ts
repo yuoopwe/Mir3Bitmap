@@ -31,6 +31,9 @@ const TRANSFER_MS = 30_000;
 const FIGHTING_WAIT_MS = 5000;
 /** Mid-fight, the transfer (two keys and a moment) only with at least this share of health. */
 const MID_FIGHT_HP = 0.6;
+/** Enter held this long before it's let go, and the character it types. */
+const ENTER_HOLD_MS = 60;
+const ENTER_CHAR = 13;
 /** Nothing matching the Transfer filter: the bot loots for itself this long before trying the companion again. */
 const NO_MATCH_MS = 10 * 60_000;
 
@@ -81,6 +84,12 @@ export class CompanionLoot {
     return this.bot.clock.now() >= this.noMatchUntil;
   }
 
+  /** The player's bag has a slot free (by the reading; unknown counts as none). */
+  private roomInMyBag(): boolean {
+    const bag = this.bot.options.memory.latest()?.survival?.bag;
+    return !!bag && bag.slots > 0 && bag.used < bag.slots;
+  }
+
   /** The companion's bag has a free slot or less, or is nearly at its weight. */
   nearlyFull(companion: Companion): boolean {
     const { used, slots, weight, maxWeight } = companion.bag;
@@ -125,7 +134,12 @@ export class CompanionLoot {
     // Enter confirms it, as it does for the player. Only once the box shows: Enter with nothing up opens the chat, and
     // the keys after it would be typed into it.
     await this.bot.sleep(this.bot.delay('menu'));
+    // Down, the character it types, then up: the box answers the typed Enter (the key alone, as the bot's hotkeys are
+    // sent, left it waiting; checked in game).
     this.bot.key(VK.RETURN);
+    this.bot.input.keyChar(this.bot.hwnd, ENTER_CHAR);
+    await this.bot.sleep(ENTER_HOLD_MS);
+    this.bot.input.keyUp(this.bot.hwnd, VK.RETURN);
     // Started (the box gone) and done (nothing moving any more); mid-fight, back to it after a while if it isn't.
     const done = await this.bot.waitUntil(() => {
       const c = memory.latest()?.companion;
@@ -139,6 +153,11 @@ export class CompanionLoot {
     }
     if (moved > 0) {
       this.bot.status(`Moved ${moved} item${moved === 1 ? '' : 's'} from the companion's bag into mine`);
+    } else if (this.roomInMyBag()) {
+      // Room in ours, and still nothing moved: what's left is what the transfer leaves (locked, bound, or outside the
+      // filter). Selling wouldn't help; looting for itself a while, the user to sort the companion's bag.
+      this.noMatchUntil = this.bot.clock.now() + NO_MATCH_MS;
+      this.bot.status("Nothing moved from the companion's bag, and mine has room: what's in it is locked, bound or outside its Transfer filter (sort it in the game); picking up loot myself for now");
     } else {
       this.blocked = true;
       this.bot.status("Nothing moved from the companion's bag: mine must be full; selling first");
