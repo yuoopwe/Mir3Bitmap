@@ -465,7 +465,8 @@ export class Hunting {
       }
 
       // Selling. Grind and Quests (which pass stopWhen) sell their own way when the bag fills; Hunt with the
-      // memory reader does the same (Arcadia, Ludvik, back); only Hunt without it uses the old screen routine.
+      // memory reader does the same (Arcadia, Ludvik, back); only Hunt without it uses the old screen routine
+      // (with it, a moment without a reading waits for the next: the screen routine opens the bag and the big map).
       if (this.bot.settings.sellItems && !options.stopWhen) {
         if (memory) {
           if (!current && this.bot.survival.bagFull(memory)) {
@@ -473,7 +474,7 @@ export class Hunting {
             await this.bot.survival.emptyBag();
             this.bot.status('Hunting');
           }
-        } else if (wholeSecondsSince(lastSellCheck, this.bot.clock.now()) > SELL_CHECK_INTERVAL_SECONDS) {
+        } else if (!this.bot.options.memory.installed && wholeSecondsSince(lastSellCheck, this.bot.clock.now()) > SELL_CHECK_INTERVAL_SECONDS) {
           lastSellCheck = this.bot.clock.now();
           this.bot.releaseHold();
           await this.bot.survival.sellItems();

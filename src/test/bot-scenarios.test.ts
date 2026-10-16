@@ -504,6 +504,24 @@ test('No old selling: with Sell items ticked, Grind and Quests never run the scr
   checkAlways(quests);
 });
 
+test('Hunt with the memory reader and Sell items: a moment without a reading never falls back to the screen routine (no W, no big map)', async () => {
+  const wolves = Array.from({ length: 6 }, (_, i) => ({ name: 'Wolf', x: byLinda.x - 6 + (i % 3) * 4, y: byLinda.y + 6 + Math.floor(i / 3) * 3, respawn: true }));
+  const game = onBichon({ monsters: wolves }, byLinda, { level: 10 });
+  // The reader misses every fourth look (the game moving memory mid-read, a slow read).
+  const latest = game.memory.latest;
+  let looks = 0;
+  Object.assign(game.memory, { latest: (maxAgeMs?: number) => (++looks % 4 === 0 ? null : latest(maxAgeMs)) });
+  const { met } = await play(game, (bot) => bot.startAttack(), {
+    settings: { sellItems: true, hunt: { ...testSettings().hunt, roam: true } },
+    until: () => of(game, 'attack').filter((a) => a.killed).length >= 6,
+    limitMs: 3 * 60_000,
+  });
+  assert.ok(met, 'hunted on');
+  assert.ok(looks > 100);
+  assert.deepEqual([...keyDowns(game, VK.W), ...keyDowns(game, VK.B)], []);
+  checkAlways(game);
+});
+
 test('Hunt with the memory reader and Sell items: a full bag sells the new way (Arcadia, Ludvik, back), never the screen routine', async () => {
   // Nothing about at first; chickens turn up once the player is back.
   const { x, y } = bichon.player;
