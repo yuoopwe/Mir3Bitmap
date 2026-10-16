@@ -59,11 +59,37 @@ Kept simple on purpose:
 
 With the memory reader set up, Hunt knows exactly where every monster is instead of reading names off the screen:
 `game-reader/reader.ps1` attaches read-only to the running game (Microsoft's ClrMD) and streams the objects
-around the player (monsters with their names, map tiles and dead/alive, items on the ground, pets) a few times a
+around the player (monsters with their names, map tiles and dead/alive, items on the ground, pets) 20 times a
 second. Hunt then clicks the nearest live monster's tile (not anyone's pet), and lists every monster it has seen
 under "Monsters to hunt" (Monsters tab): untick one to leave it alone. Without the reader it falls back to the screen.
 
-Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen (map
+Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`.
+
+The reading itself is C# (`game-reader/*.cs`; `Reader.cs` is where it starts): `reader.ps1` compiles it with
+PowerShell's own compiler the first time (a few seconds) and keeps the result in the temp folder
+(`bitmat-game-reader/<hash>`) until those files, ClrMD or PowerShell change, so there's nothing more to install. It
+prints one JSON line every 50 ms (start to start); the rarely changing parts (quest log, gear, profession levels,
+bloodline, auto potion, the monsters known on the map) are read about once a second, one a tick, and re-sent on
+every line. Each object about is read in one go, a monster's max health once a second, and a read that fails on
+memory the game took since the attach makes ClrMD forget what it knew and read again at once rather than attach
+afresh. Measured on a stand-in game (320 monsters, an 800x800 map): 20 readings a second, gaps 50 ms (p99 62 ms, a
+map change aside), under 8% of one CPU core; the old reader managed 3.3 a second there at 46%.
+
+`game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
+the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. The new one sends the same, but for three things
+the old one got wrong: a lone game window as a list of one (the old one sent it bare), set bonuses' stats as an
+object (the old one sent the text "System.Collections.Hashtable"), and Triple Triad decks of two cards or more
+(the old one sent `[null]`). Checking it against the game:
+
+- `node scripts/reader-parity.js [seconds]` runs both readers side by side and lists the key paths where their
+  readings differ (pairing each old reading with the new one closest in time; positions may differ by 2 tiles, the
+  objects about must overlap 90%).
+- `node scripts/reader-bench.js [seconds] [--legacy]` measures one: readings a second, the gaps between them
+  (median, p90, p99, max, and the share over 100 ms), and its share of one CPU core.
+- `node scripts/check-game-reader.js` compiles the C# as C# 10 against the ClrMD in `game-reader/lib` (needs the
+  .NET SDK; for changing the reader, not for using it). `BITMAT_READER_TRACE=1` prints each failed read to stderr.
+
+Tiles are 48x32 pixels on screen (map
 zoom 100%), and where they're drawn comes from the map view the reader sends (`view`: the game's size, its zoom, and
 where MapControl draws the character's tile): a tile is at x = (tx − ux + offsetX) × 48 + pixelX + 24,
 y = (ty − uy + offsetY) × 32 + pixelY + 16, which puts the player's own at (width / 2, height / 2 − 34): (800, 416)
@@ -363,6 +389,11 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 
 ## Layout
 
+- `game-reader/` – the memory reader: `reader.ps1` compiles and runs the C#; `Reader.cs` (the loop, attaching, the
+  output), `Mem.cs` (reading fields, lists and stats), `World.cs` (the tick, the player, the map, the view, waypoints,
+  windows, known monsters), `Objects.cs` (the objects about), `Ui.cs` (buttons, the survival panel, message boxes,
+  Triple Triad), `Character.cs` (quests, gear, bloodline, auto potion, professions), `MapReading.cs` (the walls);
+  `reader-legacy.ps1` the old all-PowerShell reader
 - `src/main/win32.ts` – window capture and input via user32/gdi32
 - `src/main/labels.ts` – finding overhead names (and fingerprinting them) and item boxes
 - `src/main/sightings.ts` – following overhead names from frame to frame

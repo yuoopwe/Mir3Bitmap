@@ -7,8 +7,9 @@ import { updateMap, type MapGrid, type MapReading } from './map-grid';
 
 /**
  * What's around the player, read straight from the game's memory by
- * game-reader/reader.ps1 (read-only, via Microsoft's ClrMD) instead of from
- * the screen: exact names, map tiles and whether things are dead.
+ * game-reader/reader.ps1 (read-only, via Microsoft's ClrMD; the reading itself
+ * is the C# beside it) instead of from the screen: exact names, map tiles and
+ * whether things are dead.
  */
 export interface MemoryObject {
   id: number;
@@ -295,6 +296,12 @@ export interface MemorySource {
   readonly problem: string;
 }
 
+/**
+ * The old all-PowerShell reader, run instead of the compiled one when BITMAT_LEGACY_READER=1: slower (5 readings a
+ * second at best), kept to compare against (scripts/reader-parity.js) and to fall back on.
+ */
+export const LEGACY_READER = 'reader-legacy.ps1';
+
 /** Runs the memory reader in the background and keeps its latest reading. */
 export class GameMemory implements MemorySource {
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -303,17 +310,21 @@ export class GameMemory implements MemorySource {
   private buffer = '';
   private grid: MapGrid | null = null;
 
-  constructor(private readonly folder: string) {}
+  private readonly script: string;
+
+  constructor(private readonly folder: string) {
+    this.script = process.env.BITMAT_LEGACY_READER === '1' ? LEGACY_READER : 'reader.ps1';
+  }
 
   /** The reader and its libraries are installed (scripts/setup-game-reader.ps1). */
   get installed(): boolean {
-    return existsSync(path.join(this.folder, 'reader.ps1')) && existsSync(path.join(this.folder, 'lib', 'Microsoft.Diagnostics.Runtime.dll'));
+    return existsSync(path.join(this.folder, this.script)) && existsSync(path.join(this.folder, 'lib', 'Microsoft.Diagnostics.Runtime.dll'));
   }
 
   start(): void {
     if (this.child || !this.installed) return;
     // With our process id, so the reader ends itself if this app is closed or killed without stopping it.
-    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, 'reader.ps1'), '-ParentPid', String(process.pid)], { windowsHide: true });
+    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, this.script), '-ParentPid', String(process.pid)], { windowsHide: true });
     this.child = child;
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
@@ -359,8 +370,8 @@ export class GameMemory implements MemorySource {
   }
 
   /**
-   * The latest reading if it's recent and in game, else null. Readings come about every 200 ms, at most about 500 ms
-   * apart but on a map change (up to about 800 ms; measured): a second's grace covers that.
+   * The latest reading if it's recent and in game, else null. Readings come every 50 ms (about every 200 ms from the
+   * legacy reader), further apart on a map change: a second's grace covers that.
    */
   latest(maxAgeMs = 1000): MemoryState | null {
     if (!this.state || performance.now() - this.stateAt > maxAgeMs) return null;
