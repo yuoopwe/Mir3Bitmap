@@ -285,7 +285,8 @@ namespace Bitmat.GameReader
             try { w.WriteNumber("id", o.UInt("ObjectID")); } catch (Exception) { }
             try
             {
-                ClrInstanceField field = scene.FieldOrNull("_MouseObject") ?? scene.FieldOrNull("<MouseObject>k__BackingField");
+                // (GameScene.MouseObject, a public field in the game today; the others in case it becomes a property.)
+                ClrInstanceField field = scene.FieldOrNull("MouseObject") ?? scene.FieldOrNull("_MouseObject") ?? scene.FieldOrNull("<MouseObject>k__BackingField");
                 if (field != null)
                 {
                     ClrObject over = scene.ReadObjectField(field);
