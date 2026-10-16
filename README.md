@@ -57,7 +57,7 @@ skill on it, Every N s or Off).
   seen to give a buff yet counts as an attack until its first cast shows its buff. (`src/main/skill-casting.ts`)
 - **Every N s** is the old timer: F1 every round while fighting, the others every N seconds. Keys saved before there
   was a choice keep it (ticked: Every N s; not: Off) until Auto is picked; "Use Auto for all skill keys" does it in
-  one click.
+  one click for the keys in use (those Off stay off: set one to Auto by hand to have it cast).
 - The tab shows, from the game's memory while a mode runs, each key's skill (name and level), its kind, and a buff's
   time left.
 

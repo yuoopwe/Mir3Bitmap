@@ -271,8 +271,9 @@ function buildKeyRows(): void {
     showKeyWhen(id);
   }
   element<HTMLButtonElement>('keys-auto').addEventListener('click', () => {
-    // The keys with a skill on them (as last read), else every spell key.
-    const withSkill = KEY_IDS.filter((id) => id !== 'N1' && (!keyViews || keyViews.keys[id]));
+    // The keys in use with a skill on them (as last read; else every spell key in use). A key that's Off stays off: an
+    // attack skill nobody chose to cast, on Auto, would be cast whenever it's ready and spend the MP.
+    const withSkill = KEY_IDS.filter((id) => id !== 'N1' && keyInputs.get(id)!.when.value !== 'off' && (!keyViews || keyViews.keys[id]));
     for (const id of withSkill) {
       keyInputs.get(id)!.when.value = 'auto';
       showKeyWhen(id);
