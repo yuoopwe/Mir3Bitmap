@@ -33,10 +33,10 @@ export type { BotOptions } from './bot-context';
 const CHECK_GEAR_WAIT_MS = 15_000;
 
 /** The modes that work at any size of game with the memory reader: they place everything from the map view. */
-const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind', 'circuit'];
+const MEMORY_MODES: Status['mode'][] = ['attack', 'explore', 'travel', 'gather', 'quest', 'grind', 'circuit', 'triad', 'deck'];
 
 /** What the rest are called, for the message. */
-const SCREEN_MODE_NAMES: Partial<Record<Status['mode'], string>> = { triad: 'Triple Triad', deck: 'Best deck', train: 'Train' };
+const SCREEN_MODE_NAMES: Partial<Record<Status['mode'], string>> = { train: 'Train' };
 
 export class Bot {
   private readonly ctx: BotContext;
@@ -200,7 +200,7 @@ export class Bot {
       throw new BotError(`${game}: without the memory reader the bot reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}. Either ${set}, or set up the memory reader (scripts/setup-game-reader.ps1).`);
     }
     if (!MEMORY_MODES.includes(mode)) {
-      throw new BotError(`${game}: ${SCREEN_MODE_NAMES[mode] ?? mode} reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}: ${set} (Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work at any size with the memory reader).`);
+      throw new BotError(`${game}: ${SCREEN_MODE_NAMES[mode] ?? mode} reads the screen, which needs ${GAME_WIDTH}x${GAME_HEIGHT}: ${set} (Hunt, Explore, Travel, Gather, Quests, Grind, the Boss circuit, Triple Triad and Best deck work at any size with the memory reader).`);
     }
   }
 

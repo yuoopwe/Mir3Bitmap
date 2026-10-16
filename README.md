@@ -28,9 +28,9 @@ lists the calls the window made. It isn't part of the app.
 
 ## Setup in game
 
-- With the memory reader, Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work with the game at any size (a bigger
-  window shows more of the map), at map zoom 100%: the bot stops and asks you to set it back otherwise (other zooms
-  aren't measured yet). Without the reader, and for Triple Triad, Best deck and Train, which read the screen, the
+- With the memory reader, Hunt, Explore, Travel, Gather, Quests, Grind, the Boss circuit, Triple Triad and Best deck work
+  with the game at any size (a bigger window shows more of the map), at map zoom 100%: the bot stops and asks you to set
+  it back otherwise (other zooms aren't measured yet). Without the reader, and for Train, which reads the screen, the
   game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. With
   a reading, HP and MP come from the game's memory, at any size, and Hunt, Grind, Travel, Gather and Explore don't
   capture the screen at all (Explore by the big map, Triple Triad and the old screen selling still do, as they read

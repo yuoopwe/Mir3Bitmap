@@ -1256,15 +1256,20 @@ test('A map zoom other than 100% stops the bot, saying to set it back', async ()
   assert.match(message, /^Set the map zoom to 100%/);
 });
 
-test('At 2560x1440 the modes that read the screen stop, saying why; the others start', async () => {
-  for (const [start, name] of [[(bot: Bot) => bot.startTriad(), 'Triple Triad'], [(bot: Bot) => bot.startTrain(), 'Train'], [(bot: Bot) => bot.startDeck(), 'Best deck']] as const) {
-    const game = onBichon({ view: VIEW_2560 });
-    const { message, statuses } = await play(game, start);
-    assert.equal(
-      message,
-      `The game is 2560x1440: ${name} reads the screen, which needs 1600x900: set the game to 1600x900 (Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work at any size with the memory reader).`,
-    );
-    assert.equal(statuses.length, 1, 'stopped before starting');
+test('At 2560x1440 Train (it reads the screen) stops, saying why; Triple Triad and Best deck (the memory) start', async () => {
+  const game = onBichon({ view: VIEW_2560 });
+  const { message, statuses } = await play(game, (bot) => bot.startTrain());
+  assert.equal(
+    message,
+    'The game is 2560x1440: Train reads the screen, which needs 1600x900: set the game to 1600x900 (Hunt, Explore, Travel, Gather, Quests, Grind, the Boss circuit, Triple Triad and Best deck work at any size with the memory reader).',
+  );
+  assert.equal(statuses.length, 1, 'stopped before starting');
+  for (const [start, waiting] of [[(bot: Bot) => bot.startTriad(), /Waiting for a Triple Triad match/], [(bot: Bot) => bot.startDeck(), /Open the Triple Triad card collection window/]] as const) {
+    const big = onBichon({ view: VIEW_2560 });
+    const run = await play(big, start, { until: () => false, limitMs: 5000 });
+    const lines = run.statuses.map((st) => st.message);
+    assert.ok(!lines.some((l) => /reads the screen/.test(l)), lines.join(' | '));
+    assert.ok(lines.some((l) => waiting.test(l)), lines.join(' | '));
   }
 });
 

@@ -97,7 +97,8 @@ export class TripleTriad {
         await this.bot.waitUntil(() => !!this.bot.options.memory.latest()?.triad, TRIAD_POLL_MS);
         continue;
       }
-      if (this.bot.options.memory.installed && this.bot.clock.now() - heardAt < MEMORY_START_MS) {
+      // (At a size other than 1600x900 the screen can't be read: the memory only, however long it takes.)
+      if (this.bot.options.memory.installed && (this.bot.clock.now() - heardAt < MEMORY_START_MS || !this.bot.screenReadable)) {
         this.bot.statusEvery(heardAt === started ? 'Starting the memory reader' : "Waiting for the game's memory");
         await this.bot.sleep(TRIAD_POLL_MS);
         continue;
