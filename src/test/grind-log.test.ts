@@ -64,8 +64,9 @@ test('the fight timer times a kill from the first blow to its death, with the he
   // Overkill: no more than its health counts.
   const { kills, death } = timer.update(reading([monster(1, -450, true)], 900), 5000, 1, 42);
   assert.equal(death, null);
-  // With what the combat model's calibration goes by: the monster, the health put back and the lowest it got, blows seen land.
-  assert.deepEqual(kills, [{ level: 20, monsterLevel: 22, maxHp: 400, damage: 400, seconds: 4, hpLost: 0.2, at: 42, monster: 'Wolf', potions: 0, healed: 0.1, lowest: 0.85, hits: 4 }]);
+  // With what the combat model's calibration goes by: the monster, the health put back and the lowest it got, blows
+  // seen land, and the longest between two readings meanwhile (3 s to 5 s).
+  assert.deepEqual(kills, [{ level: 20, monsterLevel: 22, maxHp: 400, damage: 400, seconds: 4, hpLost: 0.2, at: 42, monster: 'Wolf', potions: 0, healed: 0.1, lowest: 0.85, hits: 4, readingGapMs: 2000 }]);
   // Seen once only.
   assert.deepEqual(timer.update(reading([monster(1, -450, true)]), 5500, null).kills, []);
 });

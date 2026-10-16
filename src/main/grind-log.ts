@@ -47,7 +47,8 @@ export interface Kill {
   /**
    * Noted since the combat model (older kills lack them): the monster; the character's stats then (combat-model.ts
    * packFighter); health potions drunk, the health put back meanwhile and the lowest it got (shares of the most);
-   * and the blows seen land on it.
+   * and the blows seen land on it (a drop in its health a reading; blows between two readings count as one, so
+   * readingGapMs, the longest between two readings during the fight, says whether each blow was seen on its own).
    */
   monster?: string;
   stats?: number[];
@@ -55,6 +56,7 @@ export interface Kill {
   healed?: number;
   lowest?: number;
   hits?: number;
+  readingGapMs?: number;
 }
 
 /** The character died: their level, and the level of the monster being fought (null: none). */
@@ -150,6 +152,8 @@ interface Fight {
   hits: number;
   /** The damage last seen on it. */
   seen: number;
+  /** The longest between two readings while it was fought (ms). */
+  gap: number;
 }
 
 /**
@@ -169,6 +173,8 @@ export class FightTimer {
   private readonly fights = new Map<number, Fight>();
   private lastHp: number | null = null;
   private dead = false;
+  /** When the last reading was taken in. */
+  private lastAt: number | null = null;
 
   constructor(private readonly isBoss: (name: string) => boolean = () => false) {}
 
@@ -180,7 +186,7 @@ export class FightTimer {
     const lowest = user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : 1;
     const fight =
       this.fights.get(id) ??
-      this.fights.set(id, { clicked: now, since: null, helped: (monster.hp ?? 0) < 0, hpLost: 0, healed: 0, lowest, potions: 0, hits: 0, seen: monster.hp ?? 0 }).get(id)!;
+      this.fights.set(id, { clicked: now, since: null, helped: (monster.hp ?? 0) < 0, hpLost: 0, healed: 0, lowest, potions: 0, hits: 0, seen: monster.hp ?? 0, gap: 0 }).get(id)!;
     if (fight.since === null && user && Math.max(Math.abs(monster.x - user.x), Math.abs(monster.y - user.y)) <= 1) fight.since = now;
   }
 
@@ -208,8 +214,11 @@ export class FightTimer {
     }
     this.dead = !!user?.dead;
     const kills: Kill[] = [];
+    const gap = this.lastAt === null ? 0 : now - this.lastAt;
+    this.lastAt = now;
     for (const [id, fight] of this.fights) {
       const monster = reading.objects?.find((o) => o.id === id);
+      if (fight.since !== null) fight.gap = Math.max(fight.gap, gap);
       if (fight.since === null && (monster?.hp ?? 0) < 0) fight.since = now;
       if (monster && (monster.hp ?? 0) < fight.seen) {
         fight.hits++;
@@ -229,6 +238,7 @@ export class FightTimer {
       kills.push({
         level: user.level, monsterLevel: monster.level, maxHp: monster.maxHp!, damage, seconds, hpLost: fight.hpLost, at,
         monster: monster.name, ...(stats && { stats }), potions: fight.potions, healed: fight.healed, lowest: fight.lowest, hits: fight.hits,
+        readingGapMs: Math.round(fight.gap),
       });
     }
     return { kills, death };
@@ -238,8 +248,8 @@ export class FightTimer {
 const finite = (o: unknown, keys: string[]) => !!o && keys.every((key) => Number.isFinite((o as Record<string, unknown>)[key]));
 
 /** A saved kill with only the newer fields that are sound (older files have none). */
-function cleanKill({ monster, stats, potions, healed, lowest, hits, ...kill }: Kill): Kill {
-  const numbers = Object.entries({ potions, healed, lowest, hits }).filter(([, v]) => Number.isFinite(v));
+function cleanKill({ monster, stats, potions, healed, lowest, hits, readingGapMs, ...kill }: Kill): Kill {
+  const numbers = Object.entries({ potions, healed, lowest, hits, readingGapMs }).filter(([, v]) => Number.isFinite(v));
   return {
     ...kill,
     ...(typeof monster === 'string' && { monster }),

@@ -173,7 +173,10 @@ can't, what would do it: "needs +76 AC, or +19154 HP, or 168 Health Potion (XL) 
 levels alone won't close it)". Its guesses (the miss roll, crits, regeneration) are checked against your own fights
 (`src/main/calibration.ts`): each kill is now logged with the monster, your stats, the potions drunk, the health put
 back and the lowest it got, and the model's kill times and health lost are compared with what was measured, newer
-kills counting most, trusted as far as there are kills and capped, per level gap too. What follows each press of the
+kills counting most, trusted as far as there are kills and capped, per level gap too. Kills read blow by blow
+(readings never more than 150 ms apart, so each blow shows as its own drop in the monster's health) also split kill
+speed in two: "your blows 20% harder, 10% fewer a second" says whether it's the damage of a blow or how often blows
+land that the model gets wrong. What follows each press of the
 HP potion key teaches it which potion the key drinks, what one really heals and how soon the game allows another.
 
 `src/main/stat-values.ts` turns that into the **Stat guide** (its own tab): what a point of each stat is worth for
