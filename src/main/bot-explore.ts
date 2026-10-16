@@ -159,6 +159,7 @@ export class Exploring {
 
     while (true) {
       await this.bot.yieldToEvents();
+      // Exploring by the big map reads it off the screen every step.
       this.bot.capture();
       this.bot.readVitals();
       this.bot.drinkPotions();
@@ -282,8 +283,7 @@ export class Exploring {
 
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();

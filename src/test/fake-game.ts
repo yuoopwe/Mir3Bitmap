@@ -283,6 +283,8 @@ export class FakeGame {
   readonly data: TravelData;
   readonly events: FakeEvent[] = [];
   t = 0;
+  /** How many times the bot captured the screen (each costs about 18 ms in the real game). */
+  captures = 0;
   readonly player: {
     map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number;
     damage: number | null; hp: number; maxHp: number; mp: number; maxMp: number; combat: NonNullable<MemoryState['user']>['combat'] | null;
@@ -445,7 +447,10 @@ export class FakeGame {
       cursorOverWindow: () => false,
       clientSize: () => ({ width: game.view.width, height: game.view.height }),
       isMinimized: () => false,
-      captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => out.fill(0),
+      captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => {
+        game.captures++;
+        out.fill(0);
+      },
       keyDown: (_hwnd, vk) => game.key(vk, true),
       keyUp: (_hwnd, vk) => game.key(vk, false),
       keyChord: (_hwnd, modifiers, vk) => {

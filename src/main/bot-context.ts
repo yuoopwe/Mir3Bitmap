@@ -265,18 +265,37 @@ export class BotContext {
   }
 
   /**
-   * HP and MP, as shares: off the bars at the bottom of the screen at 1600x900; at other sizes HP from the game's
-   * memory, and MP unknown (MP potions wait for 1600x900).
+   * HP and MP, as shares: from the game's memory when there's a reading (exact, at any size), else off the bars at
+   * the bottom of the screen (in the last capture) at 1600x900. MP from a reader that doesn't send it (the legacy
+   * one) is read off the screen too; at other sizes it's unknown then (MP potions wait).
    */
   readVitals(): void {
-    if (this.screenReadable) {
-      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+    const { hp, mp } = this.memoryVitals();
+    this.hp = hp ?? (this.screenReadable ? readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT) : null);
+    this.mp = mp ?? (this.screenReadable ? readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT) : null);
+  }
+
+  /**
+   * HP and MP brought up to date for drinking potions: from the game's memory, capturing the screen only for what
+   * the memory doesn't have (no reading, or no MP in it at 1600x900).
+   */
+  updateVitals(): void {
+    const { hp, mp } = this.memoryVitals();
+    if (hp !== null && (mp !== null || !this.screenReadable)) {
+      this.hp = hp;
+      this.mp = mp;
       return;
     }
+    this.capture();
+    this.readVitals();
+  }
+
+  private memoryVitals(): { hp: number | null; mp: number | null } {
     const user = this.options.memory.latest()?.user;
-    this.hp = user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null;
-    this.mp = null;
+    return {
+      hp: user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null,
+      mp: user?.mp !== undefined && user.mp !== null && user.maxMp ? user.mp / user.maxMp : null,
+    };
   }
 
   capture(): void {

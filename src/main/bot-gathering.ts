@@ -86,8 +86,7 @@ export class Gathering {
         }
         wander = { ...wander, until: wander.until + pause, movedAt: wander.movedAt + pause };
       }
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const now = this.bot.clock.now();
       for (const [id, until] of skipped) if (until <= now) skipped.delete(id);
@@ -216,8 +215,7 @@ export class Gathering {
     let casts = 0;
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const player = this.bot.player();
       this.bot.input.mouseMove(this.bot.hwnd, player.x, player.y + SELF_BELOW);

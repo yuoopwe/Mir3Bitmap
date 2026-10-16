@@ -860,6 +860,53 @@ test('Gather without trips: as before, whatever is in sight, never the Professio
   checkAlways(game);
 });
 
+// ---- No screen captures the memory makes needless ----
+
+test('With the memory reader, Hunt never captures the screen: monsters, items and vitals all come from the memory', async () => {
+  const { x, y } = bichon.player;
+  const game = onBichon({ monsters: [{ name: 'Wolf', x: x - 2, y: y + 1, hits: 2 }, { name: 'Wolf', x: x + 3, y: y + 2, hits: 2 }] });
+  const { met } = await play(game, (bot) => bot.startAttack(), { until: () => of(game, 'attack').filter((a) => a.killed).length >= 2, limitMs: 2 * 60_000 });
+  assert.ok(met, 'both wolves killed');
+  assert.equal(game.captures, 0);
+});
+
+test('Without a reading Hunt reads the screen, a capture a look; with one it captures none', async () => {
+  const { x, y } = bichon.player;
+  const game = onBichon({ monsters: [{ name: 'Wolf', x: x - 2, y: y + 1, hits: 2 }] });
+  // The reader misses every other look.
+  const latest = game.memory.latest;
+  let looks = 0, missed = 0;
+  Object.assign(game.memory, { latest: (maxAgeMs?: number) => (++looks % 2 === 0 ? (missed++, null) : latest(maxAgeMs)) });
+  await play(game, (bot) => bot.startAttack(), { until: () => of(game, 'attack').some((a) => a.killed), limitMs: 2 * 60_000 });
+  assert.ok(game.captures > 0 && game.captures <= missed, `${game.captures} captures, ${missed} looks without a reading`);
+});
+
+test('At 2560x1440 the MP potion is drunk by the mana in the memory (the screen bars are only read at 1600x900)', async () => {
+  const { x, y } = bichon.player;
+  const game = onBichon({ view: VIEW_2560, monsters: [{ name: 'Wolf', x: x - 2, y: y + 1, hits: 20 }] }, bichon.player, { mp: 400 });
+  game.player.mp = 60;
+  const hunt = { ...testSettings().hunt, mpPotionKey: 'F5', mpPotionPercent: 30 };
+  await play(game, (bot) => bot.startAttack(), { settings: { hunt }, until: () => keyDowns(game, VK.F1 + 4).length > 0, limitMs: 30_000 });
+  assert.ok(keyDowns(game, VK.F1 + 4).length > 0, 'MP potion key pressed');
+  assert.equal(game.captures, 0);
+});
+
+test('With the memory reader, Grind, Travel and Gather never capture the screen', async () => {
+  const grind = grindOnBichon();
+  await play(grind, (bot) => bot.startGrind(), { until: () => of(grind, 'attack').filter((a) => a.killed).length >= 3, limitMs: 5 * 60_000 });
+  assert.ok(of(grind, 'attack').filter((a) => a.killed).length >= 3);
+  assert.equal(grind.captures, 0, 'Grind');
+  const travel = onBichon();
+  const { message } = await play(travel, (bot) => bot.startTravel(`map:${LEFT_WING}`));
+  assert.equal(message, 'Arrived at Left Wing');
+  assert.equal(travel.captures, 0, 'Travel');
+  const { x, y } = bichon.player;
+  const gather = onBichon({ nodes: [{ node: SILVERLEAF, x: x + 2, y }, { node: COPPER, x: x - 2, y: y + 1 }] }, bichon.player, { level: 10 });
+  const { met } = await play(gather, (bot) => bot.startGather(), { until: () => picks(gather).length >= 2, limitMs: 3 * 60_000 });
+  assert.ok(met, 'both picked');
+  assert.equal(gather.captures, 0, 'Gather');
+});
+
 // ---- The loot judge at the shop ----
 
 const SCROLL_LOCK = 0x91;

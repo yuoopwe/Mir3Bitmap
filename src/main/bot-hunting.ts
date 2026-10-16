@@ -212,21 +212,27 @@ export class Hunting {
         if (walkingTo) walkingTo.since += pause;
         for (const [key, since] of inReachSince) inReachSince.set(key, since + pause);
       }
-      this.bot.capture();
-
-      const start = this.bot.clock.now();
-      const targetHp = readBar(this.bot.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
-      // The target frame only hides names while it's showing.
-      const labels = findLabels(this.bot.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
-      this.bot.readVitals();
-      this.bot.scanMs = this.bot.clock.now() - start;
+      const memory = this.bot.options.memory.latest();
+      let sightings: Sighting[] = [];
+      if (memory) {
+        // The memory has the monsters, items and vitals: the screen isn't looked at.
+        this.bot.updateVitals();
+      } else {
+        // No reading: the monsters are the names over their heads on screen.
+        this.bot.capture();
+        const start = this.bot.clock.now();
+        const targetHp = readBar(this.bot.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
+        // The target frame only hides names while it's showing.
+        const labels = findLabels(this.bot.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
+        this.bot.readVitals();
+        this.bot.scanMs = this.bot.clock.now() - start;
+        sightings = this.sightings.update(labels, this.bot.clock.now());
+      }
       const now = this.bot.clock.now();
-      const sightings = this.sightings.update(labels, now);
       const drank = this.bot.drinkPotions();
       this.bot.elixirs.upkeep();
 
       for (const [key, until] of skipped) if (until <= now) skipped.delete(key);
-      const memory = this.bot.options.memory.latest();
       // In a game of another size the screen can't be read: wait for the memory rather than go by the screen.
       if (!memory && !this.bot.screenReadable) {
         this.bot.stopRunning();
@@ -450,7 +456,11 @@ export class Hunting {
         const seek = options.seek ?? this.bot.settings.hunt.roam;
         if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
           // Heading somewhere.
-        } else if (seek && this.bot.screenReadable && !this.onlyNames) await this.seekOrRoam();
+        } else if (seek && this.bot.screenReadable && !this.onlyNames) {
+          // The minimap is read off the screen: captured now when the memory had the rest.
+          if (memory) this.bot.capture();
+          await this.seekOrRoam();
+        }
         else {
           await this.bot.sleep(150);
           this.bot.statusEvery(options.waiting?.() ?? `Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
@@ -833,8 +843,7 @@ export class Hunting {
         await this.bot.moves.setMounted(false);
         fought = true;
       }
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const tile = this.bot.toScreen(user, monster.x, monster.y);
       const point = await this.bot.aimAt({ key: `m${monster.id}`, point: tile, name: monster.name, tile });

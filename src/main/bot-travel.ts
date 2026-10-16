@@ -113,8 +113,7 @@ export class Travel {
 
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();

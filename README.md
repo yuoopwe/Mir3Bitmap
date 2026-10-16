@@ -28,8 +28,10 @@ lists the calls the window made. It isn't part of the app.
 - With the memory reader, Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work with the game at any size (a bigger
   window shows more of the map), at map zoom 100%: the bot stops and asks you to set it back otherwise (other zooms
   aren't measured yet). Without the reader, and for Triple Triad, Best deck and Train, which read the screen, the
-  game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. At
-  other sizes HP comes from the game's memory instead of the bar, and MP isn't known (MP potions need 1600x900).
+  game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. With
+  a reading, HP and MP come from the game's memory, at any size, and Hunt, Grind, Travel, Gather and Explore don't
+  capture the screen at all (Explore by the big map, Triple Triad and the old screen selling still do, as they read
+  it); without one, the bars at the bottom of the screen at 1600x900.
 - Put the spammable attack spell on F1 and buffs on F6 and above.
 - "Background" capture works while other windows cover the game; it can't see a minimized game.
 - "Pause while my mouse is over the game": every mode stops (letting go of keys and buttons) while your mouse
