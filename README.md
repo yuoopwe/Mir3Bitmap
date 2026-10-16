@@ -101,7 +101,9 @@ windows (from memory), and of the main panel and target frame, placed for the ga
 
 The reader also sends the current map: which tiles are walls (`MapControl.Cells`, read in one go by
 `game-reader/MapReading.cs`) and which 4x4-tile blocks have been explored (`GameScene.MapExplorationStore`, the fog
-on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. To save the map you're on for
+on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. Walking distances over it
+(`src/main/map-path.ts`) are kept for the last few searches: asked again for the same walls, start and tiles
+avoided (as a seeking tick does several times, and every tick while standing), the answer is the one found. To save the map you're on for
 tests, run `node scripts/save-map.js` (writes `src/test/fixture-map-<name>.json`).
 
 ### Quest monsters only
