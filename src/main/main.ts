@@ -3,6 +3,7 @@ import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { CircuitView, GrindMapsView, KeptItem, KeyId, NameRule, Settings, StatGuideView, Status } from '../shared/types';
 import { loadTravelData, places, searchPlaces } from './travel';
+import { searchAreas } from './area-index';
 import { Bot } from './bot';
 import type { Rect } from './layout';
 import { NameBook } from './names';
@@ -163,6 +164,8 @@ ipcMain.handle('bot:quests', () => bot.startQuests());
 ipcMain.handle('bot:circuit', () => bot.startCircuit());
 ipcMain.handle('bot:check-gear', () => bot.checkGear());
 ipcMain.handle('bot:grind-maps', () => bot.listGrindMaps());
+ipcMain.handle('areas:search', (_event, query: string) => searchAreas(loadTravelData(path.join(app.getAppPath(), 'game-data', 'travel.json')), query));
+ipcMain.handle('areas:view', (_event, map: number) => bot.areaView(map));
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => {

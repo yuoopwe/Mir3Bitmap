@@ -4,7 +4,10 @@
  * mode's work is in its own part (bot-*.ts), sharing a BotContext.
  */
 
-import type { Settings, Stats, Status } from '../shared/types';
+import type { AreaView, Settings, Stats, Status } from '../shared/types';
+import { areaView } from './area-index';
+import { CLASS_NAMES, fighterOf, unpackFighter } from './combat-model';
+import { loadTravelData } from './travel';
 import { GAME_HEIGHT, GAME_WIDTH } from './layout';
 import { BotError, Stopped, ViewError } from './bot-shared';
 import { BotContext, type BotOptions } from './bot-context';
@@ -156,6 +159,23 @@ export class Bot {
     } finally {
       if (idle && this.ctx.mode === 'idle') memory.stop();
     }
+  }
+
+  /**
+   * A map for the Areas tab (area-index.ts), against the character as the game's memory has them (while a mode reads
+   * it), else as their newest kill noted them; without either, the monsters alone.
+   */
+  async areaView(map: number): Promise<AreaView | null> {
+    const reading = this.ctx.options.memory.latest();
+    const user = reading?.user;
+    let me = fighterOf(user, reading?.gear?.worn ?? []);
+    let who = me && user ? `${user.name}, level ${me.level} ${CLASS_NAMES[me.cls] ?? ''} (now)` : undefined;
+    if (!me) {
+      const last = this.ctx.options.grindLog.latestKill();
+      me = last ? unpackFighter(last.kill.stats, last.kill.level) : null;
+      if (me && last) who = `${last.character}, level ${me.level} ${CLASS_NAMES[me.cls] ?? ''} (as of the last kill, ${new Date(last.kill.at).toLocaleString()})`;
+    }
+    return areaView(loadTravelData(), map, me, who);
   }
 
   /** Rates the maps for the character now, for the Grind tab's map choice (bot-grind.ts listMaps). */

@@ -6,7 +6,7 @@
 (() => {
   /** Every call the window made: { fn, args }, the args copied the way Electron's IPC copies them. */
   const calls = [];
-  const listeners = { status: [], names: [], monsters: [], kept: [], circuit: [], statGuide: [] };
+  const listeners = { status: [], names: [], monsters: [], kept: [], circuit: [], statGuide: [], grindMaps: [] };
   const record = (fn, ...args) => calls.push({ fn, args: structuredClone(args) });
   const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -222,6 +222,25 @@
     async checkGear() {
       record('checkGear');
     },
+    async listGrindMaps() {
+      record('listGrindMaps');
+      const maps = [
+        { map: 300, name: 'Pandoras Cave Lv 3', rate: 7479819, measured: false },
+        { map: 339, name: 'Lava Temple Lv 3', rate: 7457506, measured: false },
+        { map: 66, name: 'Black Palace Lv 4', rate: 7394108, measured: true },
+      ];
+      listeners.grindMaps.forEach((listener) => listener({ character: 'warrre', level: 48, maps }));
+    },
+    async searchAreas(query) {
+      record('searchAreas', query);
+      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.length) return [];
+      return (window.uiStubAreas ?? []).filter((a) => words.every((w) => a.label.toLowerCase().includes(w))).slice(0, 30);
+    },
+    async areaView(map) {
+      record('areaView', map);
+      return (window.uiStubAreaViews ?? {})[map] ?? null;
+    },
     async startCircuit() {
       record('startCircuit');
       const view = (done) => ({
@@ -310,6 +329,9 @@
     },
     onStatGuide(listener) {
       listeners.statGuide.push(listener);
+    },
+    onGrindMaps(listener) {
+      listeners.grindMaps.push(listener);
     },
     onCircuit(listener) {
       listeners.circuit.push(listener);

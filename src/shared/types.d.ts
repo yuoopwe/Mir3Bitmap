@@ -222,6 +222,51 @@ export interface CircuitView {
   stones: number | null;
 }
 
+/** A monster on the Areas tab: its stats (the game data's), and with the character's stats, how a fight with it goes. */
+export interface AreaMonsterRow {
+  name: string;
+  level: number;
+  health: number;
+  exp: number;
+  /** Its share of the map's monsters. */
+  share: number;
+  /** What it hits with (DC against AC, MC or SC against MR) and how hard; its defence. */
+  attack: { stat: 'DC' | 'MC' | 'SC'; min: number; max: number };
+  ac: [number, number];
+  mr: [number, number];
+  accuracy: number;
+  agility: number;
+  /** The combat model's fight: seconds a kill, health it costs (a share of the most, no potions), the hardest blow, and whether that's survivable. */
+  you?: { seconds: number; hpLost: number; worstBlow: number; survives: boolean };
+}
+
+/** A map on the Areas tab (src/main/area-index.ts). */
+export interface AreaView {
+  map: number;
+  name: string;
+  /** Most common first. */
+  monsters: AreaMonsterRow[];
+  /** From the monsters making up the map: defence this high (its lowest roll) and their blows don't get through; an attack whose lowest roll tops their defence lands in full. */
+  needs: { blockAC: number; blockMR: number; pierceAC: number; pierceMR: number };
+  /**
+   * With the character's stats: theirs, the AC and MR more to fight them all without potions (beyond: some can't be),
+   * the average seconds a kill now, and how much more of their attack stat for kills of quickSeconds (0: already; null: out of reach).
+   */
+  you?: {
+    who: string;
+    ac: [number, number];
+    mr: [number, number];
+    attack: { stat: 'DC' | 'MC' | 'SC'; min: number; max: number };
+    maxHp: number;
+    moreAC: number;
+    moreMR: number;
+    beyond: boolean;
+    meanSeconds: number;
+    quickAttack: number | null;
+    quickSeconds: number;
+  };
+}
+
 /** The maps Grind rates for the character, best first, for the Grind tab's map choice. */
 export interface GrindMapsView {
   character: string;
@@ -289,6 +334,10 @@ export interface BotApi {
   checkGear(): Promise<void>;
   /** Rates the maps for the character now (sent with onGrindMaps), without starting a mode. */
   listGrindMaps(): Promise<void>;
+  /** Maps with monsters whose names match what's typed, with their monsters' levels. */
+  searchAreas(query: string): Promise<{ map: number; label: string }[]>;
+  /** A map's monsters and what fighting there takes, against the character's stats (the game's memory, else the last kill's). */
+  areaView(map: number): Promise<AreaView | null>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;

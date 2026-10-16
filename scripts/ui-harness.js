@@ -27,9 +27,21 @@ const harness = page
   .replace(renderer[0], ['<script src="../../dist/ui-harness/places.js"></script>', '<script src="../../scripts/ui-stub.js"></script>', renderer[0]].join('\n    '));
 
 const { loadTravelData, places } = require('../dist/main/travel.js');
-const list = places(loadTravelData(path.join(root, 'game-data', 'travel.json'))).map(({ id, label }) => ({ id, label }));
+const data = loadTravelData(path.join(root, 'game-data', 'travel.json'));
+const list = places(data).map(({ id, label }) => ({ id, label }));
+// The Areas tab: every map with monsters, and how a level 48 Warrior would fare on each.
+const { searchAreas, areaView } = require('../dist/main/area-index.js');
+const SAMPLE_WARRIOR = {
+  minAC: 126, maxAC: 131, minMR: 61, maxMR: 121, minDC: 306, maxDC: 392, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0,
+  accuracy: 35, agility: 49, attackSpeed: 7, maxHp: 1266, cls: 0, level: 48,
+};
+const areas = data.maps.flatMap((m) => searchAreas(data, m.name, 1000).filter((a) => a.map === m.i));
+const views = Object.fromEntries(areas.map((a) => [a.map, areaView(data, a.map, SAMPLE_WARRIOR, 'Level 48 Warrior (sample)')]));
 
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(out, 'index.html'), harness);
-fs.writeFileSync(path.join(out, 'places.js'), `window.uiStubPlaces = ${JSON.stringify(list)};\n`);
+fs.writeFileSync(
+  path.join(out, 'places.js'),
+  `window.uiStubPlaces = ${JSON.stringify(list)};\nwindow.uiStubAreas = ${JSON.stringify(areas)};\nwindow.uiStubAreaViews = ${JSON.stringify(views)};\n`,
+);
 console.log(pathToFileURL(path.join(out, 'index.html')).href);

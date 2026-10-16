@@ -11,6 +11,7 @@ type KeptItem = import('../shared/types').KeptItem;
 type CircuitView = import('../shared/types').CircuitView;
 type StatGuideView = import('../shared/types').StatGuideView;
 type GrindMapsView = import('../shared/types').GrindMapsView;
+type AreaView = import('../shared/types').AreaView;
 
 interface Window {
   bot: BotApi;

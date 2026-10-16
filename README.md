@@ -183,6 +183,16 @@ never ground on get an expected crowd. Kills on a map then go quicker by the spe
 are estimated with the speed-up they measured themselves (as with the damage), so it isn't counted twice. Grind says
 it after each plan ("Area damage: ~3 monsters at once clear 1.8x as fast (40 min measured)"), as does the Stat guide.
 
+### Areas
+
+The Areas tab looks a map up (`src/main/area-index.ts`): its monsters (bosses and difficulty copies left out, as Grind
+has them), most common first, with their level, health, experience, what they hit with (DC against AC, MC or SC
+against MR), their AC and MR, accuracy and agility. From the monsters making up the map it says the AC (or MR) at which
+none of their blows get through and their highest defence, which an attack must top to land every blow in full. Against
+the character's stats (the game's memory while a mode runs, else the newest kill's), the combat model gives each fight's
+kill time, health and hardest blow, the AC and MR more to fight them all without potions, and the DC (MC, SC) more for
+kills of AREA_INDEX.quickKillSeconds.
+
 ## Training
 
 **Train** casts a spell on your character over and over to level it up: it rests the mouse on your character and
@@ -375,6 +385,7 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 - `src/main/stat-values.ts` – the stat guide: each stat's and elixir's worth for Grind and the Boss circuit, what's out of reach
 - `src/main/loadout.ts` – the best gear: totals changed by each swap from the game's own, the search, checks against the game
 - `src/main/area-damage.ts` – area damage: measured round the character, the speed-up in crowds and how crowded maps get
+- `src/main/area-index.ts` – the Areas tab: a map's monsters, what fighting there takes, and how the character would fare
 - `src/main/bot.ts` – the bot the control window starts and stops; each mode's work is in its own part, sharing `bot-context.ts`:
   - `bot-context.ts` – what every part shares: input, clock, settings, the status line, clicks, keys, potions, aiming
   - `bot-shared.ts` – constants and small helpers more than one part uses

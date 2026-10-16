@@ -277,6 +277,15 @@ export class GrindLog {
     return this.fightLog.get(character) ?? { kills: [], deaths: [] };
   }
 
+  /** The newest kill with the character's stats noted (packFighter), of any character, and whose; null with none. */
+  latestKill(): { character: string; kill: Kill } | null {
+    let latest: { character: string; kill: Kill } | null = null;
+    for (const [character, fights] of this.fightLog) {
+      for (const kill of fights.kills) if (kill.stats && (!latest || kill.at > latest.kill.at)) latest = { character, kill };
+    }
+    return latest;
+  }
+
   addKill(character: string, kill: Kill): void {
     if (!character) return;
     const fights = this.fights(character);

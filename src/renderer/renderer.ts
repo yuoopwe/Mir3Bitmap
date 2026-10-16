@@ -122,6 +122,13 @@ const bagWeight = element<HTMLInputElement>('bag-weight');
 const grindQuestsFirst = element<HTMLInputElement>('grind-quests-first');
 const grindPlan = element<HTMLParagraphElement>('grind-plan');
 const grindMap = element<HTMLSelectElement>('grind-map');
+const areaSearch = element<HTMLInputElement>('area-search');
+const areaResults = element<HTMLSelectElement>('area-results');
+const areaCount = element<HTMLParagraphElement>('area-count');
+const areaCard = element<HTMLElement>('area-card');
+const areaTitle = element<HTMLHeadingElement>('area-title');
+const areaNeeds = element<HTMLUListElement>('area-needs');
+const areaMonsters = element<HTMLTableElement>('area-monsters');
 const grindMapsButton = element<HTMLButtonElement>('grind-maps-button');
 const stopButton = element<HTMLButtonElement>('stop-button');
 const modeText = element<HTMLSpanElement>('mode');
@@ -460,6 +467,94 @@ function saveSettings(): void {
 }
 
 const TRAVEL_KEY = 'travel-v1';
+const AREAS_KEY = 'areas-v1';
+
+/** Lists the maps matching the Areas search box, keeping the one picked if it's still there, and shows it. */
+async function showAreas(): Promise<void> {
+  const picked = areaResults.value || JSON.parse(localStorage.getItem(AREAS_KEY) ?? '{}').picked;
+  const found = await window.bot.searchAreas(areaSearch.value);
+  areaResults.replaceChildren(...found.map((a) => new Option(a.label, String(a.map))));
+  if (found.some((a) => String(a.map) === picked)) areaResults.value = picked;
+  else if (found.length > 0) areaResults.selectedIndex = 0;
+  areaCount.textContent = !areaSearch.value.trim()
+    ? 'Type part of the name of a map.'
+    : found.length === 0
+      ? 'No map with monsters by that name.'
+      : found.length >= 30 ? `The best ${found.length} found: type more to narrow it down.` : `${found.length} found.`;
+  await showArea();
+}
+
+/** "5" or "5–7": a stat's range. */
+function range(low: number, high: number): string {
+  return low === high ? String(low) : `${low}–${high}`;
+}
+
+/** The map picked on the Areas tab: what it needs, and its monsters. */
+async function showArea(): Promise<void> {
+  localStorage.setItem(AREAS_KEY, JSON.stringify({ search: areaSearch.value, picked: areaResults.value }));
+  const view = areaResults.value ? await window.bot.areaView(Number(areaResults.value)) : null;
+  areaCard.hidden = !view;
+  if (!view) return;
+  areaTitle.textContent = view.name;
+  const you = view.you;
+  const line = (text: string, ok?: boolean) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (ok !== undefined) li.className = ok ? 'ok' : 'short';
+    return li;
+  };
+  const lines: HTMLLIElement[] = [];
+  if (you) lines.push(line(`Against ${you.who}: AC ${range(...you.ac)}, MR ${range(...you.mr)}, ${you.attack.stat} ${range(you.attack.min, you.attack.max)}, ${you.maxHp.toLocaleString()} HP`));
+  if (view.needs.blockAC > 0) {
+    lines.push(line(`Their hits: DC up to ${view.needs.blockAC}. With AC that high (its lowest roll) none get through${you ? ` (your lowest is ${you.ac[0]})` : ''}`, you ? you.ac[0] >= view.needs.blockAC : undefined));
+  }
+  if (view.needs.blockMR > 0) {
+    lines.push(line(`Their spells: up to ${view.needs.blockMR}. With MR that high none get through${you ? ` (your lowest is ${you.mr[0]})` : ''}`, you ? you.mr[0] >= view.needs.blockMR : undefined));
+  }
+  const pierce = you && you.attack.stat !== 'DC' ? view.needs.pierceMR : view.needs.pierceAC;
+  const against = you && you.attack.stat !== 'DC' ? 'MR' : 'AC';
+  lines.push(line(
+    `Their defence: AC up to ${view.needs.pierceAC}, MR up to ${view.needs.pierceMR}. ${you ? you.attack.stat : 'DC (MC, SC against MR)'} above their ${against} lands every blow in full${you ? ` (your lowest is ${you.attack.min})` : ''}`,
+    you ? you.attack.min > pierce : undefined,
+  ));
+  if (you) {
+    const more = [you.moreAC ? `+${you.moreAC} AC` : '', you.moreMR ? `+${you.moreMR} MR` : ''].filter(Boolean).join(' and ');
+    lines.push(you.beyond
+      ? line("Without potions: some of them can't be survived whatever your defence (red in the table)", false)
+      : line(more ? `Without potions: you'd need ${more} to fight them all` : 'Without potions: you can fight them all as you are', !more));
+    const now = `Kills take you about ${you.meanSeconds.toFixed(1)} s on average`;
+    lines.push(you.quickAttack === 0
+      ? line(`${now}: already ${you.quickSeconds} s or quicker`, true)
+      : you.quickAttack === null
+        ? line(`${now}; ${you.quickSeconds} s kills are out of reach with more ${you.attack.stat} alone`)
+        : line(`${now}; for ${you.quickSeconds} s kills: +${you.quickAttack} ${you.attack.stat}`));
+  } else {
+    lines.push(line('Start a mode with the memory reader (or grind a while) to see how you would fare here.'));
+  }
+  areaNeeds.replaceChildren(...lines);
+
+  const body = areaMonsters.tBodies[0];
+  body.replaceChildren();
+  for (const m of view.monsters) {
+    const row = body.insertRow();
+    const cells = [
+      m.name, String(m.level), m.health.toLocaleString(), m.exp.toLocaleString(), `${Math.round(m.share * 100)}%`,
+      `${m.attack.stat} ${range(m.attack.min, m.attack.max)}`, range(...m.ac), range(...m.mr), `${m.accuracy} / ${m.agility}`,
+      m.you ? (Number.isFinite(m.you.seconds) ? `${m.you.seconds.toFixed(1)} s` : 'never') : '–',
+      m.you ? `${Math.round(m.you.hpLost * 100)}%` : '–',
+      m.you ? String(Math.round(m.you.worstBlow)) : '–',
+    ];
+    cells.forEach((text, i) => {
+      const cell = row.insertCell();
+      cell.textContent = text;
+      if (i === 0) cell.className = 'name';
+    });
+    if (m.you && !m.you.survives) {
+      row.className = 'bad';
+      row.title = 'The combat model says this fight costs more health than is safe without potions';
+    }
+  }
+}
 
 /** Lists the maps and NPCs matching the search box, keeping the one picked if it's still there. */
 async function showPlaces(): Promise<void> {
@@ -885,6 +980,10 @@ async function init(): Promise<void> {
 
   await refreshNames();
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  areaSearch.addEventListener('input', () => void showAreas());
+  areaResults.addEventListener('change', () => void showArea());
+  areaSearch.value = JSON.parse(localStorage.getItem(AREAS_KEY) ?? '{}').search ?? '';
+  void showAreas();
   travelSearch.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => void showPlaces().then(saveTravel), 150);

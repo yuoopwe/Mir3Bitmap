@@ -590,6 +590,71 @@ table {
   color: var(--text);
 }
 
+/* ---- Areas ---- */
+
+.areas-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+#area-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
+#area-results {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+.area-needs {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.area-needs .short {
+  color: var(--stop);
+}
+
+.area-needs .ok {
+  color: var(--running);
+}
+
+.area-table-wrap {
+  overflow-x: auto;
+}
+
+.area-monsters {
+  width: 100%;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.area-monsters th,
+.area-monsters td {
+  padding: 2px 6px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.area-monsters .name {
+  text-align: left;
+}
+
+.area-monsters thead th {
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+
+.area-monsters .bad {
+  color: var(--stop);
+}
+
 /* ---- Stats & log ---- */
 
 .stats-tables {
