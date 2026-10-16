@@ -45,6 +45,9 @@ export const BAG_KEY = 0x57;
 const REVIVE_MS = 500;
 /** Dead monsters lie this long, then come back (when they respawn) after RESPAWN_MS more. */
 const CORPSE_MS = 2000;
+
+/** The memory reader sends a reading this often. */
+const READING_MS = 50;
 /** Aggressive monsters come at a player this close, a tile this often. */
 const AGGRO_TILES = 8;
 const MONSTER_STEP_MS = 500;
@@ -474,8 +477,13 @@ export class FakeGame {
       latest: () => game.reading(),
       map: () => game.currentMap(),
       fresh: async (timeoutMs = 3000) => {
-        await game.clock.wait(Math.min(40, timeoutMs));
+        await game.clock.wait(Math.min(READING_MS, timeoutMs));
         return game.reading();
+      },
+      // A reading every READING_MS, as the reader sends them.
+      next: async (timeoutMs: number) => {
+        await game.clock.wait(Math.min(READING_MS, timeoutMs));
+        return timeoutMs >= READING_MS;
       },
       problem: '',
     };

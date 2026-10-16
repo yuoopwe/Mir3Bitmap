@@ -37,7 +37,7 @@ export const LOOT_WALK_GIVE_UP_MS = 8000;
 
 export const LOOT_SKIP_MS = 120_000;
 
-/** How often to re-aim while running. */
+/** The longest between two looks while running (each new reading from the game wakes the loop sooner). */
 export const RUN_TICK_MS = 150;
 
 /**

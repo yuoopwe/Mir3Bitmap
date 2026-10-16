@@ -227,7 +227,7 @@ export class GatherTrips {
     await this.bot.moves.driveAlong(here, heading.path, now);
     heading.tickAt = this.bot.clock.now();
     this.bot.statusEvery(`Nothing to gather in sight: heading for another patch of ${name} (${heading.target.x},${heading.target.y})`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
   }
 
   /** The next square of the spot that can be walked to from where `dist` was worked out, and the way there; null if none (or all are here). */

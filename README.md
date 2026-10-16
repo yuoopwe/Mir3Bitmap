@@ -82,7 +82,9 @@ map change aside), under 8% of one CPU core; the old reader managed 3.3 a second
 With a reading this fresh, the bot's waits on the game (a window opening or shutting, the shop's list, a quest
 taken or handed in, an item locked or put on, the map changing, a teleport) look at each reading as it comes and end
 when the game shows the result (`waitUntil` in `bot-context.ts`); the pause they used to be is how long they wait at
-most. The pacing of the bot's own input (the delays, menu pauses, fuzz) is unchanged.
+most. The pacing of the bot's own input (the delays, menu pauses, fuzz) is unchanged. The loops that run on the readings
+(Hunt, seeking, Travel, Explore, Gathering trips) look again as each new reading comes (`nextReading`), not on a
+fixed 150 ms tick: a monster turning up, a target dying or a tile reached is acted on within a reading.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
 the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. The new one sends the same, but for three things

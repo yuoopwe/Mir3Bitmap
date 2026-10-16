@@ -348,7 +348,7 @@ export class Exploring {
 
       await this.bot.moves.driveAlong(user, plan.path, now);
       this.bot.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       drivenAt = this.bot.clock.now();
     }
   }
@@ -422,7 +422,7 @@ export class Exploring {
     }
     await this.bot.moves.driveAlong(here, loot.walking.path, now);
     this.bot.statusEvery(`Walking to an item ${walk.distance} tiles away`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
     return true;
   }
 

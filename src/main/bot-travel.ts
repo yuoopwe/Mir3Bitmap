@@ -308,7 +308,7 @@ export class Travel {
       else this.bot.stopRunning();
       const left = route.links.length;
       this.bot.statusEvery(`Travelling to ${place.label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`);
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       drivenAt = this.bot.clock.now();
     }
   }

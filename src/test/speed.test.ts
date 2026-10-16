@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readerSpeed } from '../main/game-memory';
+import { performance } from 'node:perf_hooks';
+import { GameMemory, readerSpeed } from '../main/game-memory';
 import { play } from './bot-harness';
 import { FakeGame } from './fake-game';
 import { loadMapFixture } from './map-fixtures';
@@ -29,4 +30,42 @@ test("a mode's steps are timed: their length start to start, and the work in the
   assert.ok(tick.ms > 0 && tick.busyMs >= 0 && tick.busyMs <= tick.ms, JSON.stringify(tick));
   // The fake game's memory doesn't time its readings.
   assert.equal(statuses.at(-1)!.speed?.reader ?? null, null);
+});
+
+test('next() wakes on the next reading from the reader, or gives up after its time; fresh() is the first reading after now', async () => {
+  const memory = new GameMemory('.');
+  const line = (x: number) => JSON.stringify({ inGame: true, user: { name: 'A', x, y: 0 } });
+  const started = performance.now();
+  const next = memory.next(5000);
+  setTimeout(() => memory.take(line(1)), 20);
+  assert.equal(await next, true);
+  assert.ok(performance.now() - started < 1000);
+  assert.equal(await memory.next(30), false);
+  const fresh = memory.fresh(5000);
+  setTimeout(() => memory.take(line(2)), 20);
+  assert.equal((await fresh)?.user?.x, 2);
+  // A line that doesn't parse wakes no one.
+  const garbled = memory.next(60);
+  memory.take('{"inGame": tr');
+  assert.equal(await garbled, false);
+});
+
+test('Hunt, idle: a monster turning up is gone for with the next reading, not a tick later', async () => {
+  const bichon = loadMapFixture('bichon-province');
+  const { x, y } = bichon.player;
+  const game = new FakeGame({ maps: [bichon.map], player: { map: 1, x, y, level: 24 } });
+  // The wolf turns up at a moment the bot didn't choose: while it's waiting, part way through.
+  const at = 5037;
+  const wait = game.clock.wait;
+  game.clock.wait = async (ms: number) => {
+    const before = game.now;
+    await wait(ms);
+    if (before < at && game.now >= at) game.addMonster({ name: 'Wolf', x: x + 2, y, hits: 2 });
+  };
+  const { met } = await play(game, (bot) => bot.startAttack(), { until: () => game.events.some((e) => e.type === 'attack'), limitMs: 60_000 });
+  assert.ok(met, 'attacked');
+  const attacked = game.events.find((e) => e.type === 'attack')!.t;
+  // Seen within a reading (the rest is hovering to check it's under the mouse, and the click): 499 ms when the
+  // loop looked every 150 ms.
+  assert.ok(attacked - at < 450, `${Math.round(attacked - at)} ms from the wolf turning up to the first blow`);
 });

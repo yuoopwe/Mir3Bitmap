@@ -298,6 +298,8 @@ export interface MemorySource {
   readonly problem: string;
   /** How the readings have been coming over the last minute (GameMemory; null without readings). */
   speed?(): ReaderSpeed | null;
+  /** Waits for the next reading (true), or `timeoutMs` without one (false). */
+  next?(timeoutMs: number): Promise<boolean>;
 }
 
 /** How far back the reader's speed is measured. */
@@ -332,6 +334,8 @@ export class GameMemory implements MemorySource {
   private grid: MapGrid | null = null;
   /** When the in-game readings of the last minute came. */
   private arrivals: number[] = [];
+  /** Who's waiting for the next reading (next()). */
+  private waiting: ((came: boolean) => void)[] = [];
 
   private readonly script: string;
 
@@ -356,23 +360,7 @@ export class GameMemory implements MemorySource {
       while ((newline = this.buffer.indexOf('\n')) >= 0) {
         const line = this.buffer.slice(0, newline).trim();
         this.buffer = this.buffer.slice(newline + 1);
-        if (!line.startsWith('{')) continue;
-        try {
-          this.state = JSON.parse(line) as MemoryState;
-          this.stateAt = performance.now();
-          if (this.state.inGame) {
-            this.arrivals.push(this.stateAt);
-            while (this.arrivals.length > 0 && this.stateAt - this.arrivals[0] > SPEED_WINDOW_MS) this.arrivals.shift();
-          }
-          this.grid = updateMap(this.grid, this.state.map);
-          // Decoded into the grid; no need to keep the text.
-          if (this.state.map) {
-            delete this.state.map.walls;
-            delete this.state.map.explored;
-          }
-        } catch {
-          // A partial or garbled line: the next one will do.
-        }
+        this.take(line);
       }
     });
     child.stderr.on('data', () => {});
@@ -381,6 +369,46 @@ export class GameMemory implements MemorySource {
     });
     child.on('error', () => {
       if (this.child === child) this.child = null;
+    });
+  }
+
+  /** One line from the reader: the latest reading, once it parses. Whoever waits for the next (next()) is woken. */
+  take(line: string): void {
+    if (!line.startsWith('{')) return;
+    try {
+      this.state = JSON.parse(line) as MemoryState;
+      this.stateAt = performance.now();
+      if (this.state.inGame) {
+        this.arrivals.push(this.stateAt);
+        while (this.arrivals.length > 0 && this.stateAt - this.arrivals[0] > SPEED_WINDOW_MS) this.arrivals.shift();
+      }
+      this.grid = updateMap(this.grid, this.state.map);
+      // Decoded into the grid; no need to keep the text.
+      if (this.state.map) {
+        delete this.state.map.walls;
+        delete this.state.map.explored;
+      }
+    } catch {
+      // A partial or garbled line: the next one will do.
+      return;
+    }
+    const waiting = this.waiting;
+    this.waiting = [];
+    for (const wake of waiting) wake(true);
+  }
+
+  /** Waits for the next reading (true), or `timeoutMs` without one (false). */
+  next(timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.waiting = this.waiting.filter((w) => w !== wake);
+        resolve(false);
+      }, Math.max(0, timeoutMs));
+      const wake = (came: boolean) => {
+        clearTimeout(timer);
+        resolve(came);
+      };
+      this.waiting.push(wake);
     });
   }
 
@@ -413,8 +441,8 @@ export class GameMemory implements MemorySource {
   /** The first reading taken after now (so it shows the effect of a click just made), or null after `timeoutMs`. */
   async fresh(timeoutMs = 3000): Promise<MemoryState | null> {
     const since = performance.now();
-    while (performance.now() - since < timeoutMs) {
-      await new Promise((resolve) => setTimeout(resolve, 40));
+    for (let left = timeoutMs; left > 0; left = timeoutMs - (performance.now() - since)) {
+      await this.next(left);
       if (this.stateAt > since) return this.latest();
     }
     return null;

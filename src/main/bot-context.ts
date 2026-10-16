@@ -241,9 +241,22 @@ export class BotContext {
       if (shown()) return true;
       const left = timeoutMs - (this.clock.now() - since);
       if (left <= 0) return false;
-      await this.idle(Math.min(WATCH_MS, left));
-      this.checkpoint();
+      await this.nextReading(left);
     }
+  }
+
+  /**
+   * Waits for the game's memory to send its next reading (one comes every 50 ms), or `maxMs` at most: a loop that
+   * acts on the readings looks again as soon as there's something new to see, not a fixed time later. Without a
+   * reader that says when its readings come, WATCH_MS (or `maxMs`, if less).
+   */
+  async nextReading(maxMs: number): Promise<void> {
+    const start = this.clock.now();
+    const next = this.options.memory.next;
+    if (next) await next.call(this.options.memory, Math.max(0, maxMs));
+    else await this.clock.wait(Math.min(WATCH_MS, Math.max(0, maxMs)));
+    this.waitedMs += this.clock.now() - start;
+    this.checkpoint();
   }
 
   delay(name: keyof Delays): number {

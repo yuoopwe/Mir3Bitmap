@@ -414,7 +414,7 @@ export class Hunting {
           this.bot.releaseHold();
           await this.bot.moves.driveAlong({ x: user.x, y: user.y }, path, now, path.length - 1 > SEEK_RIDE_STEPS);
           this.bot.statusEvery(`Going round to ${target.name ?? 'a monster'}`);
-          await this.bot.sleep(RUN_TICK_MS);
+          await this.bot.nextReading(RUN_TICK_MS);
           continue;
         }
       }
@@ -462,7 +462,8 @@ export class Hunting {
           await this.seekOrRoam();
         }
         else {
-          await this.bot.sleep(150);
+          // Nothing to do: look again with the next reading (a monster turning up is seen at once).
+          await this.bot.nextReading(150);
           this.bot.statusEvery(options.waiting?.() ?? `Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
         }
       }
@@ -643,7 +644,7 @@ export class Hunting {
       if (!plan || plan === 'done') return false;
       await this.bot.moves.driveAlong(here, plan.path, now, false);
       this.bot.statusEvery('Looking for monsters: exploring');
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       return true;
     }
 
@@ -672,7 +673,7 @@ export class Hunting {
     // A long way to go: on the mount (attacking gets off it again).
     await this.bot.moves.driveAlong(here, goal.path, now, goal.path.length - 1 > SEEK_RIDE_STEPS);
     this.bot.statusEvery(goal.kind === 'monster' ? `Heading for ${goal.label}` : `Heading for where ${goal.label} spawn`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
     return true;
   }
 
