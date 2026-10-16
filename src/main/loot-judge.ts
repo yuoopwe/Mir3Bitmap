@@ -28,6 +28,15 @@ const STATS = {
 type StatKey = keyof typeof STATS;
 type Weights = Partial<Record<StatKey, number>>;
 
+/** Never sold unless the never-sell list is changed: rare drops and forging materials the shop would take for little. */
+export const NEVER_SELL = ['Freedom Pass', 'Synthesis Scroll', 'Forge Stone', 'Essence'];
+
+/** The never-sell entry an item's name has in it (any case), or null. */
+export function neverSellEntry(name: string, list: readonly string[]): string | null {
+  const lower = name.toLowerCase();
+  return list.find((entry) => entry.trim() && lower.includes(entry.trim().toLowerCase())) ?? null;
+}
+
 /** Every number the judge is tuned by, in one place. */
 export const LOOT = {
   /** An item must score this much more than what's worn to be an upgrade (0.05: 5%)... */

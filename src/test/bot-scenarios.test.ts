@@ -908,6 +908,29 @@ test('Loot judge: "Put on clear upgrades" puts the clear one on after selling, a
   checkAlways(game);
 });
 
+test('Never sell: a Freedom Pass and essences are locked before Select All (the list unset: the defaults); cleared, they sell', async () => {
+  const FREEDOM_PASS = { name: 'Freedom Pass', type: 0, slot: 3, rarity: 2 };
+  const ESSENCE = { name: 'Elite Essence', type: 0, slot: 6, rarity: 2 };
+  const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(FREEDOM_PASS, BENT_SWORD, ESSENCE) });
+  const { met, kept, statuses } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });
+  assert.ok(met, `sold and back (${statuses.at(-1)?.message})`);
+  assert.deepEqual(locks(game).map((l) => l.name).sort(), ['Elite Essence', 'Freedom Pass']);
+  assert.ok(locks(game).every((l) => l.t < buttons(game, 'Select All')[0].t));
+  assert.deepEqual(game.gear.bag.map((i) => i.name).sort(), ['Elite Essence', 'Freedom Pass']);
+  assert.ok(kept.some((k) => k.name === 'Freedom Pass' && k.reason === 'on the never-sell list (Freedom Pass)'));
+  checkAlways(game);
+
+  // An empty list keeps nothing back.
+  const bare = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(FREEDOM_PASS, BENT_SWORD) });
+  const sold = await play(bare, (bot) => bot.startGrind(), {
+    settings: { hunt: { ...testSettings().hunt, neverSell: [] } },
+    until: backOnBichon(bare, 'sold', () => true),
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(sold.met, 'sold and back');
+  assert.deepEqual([locks(bare), bare.gear.bag], [[], []]);
+});
+
 test("Loot judge: nothing worth keeping, so selling is as before (no lock key at all)", async () => {
   const game = grindOnBichon({ bag: { used: 38, slots: 40 }, gear: gearWith(BENT_SWORD) });
   const { met, kept } = await play(game, (bot) => bot.startGrind(), { until: backOnBichon(game, 'sold', () => true), limitMs: 10 * 60_000 });

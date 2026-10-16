@@ -42,6 +42,8 @@ export interface HuntSettings {
   /** Grind: back to Arcadia when the bag has this few slots free (or is this close to its weight limit, in %). */
   bagFreeSlots?: number;
   bagWeightPercent?: number;
+  /** Selling never takes items whose names have one of these in them (any case): locked first, as the loot judge's keepers are. Unset: loot-judge.ts NEVER_SELL. */
+  neverSell?: string[];
   /** Pick up items lying nearby (after kills, and when idle). */
   loot: boolean;
   /** Extra key pressed after walking onto an item, if the client uses one. */

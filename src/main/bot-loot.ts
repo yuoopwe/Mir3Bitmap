@@ -11,7 +11,7 @@
 
 import type { KeptItem } from '../shared/types';
 import type { MemoryItem, MemoryState } from './game-memory';
-import { LOOT, RARITY_NAMES, brokenWorn, judgeItem, type Verdict, type Wearer } from './loot-judge';
+import { LOOT, NEVER_SELL, RARITY_NAMES, brokenWorn, judgeItem, neverSellEntry, type Verdict, type Wearer } from './loot-judge';
 import { describeSwap } from './loadout';
 import { HOVER_SETTLE_MS, boxCentre } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -174,14 +174,19 @@ export class Looting {
     }
   }
 
-  /** Bag items to keep that the sale could take: the judge says keep (or the best gear wants them), and they're neither locked nor unsellable. Best first. */
+  /** Bag items to keep that the sale could take: on the never-sell list, or the judge says keep (or the best gear wants them), and neither locked nor unsellable. Best first. */
   private keepers(reading: MemoryState | null): { item: MemoryItem; verdict: Verdict }[] {
     const gear = reading?.gear;
     if (!gear || !reading.user) return [];
     const who = this.wearer(reading);
+    const never = this.bot.settings.hunt.neverSell ?? NEVER_SELL;
+    const listed = (entry: string): Verdict => ({ keep: true, upgrade: false, slot: null, gain: 0, reason: `on the never-sell list (${entry})` });
     return gear.bag
       .filter((item) => item.canSell && !(item.flags & LOCKED))
-      .map((item) => ({ item, verdict: judgeItem(item, gear.worn, who, { values: this.bot.guide.values(), planned: this.bot.guide.planned(item) }) }))
+      .map((item) => {
+        const entry = neverSellEntry(item.name, never);
+        return { item, verdict: entry ? listed(entry) : judgeItem(item, gear.worn, who, { values: this.bot.guide.values(), planned: this.bot.guide.planned(item) }) };
+      })
       .filter((k) => k.verdict.keep)
       .sort((a, b) => b.verdict.gain - a.verdict.gain);
   }

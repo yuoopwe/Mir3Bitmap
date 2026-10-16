@@ -100,7 +100,8 @@ each stat is worth to your character for what they do (the stat guide, below), o
 fixed weights for your class (DC for Warriors, MC for Wizards, SC for Taoists... all in one table, `LOOT.weights`,
 min/max pairs at their average), against what you wear where it would go (for rings and bracelets, the weaker of the two). Items you
 can wear (class, level, a stat requirement against your stats) that beat it by 5%, or go where nothing is worn, are
-upgrades; those and anything Legendary or rarer are kept. Each is locked in game (Scroll Lock, the game's
+upgrades; those and anything Legendary or rarer are kept, as is anything whose name has an entry of the
+"Never sell" list in it (Grind tab, Selling; by default Freedom Pass, Synthesis Scroll, Forge Stone, Essence). Each is locked in game (Scroll Lock, the game's
 ToggleItemLock key, with the mouse over its bag cell), and the lock is checked in the game's memory: one that doesn't
 lock within a couple of seconds (or isn't showing in the bag) calls the sale off for that trip ("Couldn't protect X:
 not selling"); the full bag is then let be for 10 minutes while hunting goes on. Locked items stay locked: unlock them

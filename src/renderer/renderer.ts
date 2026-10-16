@@ -38,6 +38,9 @@ const attack = element<HTMLInputElement>('attack');
 const archer = element<HTMLInputElement>('archer');
 const roam = element<HTMLInputElement>('roam');
 const questOnly = element<HTMLInputElement>('quest-only');
+const neverSell = element<HTMLInputElement>('never-sell');
+/** As src/main/loot-judge.ts NEVER_SELL: what's never sold until the list is changed. */
+const DEFAULT_NEVER_SELL = ['Freedom Pass', 'Synthesis Scroll', 'Forge Stone', 'Essence'];
 const loot = element<HTMLInputElement>('loot');
 const sellItems = element<HTMLInputElement>('sell-items');
 const pickUpKey = element<HTMLSelectElement>('pickup-key');
@@ -361,6 +364,7 @@ function readSettings(): Settings {
       bagFreeSlots: Math.min(Math.max(readNumber(bagFree, 15), 0), 100),
       bagWeightPercent: Math.min(Math.max(readNumber(bagWeight, 95), 10), 100),
       questOnly: questOnly.checked,
+      neverSell: neverSell.value.split(',').map((n) => n.trim()).filter(Boolean),
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
       townPortalKey: townPortalKey.value,
@@ -435,6 +439,7 @@ function applySettings(settings: Partial<Settings>): void {
     bagFree.value = String(hunt.bagFreeSlots ?? 15);
     bagWeight.value = String(hunt.bagWeightPercent ?? 95);
     questOnly.checked = hunt.questOnly ?? false;
+    neverSell.value = (hunt.neverSell ?? DEFAULT_NEVER_SELL).join(', ');
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
     townPortalKey.value = hunt.townPortalKey ?? '3';
@@ -829,6 +834,7 @@ async function init(): Promise<void> {
   questMax.value = '5';
   bagFree.value = '15';
   bagWeight.value = '95';
+  neverSell.value = DEFAULT_NEVER_SELL.join(', ');
   grindAbove.value = String(DEFAULT_GRIND.maxLevelsAbove);
   // The settings file the bot writes on every change, else the window's own storage (older versions only had that).
   const fromFile = await window.bot.loadSettings();
