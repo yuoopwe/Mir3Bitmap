@@ -16,6 +16,7 @@ namespace Bitmat.GameReader
     {
         // Library.Stat numbers.
         private const int HealthStat = 2;
+        private const int ManaStat = 3;
         // How far (in tiles) clicking at the feet picks things up.
         private const int PickUpRadiusStat = 40;
         // The trackers (an item or a scroll) that put elites, bosses and behemoths anywhere on the map on its markers.
@@ -218,7 +219,7 @@ namespace Bitmat.GameReader
 
         private int UserStat(int stat) => userStats.TryGetValue(stat, out int value) ? value : 0;
 
-        // The player: where, their level, class, health, their stats, and the rest the bot reads them by.
+        // The player: where, their level, class, health and mana, their stats, and the rest the bot reads them by.
         private void WriteUser(ClrObject o, ClrObject scene, string name, int x, int y)
         {
             // Every stat at once (the old reader looked each up in the tree).
@@ -242,6 +243,9 @@ namespace Bitmat.GameReader
             else w.WriteNull("hasMount");
             w.WriteNumber("hp", o.Int("_CurrentHP"));
             w.WriteNumber("maxHp", UserStat(HealthStat));
+            // Mana beside health (_CurrentMP; the Mana stat, 3, is the most).
+            WriteNumberOrNull(w, "mp", o.IntOrNull("_CurrentMP"));
+            w.WriteNumber("maxMp", UserStat(ManaStat));
             w.WriteStartObject("combat");
             for (int i = 0; i < CombatStats.Length; i++) w.WriteNumber(CombatNames[i], UserStat(CombatStats[i]));
             w.WriteEndObject();
