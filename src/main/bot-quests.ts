@@ -44,7 +44,7 @@ export class Questing {
       const user = reading?.user;
       if (!reading || !log || !user || user.level === undefined || !memory.map()) {
         this.bot.statusEvery(!reading ? (this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`) : 'Waiting for the quest log');
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest()?.questLog && !!memory.map(), 300);
         continue;
       }
       if (user.dead) {
@@ -95,7 +95,9 @@ export class Questing {
         this.bot.status(action.reason);
         try {
           this.bot.status(await this.bot.travel.travelTo(`spot:${action.map}:${x}:${y}`));
-          await this.bot.sleep(1500);
+          // There: the game ticks the task off (the quest log is read about once a second).
+          const pending = () => !!memory.latest()?.questPending?.regions?.some((r) => r.region === action.region && r.quest === action.quest);
+          await this.bot.waitUntil(() => !pending(), 1500);
         } catch (error) {
           if (error instanceof Stopped) throw error;
           failed.add(`region:${action.region}`);
@@ -176,11 +178,14 @@ export class Questing {
     if (quest && !this.questDone(quest, action)) await this.oneQuest(quest, action);
     const after = count() ?? before;
     // Escape shuts the quest's window first, then the list.
-    for (let i = 0; i < 2; i++) {
-      this.bot.key(VK.ESCAPE);
-      await this.bot.sleep(300);
+    const open = () => {
       const survival = memory.latest()?.survival;
-      if (!survival?.questList && !survival?.questBox) break;
+      return (survival?.questList ? 1 : 0) + (survival?.questBox ? 1 : 0);
+    };
+    for (let i = 0; i < 2 && open() > 0; i++) {
+      const was = open();
+      this.bot.key(VK.ESCAPE);
+      await this.bot.waitUntil(() => open() < was, 300);
     }
     return Math.max(0, after - before);
   }
@@ -219,18 +224,15 @@ export class Questing {
 
   /** An "are you sure?" or a reward choice after taking or handing in: press its Yes / OK. */
   private async confirmQuest(): Promise<void> {
-    await this.bot.sleep(500);
-    const ask = this.bot.options.memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+    const asking = () => this.bot.options.memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok|confirm/i.test(b.name)));
+    await this.bot.waitUntil(() => !!asking(), 500);
+    const ask = asking();
     const yes = ask?.buttons.find((b) => /yes|ok|confirm/i.test(b.name));
     if (yes) await this.bot.click(boxCentre(yes), this.bot.delay('menu'));
   }
 
-  private async waitFor(ok: () => boolean, ms: number): Promise<boolean> {
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ms; ) {
-      if (ok()) return true;
-      await this.bot.sleep(300);
-    }
-    return ok();
+  private waitFor(ok: () => boolean, ms: number): Promise<boolean> {
+    return this.bot.waitUntil(ok, ms);
   }
 
   /** Clicks an NPC (standing next to them) and opens their quest list; null if it didn't open. */
@@ -243,9 +245,9 @@ export class Questing {
         const menu = memory.latest()?.survival?.npcMenu;
         if (menu?.quests?.enabled) {
           await this.bot.click(boxCentre(menu.quests), this.bot.delay('menu'));
-          await this.bot.sleep(500);
+          await this.bot.waitUntil(() => !!list(), 500);
         }
-        await this.bot.sleep(150);
+        await this.bot.waitUntil(() => !!list() || !!memory.latest()?.survival?.npcMenu?.quests?.enabled, 150);
       }
     }
     return list();
@@ -276,11 +278,16 @@ export class Questing {
       return;
     }
     if (!(await this.clickNpc(npc.name))) return;
-    await this.bot.sleep(800);
+    // Their Talk / Quests menu, or straight to what they say.
+    await this.bot.waitUntil(() => !!memory.latest()?.survival?.npcMenu?.talk?.enabled || !!memory.latest()?.survival?.npcDialog, 800);
     const menu = memory.latest()?.survival?.npcMenu;
     if (menu?.talk?.enabled) await this.bot.click(boxCentre(menu.talk), this.bot.delay('menu'));
-    await this.bot.sleep(1500);
+    // Talking ticks the task off (the quest log is read about once a second); one not listed gets the time it always had.
+    const pending = () => !!memory.latest()?.questPending?.talks?.some((t) => t.npc === npcId);
+    const listed = pending();
+    await this.bot.waitUntil(() => listed && !pending(), 1500);
     this.bot.key(VK.ESCAPE);
-    await this.bot.sleep(300);
+    const talking = () => !!memory.latest()?.survival?.npcDialog || !!memory.latest()?.survival?.npcMenu;
+    await this.bot.waitUntil(() => !talking(), 300);
   }
 }

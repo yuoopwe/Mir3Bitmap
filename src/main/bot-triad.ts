@@ -82,7 +82,7 @@ export class TripleTriad {
         }
         this.bot.status('Game over; pressing OK');
         await this.bot.click(boxCentre(live.ok), this.bot.delay('menu'));
-        await this.bot.sleep(TRIAD_SETTLE_MS);
+        await this.bot.waitUntil(() => !this.bot.options.memory.latest()?.triad?.ok, TRIAD_SETTLE_MS);
         continue;
       }
       okPressed = false;
@@ -94,7 +94,7 @@ export class TripleTriad {
       }
       if (this.bot.options.memory.latest()) {
         this.bot.statusEvery(matches ? `Played ${matches} game${matches === 1 ? '' : 's'}; waiting for the next one` : 'Waiting for a Triple Triad match (start one at the card NPC)');
-        await this.bot.sleep(TRIAD_POLL_MS);
+        await this.bot.waitUntil(() => !!this.bot.options.memory.latest()?.triad, TRIAD_POLL_MS);
         continue;
       }
       if (this.bot.options.memory.installed && this.bot.clock.now() - heardAt < MEMORY_START_MS) {
@@ -183,15 +183,19 @@ export class TripleTriad {
   /** One look at a match through the game's memory: plays my move if it's my turn. */
   private async triadTurnFromMemory(live: MemoryTriad): Promise<void> {
     if (live.rules !== undefined) this.triadRules = live.rules;
+    const now = () => this.bot.options.memory.latest()?.triad;
     if (!live.players || !live.board) {
       this.bot.statusEvery('Waiting for the game to start');
-      await this.bot.sleep(TRIAD_POLL_MS);
+      await this.bot.waitUntil(() => !!now()?.players && !!now()?.board, TRIAD_POLL_MS);
       return;
     }
     if (!myTurnInMemory(live)) {
       this.parkOffCards(live);
       this.bot.statusEvery(live.complete ? 'Game over' : "Opponent's turn (game memory)");
-      await this.bot.sleep(TRIAD_POLL_MS);
+      await this.bot.waitUntil(() => {
+        const t = now();
+        return !t?.open || !!t.ok || (!!t.players && !!t.board && myTurnInMemory(t));
+      }, TRIAD_POLL_MS);
       return;
     }
     const { decision, card } = decideFromMemory(live);
@@ -207,8 +211,12 @@ export class TripleTriad {
     await this.bot.sleep(TRIAD_CLICK_GAP_MS);
     await this.bot.click(square ? boxCentre(square) : cellCentre(decision.cell), this.bot.delay('menu'));
     this.parkOffCards(live);
-    await this.bot.sleep(TRIAD_SETTLE_MS);
-    if (!this.bot.options.memory.latest()?.triad?.board?.[decision.cell]) this.bot.status('The card did not go down; trying again');
+    // Down, and the turn passed on (else the next look could play again into the same turn).
+    await this.bot.waitUntil(() => {
+      const t = now();
+      return !!t?.board?.[decision.cell] && !myTurnInMemory(t);
+    }, TRIAD_SETTLE_MS);
+    if (!now()?.board?.[decision.cell]) this.bot.status('The card did not go down; trying again');
   }
 
   /** Learns from the board: how my cards' digits look in their cells, and which cards she has played. */
@@ -242,7 +250,7 @@ export class TripleTriad {
     memory.start();
     let collection: MemoryCollection | null | undefined = null;
     for (const since = this.bot.clock.now(); !collection; ) {
-      await this.bot.sleep(300);
+      await this.bot.waitUntil(() => !!memory.latest()?.collection, 300);
       collection = memory.latest()?.collection;
       if (collection?.error) throw new BotError(`Couldn't read the card collection: ${collection.error}`);
       if (!collection) this.bot.statusEvery(memory.latest() ? 'Open the Triple Triad card collection window' : 'Starting the memory reader');
@@ -290,12 +298,15 @@ export class TripleTriad {
       }
 
       const before = (await memory.fresh())?.collection;
+      const sorted = (ids: number[]) => [...ids].sort((a, b) => a - b).join();
       if (before?.save.enabled) {
         await this.bot.click(boxCentre(before.save), this.bot.delay('menu'));
-        await this.bot.sleep(600);
+        await this.bot.waitUntil(() => {
+          const saved = memory.latest()?.collection?.saved;
+          return !!saved && sorted(saved) === sorted(choice.deck);
+        }, 600);
       }
       const after = (await memory.fresh())?.collection;
-      const sorted = (ids: number[]) => [...ids].sort((a, b) => a - b).join();
       const saved = after && sorted(after.saved) === sorted(choice.deck);
       // Counted even if the save didn't show: the slots have changed either way.
       this.bot.stats.count('decks');
@@ -317,7 +328,7 @@ export class TripleTriad {
     if (!tab) return `There's no tab for level ${level} cards.`;
     if (!tab.selected) {
       await this.bot.click(boxCentre(tab.button), this.bot.delay('menu'));
-      await this.bot.sleep(300);
+      await this.bot.waitUntil(() => !!memory.latest()?.collection?.tabs.find((t) => t.level === level)?.selected, 300);
     }
     c = (await memory.fresh())?.collection;
     tab = c?.tabs.find((t) => t.level === level);
@@ -335,7 +346,7 @@ export class TripleTriad {
       return `Picking ${name} didn't offer to replace the slot${c?.feedback ? ` (${c.feedback})` : ''}.`;
     }
     await this.bot.click(boxCentre(c.action), this.bot.delay('menu'));
-    await this.bot.sleep(200);
+    await this.bot.waitUntil(() => memory.latest()?.collection?.draft[slot] === id, 200);
     c = (await memory.fresh())?.collection;
     if (c?.draft[slot] !== id) return `${name} didn't go into slot ${slot + 1}${c?.feedback ? ` (${c.feedback})` : ''}.`;
     return null;

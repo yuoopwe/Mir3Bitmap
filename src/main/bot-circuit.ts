@@ -93,7 +93,10 @@ export class BossCircuit {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : !reading.questLog ? 'Waiting for the quest log' : 'Waiting for the map from the game',
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => {
+          const r = memory.latest();
+          return !!r?.user && r.user.level !== undefined && !!r.questLog && !!memory.map();
+        }, 300);
         continue;
       }
       if (user.dead) {
@@ -268,7 +271,7 @@ export class BossCircuit {
     const memory = this.bot.options.memory;
     const name = monster.toLowerCase();
     const shown = () => (memory.latest()?.known ?? []).filter((k) => k.map === map && sameName(k.name, name) && !outOfReach.has(k.id));
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < MARKERS_SETTLE_MS && !shown().some((k) => !k.dead); ) await this.bot.sleep(300);
+    await this.bot.waitUntil(() => shown().some((k) => !k.dead), MARKERS_SETTLE_MS);
     const live = shown().filter((k) => !k.dead);
     const user = memory.latest()?.user;
     const grid = memory.map();
@@ -433,11 +436,8 @@ export class BossCircuit {
     const n = await this.bot.quests.atQuestNpc(quest.finish, 'handIn', `Handing in ${quest.name}`, quest);
     if (!n) return false;
     // The bag is read once a second.
-    let after = this.stones(memory.latest());
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < 3000 && before !== null && after === before; ) {
-      await this.bot.sleep(300);
-      after = this.stones(memory.latest());
-    }
+    if (before !== null) await this.bot.waitUntil(() => this.stones(memory.latest()) !== before, 3000);
+    const after = this.stones(memory.latest());
     const stones = before !== null && after !== null ? ` +${after - before} Forge Stones;` : '';
     const rewards = (quest.items ?? []).map(([item, amount]) => `${amount} ${item}`).join(', ');
     this.bot.status(`Handed in ${quest.name}:${stones} rewards ${rewards || 'experience'}`);

@@ -396,6 +396,15 @@ test('Selling: the bag opened with W on its Main tab, Select All and Sell (with 
   checkAlways(game);
 });
 
+test('Selling: each wait ends when the game shows the result: three rounds, each with "are you sure?", from the bag opened to put away in under 7 s', async () => {
+  const game = grindOnBichon({ bag: { used: 88, slots: 90 }, bagWindow: { open: false, section: 2 }, sellConfirm: true });
+  const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0 && game.player.map !== ARCADIA, limitMs: 10 * 60_000 });
+  assert.ok(met, 'sold and gone');
+  const [opened, putAway] = keyDowns(game, BAG_KEY);
+  // 8.3 s with the fixed pauses there were.
+  assert.ok(putAway.t - opened.t < 7000, `${Math.round(putAway.t - opened.t)} ms`);
+});
+
 test('Selling: a shop that shuts before Select All is opened again, and the sale goes on', async () => {
   const game = grindOnBichon({ bag: { used: 38, slots: 40 }, bagWindow: { open: false }, shopShutsOnBag: true });
   const { met } = await play(game, (bot) => bot.startGrind(), { until: () => sold(game) > 0, limitMs: 10 * 60_000 });

@@ -134,10 +134,10 @@ export class Survival {
       if (button?.enabled) {
         this.bot.status('Died: returning to Arcadia');
         await this.bot.click(boxCentre(button), this.bot.delay('menu'));
-        await this.bot.sleep(1500);
+        await this.bot.waitUntil(() => memory.latest()?.user?.dead === false, 1500);
       } else {
         this.bot.statusEvery('Died: waiting for the death window');
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest()?.survival?.death?.returnButton?.enabled || memory.latest()?.user?.dead === false, 300);
       }
     }
     throw new BotError("Died, and couldn't get back on my feet.");
@@ -158,8 +158,7 @@ export class Survival {
     if (vk !== null) {
       this.bot.status(`${why}: reading a Town Portal scroll`);
       this.bot.key(vk);
-      for (const start = this.bot.clock.now(); this.bot.clock.now() - start < TOWN_PORTAL_WAIT_MS && !away(); ) await this.bot.sleep(300);
-      if (away()) return true;
+      if (await this.bot.waitUntil(away, TOWN_PORTAL_WAIT_MS)) return true;
     }
     for (const start = this.bot.clock.now(); this.bot.clock.now() - start < OUT_OF_COMBAT_GIVE_UP_MS && !away(); ) {
       await this.bot.yieldToEvents();
@@ -168,10 +167,10 @@ export class Survival {
       if (button?.enabled && (reading?.user?.combatAgo ?? 0) >= OUT_OF_COMBAT_S) {
         this.bot.status(`${why}: returning to Arcadia`);
         await this.bot.click(boxCentre(button), this.bot.delay('menu'));
-        for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ARCADIA_WAIT_MS && !away(); ) await this.bot.sleep(300);
+        await this.bot.waitUntil(away, ARCADIA_WAIT_MS);
       } else {
         this.bot.statusEvery(`${why}: waiting to be out of combat to return to Arcadia`);
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => (memory.latest()?.user?.combatAgo ?? 0) >= OUT_OF_COMBAT_S, 300);
       }
     }
     return away();
@@ -203,7 +202,7 @@ export class Survival {
         if (reading?.map?.index === ARCADIA_MAP) return;
         // In combat again: that's the return broken off.
         if ((reading?.user?.combatAgo ?? Infinity) < OUT_OF_COMBAT_S - 1 && this.bot.clock.now() - since > 1000) break;
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => memory.latest()?.map?.index === ARCADIA_MAP, 300);
       }
     }
     throw new BotError(`${why}, but Return to Arcadia didn't take me there (in combat?).`);
@@ -220,7 +219,7 @@ export class Survival {
     this.bot.status(status);
     await this.bot.moves.waitUntilStill();
     this.bot.key(vk);
-    for (const start = this.bot.clock.now(); this.bot.clock.now() - start < TOWN_PORTAL_WAIT_MS && memory.latest()?.map?.index === from; ) await this.bot.sleep(300);
+    await this.bot.waitUntil(() => memory.latest()?.map?.index !== from, TOWN_PORTAL_WAIT_MS);
   }
 
   /**
@@ -251,7 +250,7 @@ export class Survival {
       }
       this.bot.stopRunning();
       this.bot.statusEvery(`${why}: waiting to be out of combat (${Math.max(0, Math.ceil(OUT_OF_COMBAT_S - ago))} s)`);
-      await this.bot.sleep(300);
+      await this.bot.waitUntil(() => (memory.latest()?.user?.combatAgo ?? OUT_OF_COMBAT_S) >= OUT_OF_COMBAT_S, 300);
     }
   }
 
@@ -286,7 +285,7 @@ export class Survival {
       if (!button?.enabled) break;
       this.bot.status('Back to where I was');
       await this.bot.click(boxCentre(button), this.bot.delay('menu'));
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ARCADIA_WAIT_MS && memory.latest()?.map?.index === ARCADIA_MAP; ) await this.bot.sleep(300);
+      await this.bot.waitUntil(() => memory.latest()?.map?.index !== ARCADIA_MAP, ARCADIA_WAIT_MS);
     }
   }
 
@@ -301,13 +300,7 @@ export class Survival {
   private async sellAtShop(npcName: string): Promise<number | null> {
     const memory = this.bot.options.memory;
     const sellPanel = () => memory.latest()?.survival?.sell;
-    const waitFor = async (ok: () => boolean, ms: number) => {
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ms; ) {
-        if (ok()) return true;
-        await this.bot.sleep(100);
-      }
-      return ok();
-    };
+    const waitFor = (ok: () => boolean, ms: number) => this.bot.waitUntil(ok, ms);
     this.bot.stopRunning();
     const openShop = async () => {
       for (let attempt = 0; attempt < 3 && !sellPanel(); attempt++) {
@@ -382,11 +375,8 @@ export class Survival {
   private async confirm(): Promise<boolean> {
     const memory = this.bot.options.memory;
     const asking = () => memory.latest()?.survival?.messages?.find((m) => m.buttons.some((b) => /yes|ok/i.test(b.name)));
+    await this.bot.waitUntil(() => !!asking(), CONFIRM_SHOW_MS);
     let box = asking();
-    for (const since = this.bot.clock.now(); !box && this.bot.clock.now() - since < CONFIRM_SHOW_MS; ) {
-      await this.bot.sleep(100);
-      box = asking();
-    }
     if (!box) return false;
     // Past its cooldown before the first press.
     await this.bot.sleep(Math.max(CONFIRM_MIN_WAIT_MS, box.cooldownMs ?? 0));
@@ -394,7 +384,7 @@ export class Survival {
       const yes = box.buttons.find((b) => /yes/i.test(b.name)) ?? box.buttons.find((b) => /ok/i.test(b.name))!;
       this.bot.status(`Confirming: ${box.text || 'are you sure?'}`);
       await this.bot.click(boxCentre(yes), this.bot.delay('menu'));
-      await this.bot.sleep(CONFIRM_RETRY_MS);
+      await this.bot.waitUntil(() => !asking(), CONFIRM_RETRY_MS);
       box = asking();
     }
     return true;
@@ -405,7 +395,7 @@ export class Survival {
     const close = this.bot.options.memory.latest()?.survival?.sell?.close;
     if (close?.enabled && close.width > 0) await this.bot.click(boxCentre(close), this.bot.delay('menu'));
     else this.bot.key(VK.ESCAPE);
-    await this.bot.sleep(300);
+    await this.bot.waitUntil(() => !this.bot.options.memory.latest()?.survival?.sell, 300);
   }
 
   // ---- Selling the old way, by the screen (Hunt without the memory reader) ----

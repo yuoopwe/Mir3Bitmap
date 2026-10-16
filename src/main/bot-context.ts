@@ -37,6 +37,9 @@ import type { Elixirs } from './bot-elixirs';
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
 
+/** How often a wait on the game (waitUntil) looks at the memory again: the reader sends a reading this often. */
+const WATCH_MS = 50;
+
 /** Captures failing this many times in a row stop the bot. */
 const MAX_CAPTURE_FAILURES = 20;
 
@@ -184,6 +187,22 @@ export class BotContext {
     const actual = Math.max(0, ms * (1 + (Math.random() * 2 - 1) * fuzz));
     await this.clock.wait(actual);
     this.checkpoint();
+  }
+
+  /**
+   * Waits until `shown()` holds, looking again about each reading (one comes every WATCH_MS), or `timeoutMs` has
+   * passed: for the game to show what a click or key did (a window opening or shutting, the map changing, the bag
+   * emptying) rather than a fixed pause that's too short when the game is slow and wasted when it's quick. Whether it
+   * held. Input pacing (the delays, menu pauses) isn't this: those stay sleeps.
+   */
+  async waitUntil(shown: () => boolean, timeoutMs: number): Promise<boolean> {
+    for (const since = this.clock.now(); ; ) {
+      if (shown()) return true;
+      const left = timeoutMs - (this.clock.now() - since);
+      if (left <= 0) return false;
+      await this.clock.wait(Math.min(WATCH_MS, left));
+      this.checkpoint();
+    }
   }
 
   delay(name: keyof Delays): number {

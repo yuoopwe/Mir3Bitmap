@@ -65,7 +65,7 @@ export class Looting {
       const { verdict } = next;
       // Its cell, once the reading shows the bag open; not showing then (scrolled out of sight, say), it can't be protected.
       const cellOf = () => memory.latest()?.gear?.bag.find(sameItem(next.item))?.cell;
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < CELL_WAIT_MS && !cellOf(); ) await this.bot.sleep(100);
+      await this.bot.waitUntil(() => !!cellOf(), CELL_WAIT_MS);
       const item = memory.latest()?.gear?.bag.find(sameItem(next.item)) ?? next.item;
       if (!item.cell) return item.name;
       const point = boxCentre(item.cell);
@@ -75,8 +75,7 @@ export class Looting {
       this.bot.input.keyDown(this.bot.hwnd, LOCK_KEY);
       this.bot.input.keyUp(this.bot.hwnd, LOCK_KEY);
       const locked = () => !!memory.latest()?.gear?.bag.some((b) => sameItem(item)(b) && b.flags & LOCKED);
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < LOCK_WAIT_MS && !locked(); ) await this.bot.sleep(100);
-      if (!locked()) return item.name;
+      if (!(await this.bot.waitUntil(locked, LOCK_WAIT_MS))) return item.name;
       this.remember(item, verdict);
     }
     return 'the bag';
@@ -115,8 +114,7 @@ export class Looting {
         const now = memory.latest()?.gear;
         return !!now && JSON.stringify(now.worn.map((w) => [w.slot, w.name])) !== before && !now.bag.some(sameItem(best.item));
       };
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < EQUIP_WAIT_MS && !changed(); ) await this.bot.sleep(100);
-      if (!changed()) {
+      if (!(await this.bot.waitUntil(changed, EQUIP_WAIT_MS))) {
         this.bot.status(`Couldn't put on ${best.item.name} (double-clicking it did nothing); leaving it in the bag`);
         return;
       }
@@ -157,11 +155,11 @@ export class Looting {
         const now = memory.latest()?.gear;
         return !!now && wornNow(now.worn) !== before;
       };
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < EQUIP_WAIT_MS && !changed(); ) {
-        await this.bot.sleep(100);
+      const shown = await this.bot.waitUntil(() => {
         this.bot.guide.watchGear();
-      }
-      if (!changed()) {
+        return changed();
+      }, EQUIP_WAIT_MS);
+      if (!shown) {
         this.bot.status(`Couldn't put on ${item.name} (double-clicking it did nothing); leaving it in the bag`);
         return;
       }

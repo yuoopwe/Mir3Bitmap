@@ -238,7 +238,7 @@ export class Hunting {
         this.bot.stopRunning();
         this.bot.releaseHold();
         this.bot.statusEvery(`Waiting for the game's memory (${this.bot.options.memory.problem}; the screen is only read at 1600x900)`);
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!this.bot.options.memory.latest(), 300);
         continue;
       }
       if (memory) {

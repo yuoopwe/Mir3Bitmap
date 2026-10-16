@@ -95,7 +95,7 @@ export class Gathering {
       if (!reading) {
         this.bot.stopRunning();
         this.bot.statusEvery(this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`);
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest(), 300);
         continue;
       }
       const user = reading.user!;
@@ -199,7 +199,9 @@ export class Gathering {
         else current.retried = true;
       }
       this.bot.statusEvery(`Gathering a ${node.name} (${gathered} gathered)`);
-      await this.bot.sleep(300);
+      // Picked (or gone): on to the next at once.
+      const picking = node.id;
+      await this.bot.waitUntil(() => !memory.latest()?.objects?.some((o) => o.id === picking && !o.harvested), 300);
     }
   }
 

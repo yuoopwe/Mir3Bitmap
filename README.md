@@ -76,6 +76,10 @@ every line. Each object about is read in one go, a monster's max health once a s
 memory the game took since the attach makes ClrMD forget what it knew and read again at once rather than attach
 afresh. Measured on a stand-in game (320 monsters, an 800x800 map): 20 readings a second, gaps 50 ms (p99 62 ms, a
 map change aside), under 8% of one CPU core; the old reader managed 3.3 a second there at 46%.
+With a reading this fresh, the bot's waits on the game (a window opening or shutting, the shop's list, a quest
+taken or handed in, an item locked or put on, the map changing, a teleport) look at each reading as it comes and end
+when the game shows the result (`waitUntil` in `bot-context.ts`); the pause they used to be is how long they wait at
+most. The pacing of the bot's own input (the delays, menu pauses, fuzz) is unchanged.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
 the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. The new one sends the same, but for three things

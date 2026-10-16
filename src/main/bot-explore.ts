@@ -294,7 +294,7 @@ export class Exploring {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : 'Waiting for the map from the game',
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest() && !!memory.map()?.explored, 300);
         continue;
       }
       if (map.index !== mapIndex) {
