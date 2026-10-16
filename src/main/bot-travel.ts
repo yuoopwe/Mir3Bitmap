@@ -140,6 +140,13 @@ export class Travel {
         continue;
       }
 
+      // The companion doing the looting: its bag emptied on the way too (the Boss circuit and Grind travel a lot).
+      if (this.bot.companion.wanted(reading)) {
+        this.bot.stopRunning();
+        await this.bot.companion.transfer();
+        continue;
+      }
+
       // Just arrived on a map: let the game's memory settle (walls, position) before planning a path.
       if (map.index !== seen.map) seen = { map: map.index, at: this.bot.clock.now() };
       if (this.bot.clock.now() - seen.at < ARRIVAL_SETTLE_MS) {

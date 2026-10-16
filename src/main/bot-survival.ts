@@ -259,8 +259,6 @@ export class Survival {
   /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */
   async emptyBag(): Promise<void> {
     const from = this.bot.options.memory.latest()?.map?.index;
-    // Selling makes room for the companion's bag again (tried again once back).
-    if (this.bot.companion) this.bot.companion.blocked = false;
     await this.returnToArcadia('Bag full');
     try {
       await this.sellAndGoBack(from);
@@ -274,6 +272,9 @@ export class Survival {
     await this.bot.travel.travelTo(`npc:${SELL_NPC.id}`);
     const sold = await this.sellAtShop(SELL_NPC.name);
     this.lootRefused = 0;
+    // The sale made room for the companion's bag (emptied again once back). Not before: on the way to the shop a
+    // transfer would find the bag as full as before.
+    if (this.bot.companion) this.bot.companion.blocked = false;
     if (sold === null) {
       this.sellPausedUntil = this.bot.clock.now() + SELL_PAUSE_MS;
       this.bot.status(`Nothing sold; back to it (trying again in ${SELL_PAUSE_MS / 60_000} minutes)`);

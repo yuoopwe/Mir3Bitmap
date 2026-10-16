@@ -250,6 +250,13 @@ export class Hunting {
         const sample = area.update(memory, now);
         if (sample) this.bot.options.grindLog.addAreaSample(name, sample);
       }
+      // The companion doing the looting: its bag emptied into ours when it fills (in every mode that hunts), between
+      // fights or mid-fight with health to spare (on a busy map there's always a next monster). Here, before anything
+      // that goes round again (walking round a wall, to an item), so nothing the round does skips it.
+      if (memory && this.bot.companion.wanted(memory, !!current)) {
+        await this.bot.companion.transfer(!!current);
+        continue;
+      }
       const candidates = memory ? this.memoryTargets(memory) : this.screenTargets(sightings, now);
       const live = candidates.filter((c) => !skipped.has(c.key));
       let target: HuntTarget | undefined = current ? live.find((c) => c.key === current!.key) : undefined;
@@ -474,13 +481,6 @@ export class Hunting {
         this.bot.releaseHold();
         await this.bot.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
         nextFloorAt = this.bot.clock.now() + FLOOR_CLICK_EVERY_MS;
-      }
-
-      // The companion doing the looting: its bag emptied into ours when it fills (in every mode that hunts), between
-      // fights or mid-fight with health to spare (on a busy map there's always a next monster).
-      if (memory && this.bot.companion.wanted(memory, !!current)) {
-        await this.bot.companion.transfer(!!current);
-        continue;
       }
 
       // Selling. Grind and Quests (which pass stopWhen) sell their own way when the bag fills; Hunt with the

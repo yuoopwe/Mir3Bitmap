@@ -544,6 +544,15 @@ test('Companion looting on a busy map: a fight always on, the full companion is 
   for (const k of keyDowns(hurt, Z)) assert.ok(!of(hurt, 'attack').some((a) => a.t < k.t && k.t - a.t < 1000), 'a transfer mid-fight at 40% health');
 });
 
+test('Companion looting while travelling (between Boss circuit spots, say): the full companion is emptied on the way, and the trip goes on', async () => {
+  const game = onBichon({ companion: { slots: 10, used: 10, transferKey: Z } });
+  const { message } = await play(game, (bot) => bot.startTravel(`map:${LEFT_WING}`), { settings: companionHunt() });
+  assert.equal(message, 'Arrived at Left Wing');
+  assert.equal(keyDowns(game, Z).length, 1);
+  assert.equal(game.companion!.used, 0);
+  checkAlways(game);
+});
+
 test("Companion looting: no Transfer key set, or nothing matching the companion's filter: the bot loots for itself, and says why", async () => {
   const noKey = onBichon({ items: dropsAround(1), companion: { slots: 10, used: 0, transferKey: Z } }, bichon.player, { level: 1, pickUpRadius: 1 });
   // (The companion out of reach of the item: the bot's own pickup is what's checked.)
