@@ -67,6 +67,35 @@ export interface MemoryItem {
   cell?: MemoryBox;
 }
 
+/**
+ * A buff on the character: its Library.BuffType by name (ShieldWall, Might, ItemBuff...), the seconds left (null:
+ * permanent), whether it's paused, the skill that gave it (its MagicType; null for none) and the item behind an item's
+ * buff (an elixir's ItemInfo index; null for none).
+ */
+export interface MemoryBuff {
+  type: string;
+  left: number | null;
+  paused: boolean;
+  source: string | null;
+  item: number | null;
+}
+
+/**
+ * A skill the character has: its name, MagicType and MagicSchool by name ("Passive" for one never cast), level, its
+ * key on each of the four key sets (Library.SpellKey: Spell01-Spell24; null for none), the seconds until the game lets
+ * it be cast again (0: ready), its delay (ms, the cooldown the server applies) and its MP cost.
+ */
+export interface MemorySkill {
+  name: string;
+  magic: string;
+  school: string;
+  level: number;
+  keys: (string | null)[];
+  readyIn: number;
+  delay: number;
+  cost: number;
+}
+
 /** A Triple Triad card as the game holds it. */
 export interface MemoryCard {
   name: string;
@@ -175,6 +204,10 @@ export interface MemoryState {
     /** The map tile under the mouse (MapControl.MapLocation), and the object under it (GameScene.MouseObject: what the title's "Mouse Object" names) by id, null for none; missing where the reader can't tell. */
     mouseTile?: Point | null;
     mouseObject?: number | null;
+    /** The buffs on the character (UserObject.Buffs), the skills it has (UserObject.Magics) and the key set the skill bar is on (1-4). */
+    buffs?: MemoryBuff[];
+    skills?: MemorySkill[];
+    spellSet?: number;
     /** The tracker stats (an item or a scroll): over 0, the map's markers (MemoryState.known) show elites, bosses or behemoths anywhere on it. */
     trackers?: { elite: number; boss: number; behemoth: number } | null;
     /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */

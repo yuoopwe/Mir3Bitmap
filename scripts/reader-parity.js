@@ -22,7 +22,7 @@ const REPORT_SHARE = 0.05;
 const SKIPPED = new Set([
   'map.walls', 'map.explored', 'map.revision', 'user.combatAgo', 'user.mouseTile', 'user.experience', 'user.hp', 'user.dead',
   // Only the new reader sends these.
-  'user.mp', 'user.maxMp', 'user.id', 'user.mouseObject',
+  'user.mp', 'user.maxMp', 'user.id', 'user.mouseObject', 'user.buffs', 'user.skills', 'user.spellSet',
   'objects', 'known',
   // The old reader cut set bonuses' stats short, to the text "System.Collections.Hashtable".
   'gear.worn[].set.bonuses[].stats', 'gear.bag[].set.bonuses[].stats',

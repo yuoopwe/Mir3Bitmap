@@ -90,7 +90,11 @@ fixed 150 ms tick: a monster turning up, a target dying or a tile reached is act
 click on a monster, NPC, node or stone the bot hovers it to check it's under the mouse: the reader also sends what's
 under the mouse (`user.mouseObject`, the object `GameScene.MouseObject` holds, by id; the title's "Mouse Object"), so
 the first reading that shows the game took the move in (its `mouseTile` is the hovered tile) answers it, by id, not
-by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before.
+by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before. The
+reader also sends the character's buffs (`user.buffs`: each one's type, seconds left, the skill that gave it, the item
+behind an elixir's), skills (`user.skills`: name, school, level, key on each of the four key sets, seconds until ready,
+delay, MP cost; read four times a second) and the key set in use (`user.spellSet`). To check them against the game's
+skill bar and buff icons, `node scripts/skills-live.js [seconds]` prints them once a second.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
 the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. It also takes over by itself when the new one fails to
