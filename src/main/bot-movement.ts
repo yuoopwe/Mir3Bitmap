@@ -4,7 +4,7 @@ import type { Point } from '../shared/types';
 import { waypoint } from './map-explorer';
 import { loadTravelData } from './travel';
 import { VK } from './input';
-import { EXPLORE_BLOCKED_MS, HOVER_SETTLE_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, keyCode, mouseObjectName } from './bot-shared';
+import { EXPLORE_BLOCKED_MS, TELEPORT_JITTER_MS, TELEPORT_PRESS_MS, keyCode, mouseObjectName } from './bot-shared';
 import type { BotContext } from './bot-context';
 
 /**
@@ -12,6 +12,22 @@ import type { BotContext } from './bot-context';
  * on a mount) about every 0.65 s, so this has to be well over one stride.
  */
 const BLOCKED_RUNNING_MS = 1100;
+
+/**
+ * The blocked times (this one, and EXPLORE_BLOCKED_MS for stepping) allow for readings this far apart, as the old
+ * reader sent them (its p90 gap was 375 ms). A reader whose readings come closer shows a move sooner: see blockedAfter.
+ */
+const BLOCKED_READING_ALLOWANCE_MS = 400;
+
+/**
+ * How long without moving a tile counts as blocked, given the time for it with the old reader (`base`) and the
+ * reader's p90 gap between readings now (undefined: not known, `base` as it is): the allowance for readings shrinks
+ * to two gaps.
+ */
+export function blockedAfter(base: number, gapP90: number | undefined): number {
+  if (gapP90 === undefined) return base;
+  return base - Math.max(0, BLOCKED_READING_ALLOWANCE_MS - 2 * gapP90);
+}
 
 /** M gets on and off the mount: how long to wait for the game to show it, and how long to leave it if nothing happened. */
 const MOUNT_SETTLE_MS = 1500;
@@ -111,10 +127,11 @@ export class Movement {
 
   /**
    * How long without moving a tile counts as blocked: short while running (it
-   * covers ground quickly), longer while stepping by clicks.
+   * covers ground quickly), longer while stepping by clicks; shorter again with
+   * readings coming close together (blockedAfter).
    */
   blockedAfterMs(): number {
-    return this.bot.running ? BLOCKED_RUNNING_MS : EXPLORE_BLOCKED_MS;
+    return blockedAfter(this.bot.running ? BLOCKED_RUNNING_MS : EXPLORE_BLOCKED_MS, this.bot.options.memory.speed?.()?.gaps.p90);
   }
 
   /**
@@ -178,15 +195,16 @@ export class Movement {
    * what's under the mouse, and a mounted character's sprite reaches a couple of tiles up.
    */
   private async clearOfMe(user: Point, toward: (tiles: number) => Point, first: number, free: (p: Point) => boolean): Promise<{ tile: Point; point: Point } | null> {
-    const me = this.bot.options.memory.latest()?.user?.name;
+    const reading = this.bot.options.memory.latest()?.user;
+    const me = reading?.name;
     for (let tiles = first; tiles <= AIM_OUT_TILES; tiles++) {
       const tile = toward(tiles);
       const point = this.bot.toScreen(user, tile.x, tile.y);
       if (!free(point)) continue;
       if (!me) return { tile, point };
-      this.bot.input.mouseMove(this.bot.hwnd, point.x, point.y);
-      await this.bot.clock.wait(HOVER_SETTLE_MS);
-      if (mouseObjectName(this.bot.input.windowTitle(this.bot.hwnd)) !== me) return { tile, point };
+      const over = await this.bot.hover(point);
+      const onMe = over !== undefined && reading?.id !== undefined ? over === reading.id : mouseObjectName(this.bot.input.windowTitle(this.bot.hwnd)) === me;
+      if (!onMe) return { tile, point };
     }
     return null;
   }

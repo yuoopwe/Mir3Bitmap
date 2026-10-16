@@ -46,6 +46,27 @@ test('biased fights: the corrections converge on the bias with enough kills, par
   assert.equal(describeCalibration(many), '30% quicker kills, 20% softer hits taken than the model says (60 kills)');
 });
 
+test('blow by blow: kills read with readings close together split kill speed into harder blows and blows a second', () => {
+  // Blows 20% harder than the model's and landing 10% less often: kills 1.08 times as quick, in fewer blows.
+  const perBlow = (predicted.perSwing / predicted.hitChance) * 1.2;
+  const perSecond = predicted.hitChance * predicted.swingsPerSecond * 0.9;
+  const blowByBlow = (n: number, readingGapMs: number): Kill[] =>
+    Array.from({ length: n }, (_, i) => {
+      const hits = Math.max(2, Math.round(keeper.health / perBlow));
+      const damage = hits * perBlow;
+      return { ...kills(1, 1, 1)[0], at: i, damage, hits, seconds: hits / perSecond, readingGapMs };
+    });
+  const read = calibrate(data, blowByBlow(30, 55));
+  assert.ok(read.blows && Math.abs(read.blows.damage - 1.2) < 1e-6 && Math.abs(read.blows.rate - 0.9) < 1e-6, JSON.stringify(read.blows));
+  assert.equal(read.blows!.kills, 30);
+  assert.match(describeCalibration(read), /; your blows 20% harder, 10% fewer a second \(30 kills read blow by blow\)$/);
+  // Read with readings too far apart (blows between two readings count as one), too few kills, or the older kills
+  // without the gap: nothing said of blows.
+  assert.equal(calibrate(data, blowByBlow(30, 200)).blows, null);
+  assert.equal(calibrate(data, blowByBlow(3, 55)).blows, null);
+  assert.equal(calibrate(data, kills(30, 1, 1)).blows, null);
+});
+
 test('corrections are capped, newer kills count more, and kills without the newer notes are left out', () => {
   const wild = calibrate(data, kills(60, 5, 10));
   assert.deepEqual([wild.factors.damage, wild.factors.taken], [CALIBRATION.maxFactor, CALIBRATION.maxFactor]);

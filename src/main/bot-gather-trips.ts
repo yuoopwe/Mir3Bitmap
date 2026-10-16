@@ -78,7 +78,10 @@ export class GatherTrips {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : !map ? 'Waiting for the map from the game' : "Waiting for the character's level",
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => {
+          const r = memory.latest();
+          return !!r?.user && r.user.level !== undefined && !!memory.map();
+        }, 300);
         continue;
       }
       if (user.dead) {
@@ -189,7 +192,7 @@ export class GatherTrips {
     const map = memory.map();
     const user = memory.latest()?.user;
     if (!map || !user || map.index !== spot.map) {
-      await this.bot.sleep(300);
+      await this.bot.waitUntil(() => memory.map()?.index === spot.map && !!memory.latest()?.user, 300);
       return;
     }
     const here = { x: user.x, y: user.y };
@@ -224,7 +227,7 @@ export class GatherTrips {
     await this.bot.moves.driveAlong(here, heading.path, now);
     heading.tickAt = this.bot.clock.now();
     this.bot.statusEvery(`Nothing to gather in sight: heading for another patch of ${name} (${heading.target.x},${heading.target.y})`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
   }
 
   /** The next square of the spot that can be walked to from where `dist` was worked out, and the way there; null if none (or all are here). */
@@ -288,10 +291,7 @@ export class GatherTrips {
       const windows = memory.latest()?.windows;
       return windows ? windows.some((w) => w.name === PROFESSIONS_WINDOW) : null;
     };
-    const waitFor = async (ok: () => boolean, ms: number) => {
-      for (const since = this.bot.clock.now(); this.bot.clock.now() - since < ms && !ok(); ) await this.bot.sleep(200);
-      return ok();
-    };
+    const waitFor = (ok: () => boolean, ms: number) => this.bot.waitUntil(ok, ms);
     const press = () => this.bot.input.keyChord(this.bot.hwnd, PROFESSIONS_KEYS.modifiers, PROFESSIONS_KEYS.vk);
     this.bot.stopRunning();
     this.bot.status('Reading the profession levels: opening the Professions window (Ctrl+Shift+P)');

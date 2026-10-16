@@ -13,12 +13,13 @@ import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEX
 import type { NameBook } from './names';
 import { SessionStats } from './session-stats';
 import type { GrindLog } from './grind-log';
-import { DEFAULT_VIEW, tileToScreen, type MapView, type MemorySource } from './game-memory';
+import { DEFAULT_VIEW, screenToTile, tileToScreen, type MapView, type MemorySource } from './game-memory';
 import { createFrame, playerHpFill, playerMpFill, readBar, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
+import { HealthTrend } from './health-trend';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, ViewError, keyCode, wholeSecondsSince } from './bot-shared';
-import { HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
+import { HOVER_SEEN_MS, HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
 import type { Movement } from './bot-movement';
 import type { Travel } from './bot-travel';
 import type { Hunting } from './bot-hunting';
@@ -37,11 +38,23 @@ import type { Elixirs } from './bot-elixirs';
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
 
+/** How often a wait on the game (waitUntil) looks at the memory again: the reader sends a reading this often. */
+const WATCH_MS = 50;
+
+/** How many of a mode's steps its tick time is the median of. */
+const TICKS_KEPT = 50;
+
 /** Captures failing this many times in a row stop the bot. */
 const MAX_CAPTURE_FAILURES = 20;
 
 /** Minimum time between two drinks of the same potion. */
 const POTION_COOLDOWN_MS = 1500;
+
+/**
+ * The HP potion is drunk as soon as health, falling as it has over the last readings, would be under the line this
+ * soon: a fall blow by blow is caught before the blow that takes it under, not after.
+ */
+export const POTION_LEAD_MS = 1000;
 
 /**
  * The character's feet (about the middle of their tile), this far below where they stand. Names are drawn about a
@@ -114,6 +127,15 @@ export class BotContext {
   /** Where the right button is being held to run, while exploring. */
   running: Point | null = null;
   private captureMs = 0;
+  /** Health over the last readings, and the reading last taken into it. */
+  private readonly healthTrend = new HealthTrend();
+  private trendReading: ReturnType<MemorySource['latest']> = null;
+  /** Time spent waiting so far, and the steps of the running mode (see tickDone). */
+  private waitedMs = 0;
+  private tickMode: Status['mode'] = 'idle';
+  private tickAt: number | null = null;
+  private tickWaited = 0;
+  private ticks: { ms: number; busyMs: number }[] = [];
   private captureFailures = 0;
   scanMs = 0;
   hp: number | null = null;
@@ -155,6 +177,9 @@ export class BotContext {
   }
 
   status(message: string): void {
+    // The reader falling back on the legacy one is said once, before whatever comes next.
+    const notice = this.options.memory.takeNotice?.();
+    if (notice) this.status(notice);
     this.lastStatusAt = this.clock.now();
     this.options.report({
       mode: this.mode,
@@ -167,7 +192,32 @@ export class BotContext {
       explored: this.explored,
       level: this.options.memory.latest()?.user?.level ?? null,
       stats: this.stats.snapshot(this.clock.now()),
+      speed: { reader: this.options.memory.speed?.() ?? null, tick: this.tickTimes() },
     });
+  }
+
+  /**
+   * A mode's loop yields at the start of each step: the time since the last is that step's length, and of it what
+   * wasn't spent waiting (sleeps, waits on the game) its work. The last TICKS_KEPT are kept, the mode's own.
+   */
+  private tickDone(): void {
+    const now = this.clock.now();
+    if (this.tickMode !== this.mode) {
+      this.tickMode = this.mode;
+      this.ticks = [];
+    } else if (this.tickAt !== null) {
+      this.ticks.push({ ms: now - this.tickAt, busyMs: Math.max(0, now - this.tickAt - (this.waitedMs - this.tickWaited)) });
+      if (this.ticks.length > TICKS_KEPT) this.ticks.shift();
+    }
+    this.tickAt = now;
+    this.tickWaited = this.waitedMs;
+  }
+
+  /** The running mode's step length and work (medians of the last steps), or null when none has run. */
+  private tickTimes(): { ms: number; busyMs: number } | null {
+    if (this.mode === 'idle' || this.tickMode !== this.mode || this.ticks.length === 0) return null;
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+    return { ms: median(this.ticks.map((t) => t.ms)), busyMs: median(this.ticks.map((t) => t.busyMs)) };
   }
 
   statusEvery(message: string): void {
@@ -182,7 +232,43 @@ export class BotContext {
   async sleep(ms: number): Promise<void> {
     const fuzz = Math.min(Math.max(this.settings.fuzzPercent, 0), 100) / 100;
     const actual = Math.max(0, ms * (1 + (Math.random() * 2 - 1) * fuzz));
-    await this.clock.wait(actual);
+    await this.idle(actual);
+    this.checkpoint();
+  }
+
+  /** Waits, counting the time as waited (not worked) for the tick times. */
+  private async idle(ms: number): Promise<void> {
+    const start = this.clock.now();
+    await this.clock.wait(ms);
+    this.waitedMs += this.clock.now() - start;
+  }
+
+  /**
+   * Waits until `shown()` holds, looking again about each reading (one comes every WATCH_MS), or `timeoutMs` has
+   * passed: for the game to show what a click or key did (a window opening or shutting, the map changing, the bag
+   * emptying) rather than a fixed pause that's too short when the game is slow and wasted when it's quick. Whether it
+   * held. Input pacing (the delays, menu pauses) isn't this: those stay sleeps.
+   */
+  async waitUntil(shown: () => boolean, timeoutMs: number): Promise<boolean> {
+    for (const since = this.clock.now(); ; ) {
+      if (shown()) return true;
+      const left = timeoutMs - (this.clock.now() - since);
+      if (left <= 0) return false;
+      await this.nextReading(left);
+    }
+  }
+
+  /**
+   * Waits for the game's memory to send its next reading (one comes every 50 ms), or `maxMs` at most: a loop that
+   * acts on the readings looks again as soon as there's something new to see, not a fixed time later. Without a
+   * reader that says when its readings come, WATCH_MS (or `maxMs`, if less).
+   */
+  async nextReading(maxMs: number): Promise<void> {
+    const start = this.clock.now();
+    const next = this.options.memory.next;
+    if (next) await next.call(this.options.memory, Math.max(0, maxMs));
+    else await this.clock.wait(Math.min(WATCH_MS, Math.max(0, maxMs)));
+    this.waitedMs += this.clock.now() - start;
     this.checkpoint();
   }
 
@@ -197,6 +283,7 @@ export class BotContext {
 
   /** Lets queued events (such as a Stop click) run between loop iterations. */
   async yieldToEvents(): Promise<void> {
+    this.tickDone();
     await new Promise((resolve) => setImmediate(resolve));
     this.checkpoint();
     await this.pauseWhileMouseOver();
@@ -265,18 +352,56 @@ export class BotContext {
   }
 
   /**
-   * HP and MP, as shares: off the bars at the bottom of the screen at 1600x900; at other sizes HP from the game's
-   * memory, and MP unknown (MP potions wait for 1600x900).
+   * HP and MP, as shares: from the game's memory when there's a reading (exact, at any size), else off the bars at
+   * the bottom of the screen (in the last capture) at 1600x900. MP from a reader that doesn't send it (the legacy
+   * one) is read off the screen too; at other sizes it's unknown then (MP potions wait).
    */
   readVitals(): void {
-    if (this.screenReadable) {
-      this.hp = readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT);
-      this.mp = readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT);
+    const { hp, mp } = this.memoryVitals();
+    this.hp = hp ?? (this.screenReadable ? readBar(this.frame, PLAYER_HP_BAR, playerHpFill, PLAYER_BAR_TEXT) : null);
+    this.mp = mp ?? (this.screenReadable ? readBar(this.frame, PLAYER_MP_BAR, playerMpFill, PLAYER_BAR_TEXT) : null);
+  }
+
+  /**
+   * HP and MP brought up to date for drinking potions: from the game's memory, capturing the screen only for what
+   * the memory doesn't have (no reading, or no MP in it at 1600x900).
+   */
+  updateVitals(): void {
+    const { hp, mp } = this.memoryVitals();
+    if (hp !== null && (mp !== null || !this.screenReadable)) {
+      this.hp = hp;
+      this.mp = mp;
       return;
     }
-    const user = this.options.memory.latest()?.user;
-    this.hp = user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null;
-    this.mp = null;
+    this.capture();
+    this.readVitals();
+  }
+
+  private memoryVitals(): { hp: number | null; mp: number | null } {
+    const reading = this.options.memory.latest();
+    const user = reading?.user;
+    this.followHealth(reading);
+    return {
+      hp: user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null,
+      mp: user?.mp !== undefined && user.mp !== null && user.maxMp ? user.mp / user.maxMp : null,
+    };
+  }
+
+  /**
+   * Health (from the game's memory) `aheadMs` from the last reading if it goes on falling as over the readings
+   * before; null without readings. Fed by each tick's vitals (updateVitals, readVitals).
+   */
+  healthAhead(aheadMs: number): number | null {
+    return this.healthTrend.ahead(aheadMs);
+  }
+
+  /** Each new reading's health into the trend. */
+  private followHealth(reading: ReturnType<MemorySource['latest']>): void {
+    if (!reading || reading === this.trendReading) return;
+    this.trendReading = reading;
+    const user = reading.user;
+    if (user?.dead) this.healthTrend.clear();
+    else if (user?.hp !== undefined && user.maxHp) this.healthTrend.add(this.clock.now(), user.hp / user.maxHp);
   }
 
   capture(): void {
@@ -317,19 +442,47 @@ export class BotContext {
   async aimAt(target: HuntTarget): Promise<Point | null> {
     const remembered = this.aim?.key === target.key ? [this.aim.offset] : [];
     const { width, height } = this.view();
+    // Its id (a monster's, a node's or an NPC's), for telling it from others of the same name.
+    const id = /^(?:m|n|npc)(\d+)$/.exec(target.key);
     for (const [dx, dy] of [...remembered, ...AIM_SPOTS]) {
       const point = { x: target.tile!.x + dx, y: target.tile!.y + dy };
       // Near an edge of the screen, the spots beyond it.
       if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height) continue;
-      this.input.mouseMove(this.hwnd, point.x, point.y);
-      await this.clock.wait(HOVER_SETTLE_MS);
-      this.checkpoint();
-      if (mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
+      const over = await this.hover(point);
+      if (over !== undefined && id ? over === Number(id[1]) : mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
         this.aim = { key: target.key, offset: [dx, dy] };
         return point;
       }
     }
     return null;
+  }
+
+  /**
+   * Moves the mouse to `point` and says what's under it: the object's id (null for nothing) from the first reading
+   * that shows the game took the move in (its mouse tile is the point's, and it came HOVER_SEEN_MS or more after), or
+   * undefined when the memory can't say within HOVER_SETTLE_MS (no reading, a reader that doesn't send it, the view
+   * moving meanwhile): then the title says, read at the end of that wait as it always was.
+   */
+  async hover(point: Point): Promise<number | null | undefined> {
+    const memory = this.options.memory;
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    const moved = this.clock.now();
+    if (memory.latest()?.user?.mouseObject === undefined) {
+      await this.clock.wait(HOVER_SETTLE_MS);
+      this.checkpoint();
+      return undefined;
+    }
+    let over: number | null | undefined;
+    const seen = () => {
+      const user = memory.latest()?.user;
+      if (this.clock.now() - moved < HOVER_SEEN_MS || !user?.mouseTile || user.mouseObject === undefined) return false;
+      const tile = screenToTile(user, point, this.view());
+      if (user.mouseTile.x !== tile.x || user.mouseTile.y !== tile.y) return false;
+      over = user.mouseObject;
+      return true;
+    };
+    if (await this.waitUntil(seen, HOVER_SETTLE_MS)) return over;
+    return undefined;
   }
 
   /** Holds the left button down on a target (archers), following it as it moves; a new target gets a fresh press. */
@@ -358,7 +511,10 @@ export class BotContext {
     const now = this.clock.now();
     const hpKey = keyCode(hunt.hpPotionKey);
     let drank = false;
-    if (hpKey !== null && this.hp !== null && this.hp * 100 < hunt.hpPotionPercent && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
+    // Under the line, or (by the game's memory) about to be.
+    const heading = this.healthAhead(POTION_LEAD_MS);
+    const low = this.hp !== null && (this.hp * 100 < hunt.hpPotionPercent || (heading !== null && heading * 100 < hunt.hpPotionPercent));
+    if (hpKey !== null && low && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
       this.key(hpKey);
       this.lastHpPotion = now;
       drank = true;

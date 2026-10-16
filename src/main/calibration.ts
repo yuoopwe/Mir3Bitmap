@@ -29,6 +29,14 @@ export const CALIBRATION = {
   maxFactor: 2,
   /** Kills the model says cost under this share of the most health don't say how hard monsters hit (a factor can't scale nothing). */
   minPredictedLoss: 0.01,
+  // ---- Blows ----
+  /**
+   * Kills read blow by blow: readings never further apart than this (the quickest attacks come about every 0.5 s,
+   * so no two blows fall between two readings), and at least two blows seen.
+   */
+  blowGapMs: 150,
+  /** Blows are only spoken of with this many such kills (weighted as above) or more. */
+  blowMinKills: 5,
   // ---- Potions ----
   /** After a press of the potion key, the bag's count and the health are watched this long (the bag is read once a second)... */
   watchMs: 3000,
@@ -47,10 +55,24 @@ export interface GapCheck {
   taken: number;
 }
 
+/**
+ * The character's blows against the model's, from the kills read blow by blow: the damage a blow that lands does
+ * (measured over predicted), and the blows that land a second (likewise). Their product is what kill speed says
+ * overall; apart they say whether kills are quicker or slower because blows hit harder or because they come oftener
+ * (attack speed, accuracy).
+ */
+export interface BlowCheck {
+  damage: number;
+  rate: number;
+  kills: number;
+}
+
 export interface Calibration {
   /** The corrections overall, and the kills they're worked out from. */
   factors: Factors;
   kills: number;
+  /** The blows, measured over predicted; null with too few kills read blow by blow (CALIBRATION.blowMinKills). */
+  blows: BlowCheck | null;
   /** How the model did at each level gap. */
   byGap: GapCheck[];
   /** The corrections for fights this many levels above (the gap's own blended with the overall ones). */
@@ -85,6 +107,7 @@ function ratios(sums: Sums, fullTrust: number): { damage: number; taken: number;
  */
 export function calibrate(data: TravelData, kills: readonly Kill[], potions?: PotionNotes | null): Calibration {
   const all = emptySums();
+  const blows = { weight: 0, kills: 0, measuredDamage: 0, predictedDamage: 0, measuredRate: 0, predictedRate: 0 };
   const gaps = new Map<number, Sums & { kills: number }>();
   [...kills]
     .sort((a, b) => b.at - a.at)
@@ -99,6 +122,15 @@ export function calibrate(data: TravelData, kills: readonly Kill[], potions?: Po
       const gap = Math.max(0, k.monsterLevel - k.level);
       const group = gaps.get(gap) ?? gaps.set(gap, { ...emptySums(), kills: 0 }).get(gap)!;
       group.kills++;
+      // Blow by blow: the damage of a blow that lands, and those that land a second.
+      if ((k.hits ?? 0) >= 2 && k.readingGapMs !== undefined && k.readingGapMs <= CALIBRATION.blowGapMs && predicted.hitChance > 0) {
+        blows.weight += weight;
+        blows.kills++;
+        blows.measuredDamage += weight * (k.damage / k.hits!);
+        blows.predictedDamage += weight * (predicted.perSwing / predicted.hitChance);
+        blows.measuredRate += weight * (k.hits! / k.seconds);
+        blows.predictedRate += weight * predicted.hitChance * predicted.swingsPerSecond;
+      }
       for (const sums of [all, group]) {
         sums.weight += weight;
         sums.predictedSeconds += weight * predicted.seconds;
@@ -127,6 +159,10 @@ export function calibrate(data: TravelData, kills: readonly Kill[], potions?: Po
   return {
     factors,
     kills: [...gaps.values()].reduce((n, g) => n + g.kills, 0),
+    blows:
+      blows.weight >= CALIBRATION.blowMinKills && blows.predictedDamage > 0 && blows.predictedRate > 0
+        ? { damage: blows.measuredDamage / blows.predictedDamage, rate: blows.measuredRate / blows.predictedRate, kills: blows.kills }
+        : null,
     byGap,
     factorsAt(gap: number): Factors {
       const sums = gaps.get(Math.max(0, gap));
@@ -142,7 +178,7 @@ export function calibrate(data: TravelData, kills: readonly Kill[], potions?: Po
 }
 
 /** No corrections at all: for a character with nothing measured. */
-export const UNCALIBRATED: Calibration = { factors: NO_CORRECTION, kills: 0, byGap: [], factorsAt: () => NO_CORRECTION };
+export const UNCALIBRATED: Calibration = { factors: NO_CORRECTION, kills: 0, blows: null, byGap: [], factorsAt: () => NO_CORRECTION };
 
 /** "kills 12% quicker and hits 10% softer than the model says (40 kills)", or that there's nothing to go by yet. */
 export function describeCalibration(calibration: Calibration): string {
@@ -150,7 +186,12 @@ export function describeCalibration(calibration: Calibration): string {
   const { damage, taken, heal } = calibration.factors;
   const part = (factor: number, more: string, less: string) => (Math.abs(factor - 1) < 0.03 ? null : `${Math.round(Math.abs(factor - 1) * 100)}% ${factor > 1 ? more : less}`);
   const parts = [part(damage, 'quicker kills', 'slower kills'), part(taken, 'harder hits taken', 'softer hits taken'), part(heal, 'more from potions', 'less from potions')].filter(Boolean);
-  return `${parts.length ? parts.join(', ') : 'as predicted'} than the model says (${calibration.kills} kills)`;
+  const said = `${parts.length ? parts.join(', ') : 'as predicted'} than the model says (${calibration.kills} kills)`;
+  // Why kills are quicker or slower, from the kills read blow by blow.
+  const { blows } = calibration;
+  if (!blows) return said;
+  const why = [part(blows.damage, 'harder', 'softer'), part(blows.rate, 'more a second', 'fewer a second')].filter(Boolean);
+  return `${said}; your blows ${why.length ? why.join(', ') : 'as the model has them'} (${blows.kills} kills read blow by blow)`;
 }
 
 // ---- Potions ----

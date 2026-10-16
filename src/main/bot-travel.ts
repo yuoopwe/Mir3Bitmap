@@ -5,6 +5,7 @@ import { nearestApproach, pathBack, walkDistances } from './map-path';
 import { findPlace, loadTravelData, mapName, planRoute, type TravelData, type TravelLink } from './travel';
 import { RANDOM_TELEPORT, expectedAfterTeleport, teleportOdds, worthTeleporting } from './random-teleport';
 import type { MapGrid } from './map-grid';
+import type { MemoryState } from './game-memory';
 import { VK } from './input';
 import { BotError, EXPLORE_AVOID_MS, EXPLORE_BLOCKED_MS, MEMORY_START_MS, RUN_TICK_MS, STEER_ROUND_TILES, boxCentre, keyCode } from './bot-shared';
 import type { BotContext } from './bot-context';
@@ -113,8 +114,7 @@ export class Travel {
 
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();
@@ -125,18 +125,18 @@ export class Travel {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : 'Waiting for the map from the game',
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest() && !!memory.map(), 300);
         continue;
       }
       const user = reading.user!;
       const here = { x: user.x, y: user.y };
       const now = this.bot.clock.now();
       // A game window open on the way (a stray click on a stone or an NPC): close it before it catches clicks.
-      const survival = reading.survival;
-      if (reading.waypoints?.open || survival?.npcMenu || survival?.questList || survival?.sell || survival?.npcDialog) {
+      const strayWindow = (r: MemoryState | null) => !!(r?.waypoints?.open || r?.survival?.npcMenu || r?.survival?.questList || r?.survival?.sell || r?.survival?.npcDialog);
+      if (strayWindow(reading)) {
         this.bot.stopRunning();
         this.bot.key(VK.ESCAPE);
-        await this.bot.sleep(400);
+        await this.bot.waitUntil(() => !strayWindow(memory.latest()), 400);
         continue;
       }
 
@@ -308,7 +308,7 @@ export class Travel {
       else this.bot.stopRunning();
       const left = route.links.length;
       this.bot.statusEvery(`Travelling to ${place.label}: ${left ? `${left} map${left === 1 ? '' : 's'} to go` : 'nearly there'}`);
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       drivenAt = this.bot.clock.now();
     }
   }
@@ -343,8 +343,7 @@ export class Travel {
       const user = memory.latest()?.user;
       return !!user && (memory.latest()?.map?.index !== map.index || Math.max(Math.abs(user.x - here.x), Math.abs(user.y - here.y)) > 3);
     };
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < RANDOM_TELEPORT_WAIT_MS && !moved(); ) await this.bot.sleep(200);
-    if (!moved()) {
+    if (!(await this.bot.waitUntil(moved, RANDOM_TELEPORT_WAIT_MS))) {
       this.teleportOffUntil = this.bot.clock.now() + RANDOM_TELEPORT_OFF_MS;
       this.bot.status(`The random teleport did nothing (none left, or the key isn't one?): walking for ${RANDOM_TELEPORT_OFF_MS / 60_000} minutes`);
     }
@@ -377,7 +376,7 @@ export class Travel {
     if (result !== 'teleported' && this.bot.options.memory.latest()?.waypoints?.open) {
       // Close it: left open it covers the screen, and every click after lands on it.
       this.bot.key(VK.ESCAPE);
-      await this.bot.sleep(300);
+      await this.bot.waitUntil(() => !this.bot.options.memory.latest()?.waypoints?.open, 300);
     }
     return result;
   }
@@ -398,9 +397,9 @@ export class Travel {
         const menu = memory.latest()?.survival?.npcMenu;
         if (menu?.waypoints?.enabled) {
           await this.bot.click(boxCentre(menu.waypoints), this.bot.delay('menu'));
-          await this.bot.sleep(400);
+          await this.bot.waitUntil(() => !!memory.latest()?.waypoints?.open, 400);
         }
-        await this.bot.sleep(100);
+        await this.bot.waitUntil(() => !!memory.latest()?.waypoints?.open || !!memory.latest()?.survival?.npcMenu?.waypoints?.enabled, 100);
       }
     }
     let window = memory.latest()?.waypoints;
@@ -416,12 +415,11 @@ export class Travel {
         if (!row.activate.enabled) return 'missing';
         this.bot.status(`Waypoint to ${name}`);
         await this.bot.click(boxCentre(row.activate), this.bot.delay('menu'));
-        for (const since = this.bot.clock.now(); this.bot.clock.now() - since < WAYPOINT_TELEPORT_MS; ) {
-          await this.bot.sleep(200);
+        const teleported = () => {
           const map = memory.latest()?.map;
-          if (map && map.index !== fromMap) return 'teleported';
-        }
-        return 'failed';
+          return !!map && map.index !== fromMap;
+        };
+        return (await this.bot.waitUntil(teleported, WAYPOINT_TELEPORT_MS)) ? 'teleported' : 'failed';
       }
       if (window.unlocked.length && !window.unlocked.some((w) => w.name === name)) return 'missing';
       const first = window.rows[0].activate;
@@ -433,7 +431,7 @@ export class Travel {
         if (window.scroll && window.scroll.value >= window.scroll.max - window.rows.length) return 'missing';
         this.bot.input.mouseWheel(this.bot.hwnd, first.x - 200, first.y + 60, 2);
       }
-      await this.bot.sleep(150);
+      await this.bot.waitUntil(() => (memory.latest()?.waypoints?.scroll?.value ?? before) !== before, 150);
       if (scrolledToTop && tries > 0 && (await memory.fresh())?.waypoints?.scroll?.value === before) return 'missing';
     }
     return 'missing';

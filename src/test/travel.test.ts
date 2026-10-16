@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { test } from 'node:test';
 import { canStep } from '../main/map-explorer';
-import { nearestApproach, pathBack, walkDistances } from '../main/map-path';
+import { nearestApproach, pathBack, pathStats, walkDistances } from '../main/map-path';
+import type { MapGrid } from '../main/map-grid';
 import { findPlace, loadTravelData, places, planRoute, searchPlaces, type Start } from '../main/travel';
 import { loadMapFixture } from './map-fixtures';
 
@@ -95,6 +96,66 @@ test('avoided tiles are walked round', () => {
   const round = walkDistances(map, player, avoid);
   const path2 = pathBack(map, round, target);
   assert.ok(path2.slice(1, -1).every((t) => !avoid.has(t.y * map.width + t.x)));
+});
+
+/** An 800x800 map (the largest the game has) with a wall every 9th column, a gap in each every 50 rows. */
+function bigMap(walls = new Uint8Array((800 * 800) / 8)): MapGrid {
+  for (let x = 9; x < 800; x += 9) for (let y = 0; y < 800; y++) if (y % 50 !== 25) walls[(y * 800 + x) >> 3] |= 1 << ((y * 800 + x) & 7);
+  return { index: 9100, name: 'Big', width: 800, height: 800, walls, blockSize: 0, gridWidth: 0, gridHeight: 0, explored: null, revision: -1 };
+}
+
+test('walking distances asked for again (same walls, start and tiles avoided) are the ones already found; any change searches afresh', () => {
+  const map = bigMap();
+  const here = { x: 400, y: 400 };
+  const before = { ...pathStats };
+  const first = walkDistances(map, here, new Set([5, 6]));
+  // The same again, the avoided tiles in another order and another set: kept.
+  assert.equal(walkDistances(map, here, new Set([6, 5])), first);
+  assert.equal(pathStats.searches - before.searches, 1);
+  // Another start, other tiles avoided, the map read again (new walls): each its own search, the same answer for the last.
+  assert.notEqual(walkDistances(map, { x: 401, y: 400 }, new Set([5, 6])), first);
+  assert.notEqual(walkDistances(map, here, new Set([5])), first);
+  const again = walkDistances(bigMap(), here, new Set([5, 6]));
+  assert.notEqual(again, first);
+  assert.deepEqual(again, first);
+  assert.equal(pathStats.searches - before.searches, 4);
+  // Off the map: nowhere reached, not a tile on it that the index would have named.
+  assert.ok(walkDistances(map, { x: -1, y: 401 }).every((d) => d === -1));
+});
+
+test('benchmark, 800x800: a seeking tick (a target, its path, the way round monsters, the way back) searches twice, not four times', (t) => {
+  const map = bigMap();
+  const here = { x: 400, y: 400 };
+  const exits = new Set([10, 20, 30]);
+  const monsters = new Set([401 * 800 + 401, 399 * 800 + 400]);
+  // What bot-hunting's seeking asks for in one tick: three with the exits avoided, one round the monsters too.
+  const tick = (x: number) => {
+    const at = { x, y: 400 };
+    walkDistances(map, at, new Set(exits));
+    walkDistances(map, at, new Set(exits));
+    walkDistances(map, at, new Set([...exits, ...monsters]));
+    walkDistances(map, at, new Set(exits));
+  };
+  const ticks = 10;
+  // Each a new tile (walking): every tick's searches, kept or not.
+  let started = performance.now(), searches = pathStats.searches;
+  for (let i = 0; i < ticks; i++) tick(300 + i);
+  const walking = (performance.now() - started) / ticks;
+  assert.equal(pathStats.searches - searches, 2 * ticks);
+  // Standing (fighting, waiting): nothing searched again at all.
+  tick(500);
+  started = performance.now();
+  searches = pathStats.searches;
+  for (let i = 0; i < ticks; i++) tick(500);
+  const standing = (performance.now() - started) / ticks;
+  assert.equal(pathStats.searches - searches, 0);
+  // Four searches a tick, as before: the same tick with every one fresh.
+  started = performance.now();
+  for (let i = 0; i < ticks; i++) for (let k = 0; k < 4; k++) walkDistances(map, { x: 600 + i, y: 300 + k }, exits);
+  const uncached = (performance.now() - started) / ticks;
+  t.diagnostic(`800x800 seeking tick: ${uncached.toFixed(1)} ms with 4 searches (before), ${walking.toFixed(1)} ms walking, ${standing.toFixed(2)} ms standing`);
+  assert.ok(walking < uncached * 0.75, `walking ${walking.toFixed(1)} ms vs ${uncached.toFixed(1)} ms`);
+  assert.ok(standing < uncached * 0.1, `standing ${standing.toFixed(2)} ms vs ${uncached.toFixed(1)} ms`);
 });
 
 test("a spot out of reach on foot (Zuma Temple Lv 5's keeper room): through the map's own teleport, not out and back in", () => {

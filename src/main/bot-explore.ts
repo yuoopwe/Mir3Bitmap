@@ -159,6 +159,7 @@ export class Exploring {
 
     while (true) {
       await this.bot.yieldToEvents();
+      // Exploring by the big map reads it off the screen every step.
       this.bot.capture();
       this.bot.readVitals();
       this.bot.drinkPotions();
@@ -282,8 +283,7 @@ export class Exploring {
 
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const reading = memory.latest();
       const map = memory.map();
@@ -294,7 +294,7 @@ export class Exploring {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : 'Waiting for the map from the game',
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest() && !!memory.map()?.explored, 300);
         continue;
       }
       if (map.index !== mapIndex) {
@@ -348,7 +348,7 @@ export class Exploring {
 
       await this.bot.moves.driveAlong(user, plan.path, now);
       this.bot.statusEvery(`Exploring ${map.name}: ${percent}% uncovered`);
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       drivenAt = this.bot.clock.now();
     }
   }
@@ -422,7 +422,7 @@ export class Exploring {
     }
     await this.bot.moves.driveAlong(here, loot.walking.path, now);
     this.bot.statusEvery(`Walking to an item ${walk.distance} tiles away`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
     return true;
   }
 

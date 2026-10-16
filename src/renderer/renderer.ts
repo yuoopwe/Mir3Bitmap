@@ -139,6 +139,7 @@ const mpText = element<HTMLSpanElement>('mp');
 const mpFill = element<HTMLSpanElement>('mp-fill');
 const exploredText = element<HTMLSpanElement>('explored');
 const timingText = element<HTMLSpanElement>('timing');
+const speedText = element<HTMLParagraphElement>('speed');
 const statsTables = element<HTMLDivElement>('stats-tables');
 const statsResetButton = element<HTMLButtonElement>('stats-reset');
 const namesList = element<HTMLUListElement>('names');
@@ -782,11 +783,25 @@ function showStatus(status: Status): void {
   if (status.captureMs !== undefined && status.scanMs !== undefined) {
     timingText.textContent = `Last frame: capture ${status.captureMs.toFixed(1)} ms · scan ${status.scanMs.toFixed(1)} ms`;
   }
+  if (status.speed) speedText.textContent = describeSpeed(status.mode, status.speed);
   // Hunt's seeking says "Heading for ..." too: only Travel's count.
   if (status.mode === 'travel' && /^(Route: |Heading for )/.test(status.message)) showRoute(status.message);
   if (status.mode === 'grind' && status.message.startsWith('Grinding at ')) grindPlan.textContent = status.message;
   // "Gathering trip: Plants 23 · Bichon Province: 118 plants, ~2,250 exp/h (the best)": the levels and the spot.
   if (status.mode === 'gather' && status.message.startsWith('Gathering trip: ')) gatherPlan.textContent = status.message.slice('Gathering trip: '.length);
+}
+
+/**
+ * The Speed lines: "Memory reader: 20.0 readings/s, the latest 12 ms old; gaps (last minute): median 50 · p90 51 ·
+ * p99 62 · max 140 ms" and "Hunting: a step every 50 ms, 2 ms of it work".
+ */
+function describeSpeed(mode: Status['mode'], speed: SpeedView): string {
+  const ms = (n: number) => Math.round(n).toLocaleString();
+  const reader = speed.reader
+    ? `Memory reader: ${speed.reader.perSecond.toFixed(1)} readings/s, the latest ${ms(speed.reader.ageMs)} ms old; gaps (last minute): median ${ms(speed.reader.gaps.median)} · p90 ${ms(speed.reader.gaps.p90)} · p99 ${ms(speed.reader.gaps.p99)} · max ${ms(speed.reader.gaps.max)} ms`
+    : 'Memory reader: no readings in the last minute';
+  const tick = speed.tick ? `\n${MODE_LABELS[mode]}: a step every ${ms(speed.tick.ms)} ms, ${ms(speed.tick.busyMs)} ms of it work` : '';
+  return reader + tick;
 }
 
 /** A checkbox for each of the circuit's quests. */

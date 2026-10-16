@@ -111,7 +111,10 @@ export class Grinding {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : !map ? 'Waiting for the map from the game' : "Waiting for the character's level",
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => {
+          const r = memory.latest();
+          return !!r?.user && r.user.level !== undefined && !!memory.map();
+        }, 300);
         continue;
       }
       const { replanMinutes, questsFirst, pin } = this.bot.settings.grind;

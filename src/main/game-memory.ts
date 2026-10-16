@@ -2,13 +2,14 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import type { Point } from '../shared/types';
+import type { Point, ReaderSpeed } from '../shared/types';
 import { updateMap, type MapGrid, type MapReading } from './map-grid';
 
 /**
  * What's around the player, read straight from the game's memory by
- * game-reader/reader.ps1 (read-only, via Microsoft's ClrMD) instead of from
- * the screen: exact names, map tiles and whether things are dead.
+ * game-reader/reader.ps1 (read-only, via Microsoft's ClrMD; the reading itself
+ * is the C# beside it) instead of from the screen: exact names, map tiles and
+ * whether things are dead.
  */
 export interface MemoryObject {
   id: number;
@@ -167,6 +168,13 @@ export interface MemoryState {
     name: string; x: number; y: number; pickUpRadius?: number; level?: number; class?: number; mounted?: boolean; hasMount?: boolean | null; dead?: boolean; combatAgo?: number | null; experience?: number | null; maxExperience?: number | null;
     /** Health now and at most. */
     hp?: number; maxHp?: number;
+    /** Mana now (null when the game's UserObject has no _CurrentMP) and at most (the Mana stat). */
+    mp?: number | null; maxMp?: number;
+    /** The player's own object id. */
+    id?: number;
+    /** The map tile under the mouse (MapControl.MapLocation), and the object under it (GameScene.MouseObject: what the title's "Mouse Object" names) by id, null for none; missing where the reader can't tell. */
+    mouseTile?: Point | null;
+    mouseObject?: number | null;
     /** The tracker stats (an item or a scroll): over 0, the map's markers (MemoryState.known) show elites, bosses or behemoths anywhere on it. */
     trackers?: { elite: number; boss: number; behemoth: number } | null;
     /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */
@@ -293,6 +301,53 @@ export interface MemorySource {
   map(): MapGrid | null;
   fresh(timeoutMs?: number): Promise<MemoryState | null>;
   readonly problem: string;
+  /** How the readings have been coming over the last minute (GameMemory; null without readings). */
+  speed?(): ReaderSpeed | null;
+  /** Waits for the next reading (true), or `timeoutMs` without one (false). */
+  next?(timeoutMs: number): Promise<boolean>;
+  /** Something to say once, such as the compiled reader failing and the legacy one taking over (GameMemory). */
+  takeNotice?(): string | null;
+}
+
+/** How far back the reader's speed is measured. */
+const SPEED_WINDOW_MS = 60_000;
+
+/** The reader's speed from when its in-game readings came (ms, oldest first) over the last minute; null with fewer than two. */
+export function readerSpeed(arrivals: readonly number[], now: number): ReaderSpeed | null {
+  const recent = arrivals.filter((at) => now - at <= SPEED_WINDOW_MS);
+  if (recent.length < 2) return null;
+  const gaps = recent.slice(1).map((at, i) => at - recent[i]).sort((a, b) => a - b);
+  const at = (p: number) => gaps[Math.min(gaps.length - 1, Math.ceil(p * gaps.length) - 1)];
+  const span = recent[recent.length - 1] - recent[0];
+  return {
+    perSecond: span > 0 ? ((recent.length - 1) * 1000) / span : 0,
+    ageMs: now - recent[recent.length - 1],
+    gaps: { median: at(0.5), p90: at(0.9), p99: at(0.99), max: gaps[gaps.length - 1] },
+  };
+}
+
+/**
+ * The old all-PowerShell reader, run instead of the compiled one when BITMAT_LEGACY_READER=1: slower (5 readings a
+ * second at best), kept to compare against (scripts/reader-parity.js) and to fall back on.
+ */
+export const LEGACY_READER = 'reader-legacy.ps1';
+
+/**
+ * The compiled reader sending nothing for this long after starting (the first start compiles it, a few seconds), or
+ * ending before it sends anything, falls back on the legacy reader for the rest of the session.
+ */
+export const READER_FALLBACK_MS = 30_000;
+
+/** How GameMemory runs a reader script: pwsh, unless a test stands one in. */
+export type ReaderSpawner = (script: string, parentPid: number) => ChildProcessWithoutNullStreams;
+
+const spawnPwsh: ReaderSpawner = (script, parentPid) =>
+  spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-ParentPid', String(parentPid)], { windowsHide: true });
+
+/** The last non-empty line of a reader's error output, short enough for the status line. */
+function lastLine(text: string): string {
+  const line = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).at(-1) ?? '';
+  return line.length > 120 ? `${line.slice(0, 117)}...` : line;
 }
 
 /** Runs the memory reader in the background and keeps its latest reading. */
@@ -302,19 +357,61 @@ export class GameMemory implements MemorySource {
   private stateAt = 0;
   private buffer = '';
   private grid: MapGrid | null = null;
+  /** When the in-game readings of the last minute came. */
+  private arrivals: number[] = [];
+  private speedAt: { at: number; speed: ReaderSpeed | null } | null = null;
+  /** Who's waiting for the next reading (next()). */
+  private waiting: ((came: boolean) => void)[] = [];
 
-  constructor(private readonly folder: string) {}
+  private script: string;
+  /** Said once when the compiled reader failed and the legacy one took over (taken by takeNotice). */
+  private notice: string | null = null;
+  private fallbackTimer: NodeJS.Timeout | null = null;
+
+  constructor(
+    private readonly folder: string,
+    private readonly options: { spawnReader?: ReaderSpawner; fallbackAfterMs?: number } = {},
+  ) {
+    this.script = process.env.BITMAT_LEGACY_READER === '1' ? LEGACY_READER : 'reader.ps1';
+  }
+
+  /** "New memory reader failed (...); using the old one", once, after it happened; else null. */
+  takeNotice(): string | null {
+    const notice = this.notice;
+    this.notice = null;
+    return notice;
+  }
+
+  /** Whether the legacy reader is the one running (asked for, or fallen back on). */
+  get legacy(): boolean {
+    return this.script === LEGACY_READER;
+  }
 
   /** The reader and its libraries are installed (scripts/setup-game-reader.ps1). */
   get installed(): boolean {
-    return existsSync(path.join(this.folder, 'reader.ps1')) && existsSync(path.join(this.folder, 'lib', 'Microsoft.Diagnostics.Runtime.dll'));
+    return existsSync(path.join(this.folder, this.script)) && existsSync(path.join(this.folder, 'lib', 'Microsoft.Diagnostics.Runtime.dll'));
   }
 
   start(): void {
     if (this.child || !this.installed) return;
     // With our process id, so the reader ends itself if this app is closed or killed without stopping it.
-    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, 'reader.ps1'), '-ParentPid', String(process.pid)], { windowsHide: true });
+    const child = (this.options.spawnReader ?? spawnPwsh)(path.join(this.folder, this.script), process.pid);
     this.child = child;
+    // The compiled reader has to show it works: a line of any kind (even "Game not running") before the timeout.
+    let heard = false;
+    let errors = '';
+    const fallBack = (why: string) => {
+      if (heard || this.child !== child || this.legacy) return;
+      this.clearFallbackTimer();
+      this.child = null;
+      child.kill();
+      this.script = LEGACY_READER;
+      this.notice = `New memory reader failed (${why}); using the old one`;
+      this.start();
+    };
+    if (!this.legacy) {
+      this.fallbackTimer = setTimeout(() => fallBack(`nothing from it in ${Math.round((this.options.fallbackAfterMs ?? READER_FALLBACK_MS) / 1000)} s`), this.options.fallbackAfterMs ?? READER_FALLBACK_MS);
+    }
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
       this.buffer += chunk;
@@ -322,35 +419,87 @@ export class GameMemory implements MemorySource {
       while ((newline = this.buffer.indexOf('\n')) >= 0) {
         const line = this.buffer.slice(0, newline).trim();
         this.buffer = this.buffer.slice(newline + 1);
-        if (!line.startsWith('{')) continue;
-        try {
-          this.state = JSON.parse(line) as MemoryState;
-          this.stateAt = performance.now();
-          this.grid = updateMap(this.grid, this.state.map);
-          // Decoded into the grid; no need to keep the text.
-          if (this.state.map) {
-            delete this.state.map.walls;
-            delete this.state.map.explored;
-          }
-        } catch {
-          // A partial or garbled line: the next one will do.
+        if (this.take(line) && !heard) {
+          heard = true;
+          this.clearFallbackTimer();
         }
       }
     });
-    child.stderr.on('data', () => {});
-    child.on('exit', () => {
-      if (this.child === child) this.child = null;
+    // Kept short: the end of it says why a reader that never got going failed (a compile error, say).
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      errors = (errors + String(chunk)).slice(-2000);
     });
-    child.on('error', () => {
+    const ended = (why: string) => {
+      if (!heard) fallBack(why);
       if (this.child === child) this.child = null;
+    };
+    child.on('exit', (code) => ended(lastLine(errors) || `it ended with code ${code}`));
+    child.on('error', (error) => ended(error.message));
+  }
+
+  private clearFallbackTimer(): void {
+    if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
+    this.fallbackTimer = null;
+  }
+
+  /** One line from the reader: the latest reading, once it parses (true then). Whoever waits for the next (next()) is woken. */
+  take(line: string): boolean {
+    if (!line.startsWith('{')) return false;
+    try {
+      this.state = JSON.parse(line) as MemoryState;
+      this.stateAt = performance.now();
+      if (this.state.inGame) {
+        this.arrivals.push(this.stateAt);
+        while (this.arrivals.length > 0 && this.stateAt - this.arrivals[0] > SPEED_WINDOW_MS) this.arrivals.shift();
+      }
+      this.grid = updateMap(this.grid, this.state.map);
+      // Decoded into the grid; no need to keep the text.
+      if (this.state.map) {
+        delete this.state.map.walls;
+        delete this.state.map.explored;
+      }
+    } catch {
+      // A partial or garbled line: the next one will do.
+      return false;
+    }
+    const waiting = this.waiting;
+    this.waiting = [];
+    for (const wake of waiting) wake(true);
+    return true;
+  }
+
+  /** Waits for the next reading (true), or `timeoutMs` without one (false). */
+  next(timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.waiting = this.waiting.filter((w) => w !== wake);
+        resolve(false);
+      }, Math.max(0, timeoutMs));
+      const wake = (came: boolean) => {
+        clearTimeout(timer);
+        resolve(came);
+      };
+      this.waiting.push(wake);
     });
   }
 
   stop(): void {
+    this.clearFallbackTimer();
     this.child?.kill();
     this.child = null;
     this.state = null;
     this.grid = null;
+    this.arrivals = [];
+    this.speedAt = null;
+  }
+
+  speed(): ReaderSpeed | null {
+    // Worked out at most twice a second (it sorts a minute's gaps): asked every tick, it changes slowly.
+    const now = performance.now();
+    if (!this.speedAt || now - this.speedAt.at > 500) this.speedAt = { at: now, speed: readerSpeed(this.arrivals, now) };
+    // The age is now's, though.
+    const last = this.arrivals[this.arrivals.length - 1];
+    return this.speedAt.speed && last !== undefined ? { ...this.speedAt.speed, ageMs: now - last } : this.speedAt.speed;
   }
 
   /** The current map's walls and explored blocks, once known. */
@@ -359,8 +508,8 @@ export class GameMemory implements MemorySource {
   }
 
   /**
-   * The latest reading if it's recent and in game, else null. Readings come about every 200 ms, at most about 500 ms
-   * apart but on a map change (up to about 800 ms; measured): a second's grace covers that.
+   * The latest reading if it's recent and in game, else null. Readings come every 50 ms (about every 200 ms from the
+   * legacy reader), further apart on a map change: a second's grace covers that.
    */
   latest(maxAgeMs = 1000): MemoryState | null {
     if (!this.state || performance.now() - this.stateAt > maxAgeMs) return null;
@@ -370,8 +519,8 @@ export class GameMemory implements MemorySource {
   /** The first reading taken after now (so it shows the effect of a click just made), or null after `timeoutMs`. */
   async fresh(timeoutMs = 3000): Promise<MemoryState | null> {
     const since = performance.now();
-    while (performance.now() - since < timeoutMs) {
-      await new Promise((resolve) => setTimeout(resolve, 40));
+    for (let left = timeoutMs; left > 0; left = timeoutMs - (performance.now() - since)) {
+      await this.next(left);
       if (this.stateAt > since) return this.latest();
     }
     return null;

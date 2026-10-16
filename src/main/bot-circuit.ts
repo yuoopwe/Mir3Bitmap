@@ -31,6 +31,9 @@ const FORGE_STONE = 'Forge Stone';
 
 const DEFAULTS = { quests: [1840], keepHunting: false, retreatHpPercent: 35 };
 
+/** Getting away goes by where health will be this soon, falling as it has (see lowHealth). */
+const RETREAT_LEAD_MS = 1500;
+
 /** Summoning a boss (killing what brings it) is given up after this long, and that boss left for the run. */
 const SUMMON_GIVE_UP_MS = 60 * 60_000;
 
@@ -93,7 +96,10 @@ export class BossCircuit {
             ? this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`
             : !reading.questLog ? 'Waiting for the quest log' : 'Waiting for the map from the game',
         );
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => {
+          const r = memory.latest();
+          return !!r?.user && r.user.level !== undefined && !!r.questLog && !!memory.map();
+        }, 300);
         continue;
       }
       if (user.dead) {
@@ -268,7 +274,7 @@ export class BossCircuit {
     const memory = this.bot.options.memory;
     const name = monster.toLowerCase();
     const shown = () => (memory.latest()?.known ?? []).filter((k) => k.map === map && sameName(k.name, name) && !outOfReach.has(k.id));
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < MARKERS_SETTLE_MS && !shown().some((k) => !k.dead); ) await this.bot.sleep(300);
+    await this.bot.waitUntil(() => shown().some((k) => !k.dead), MARKERS_SETTLE_MS);
     const live = shown().filter((k) => !k.dead);
     const user = memory.latest()?.user;
     const grid = memory.map();
@@ -288,6 +294,16 @@ export class BossCircuit {
    * low ('danger'), or a death, a full bag or leaving the map. A spawn not back
    * yet is waited at (fighting any that turn up).
    */
+  /**
+   * Health under the line to get away at, or (falling as it has over the last readings) about to be within
+   * RETREAT_LEAD_MS: reading the Town Portal scroll takes a moment, and the blows go on meanwhile.
+   */
+  private lowHealth(user: NonNullable<MemoryState['user']> | undefined, retreatHpPercent: number): boolean {
+    if (user?.hp === undefined || !user.maxHp) return false;
+    const heading = this.bot.healthAhead(RETREAT_LEAD_MS);
+    return (user.hp / user.maxHp) * 100 < retreatHpPercent || (heading !== null && heading * 100 < retreatHpPercent);
+  }
+
   private async fightAt(stop: CircuitStop, need: ReadonlyMap<string, number> | null, retreatHpPercent: number, progress: string, elsewhere: readonly CircuitStop[] = []): Promise<string> {
     const memory = this.bot.options.memory;
     const data = loadTravelData();
@@ -318,7 +334,7 @@ export class BossCircuit {
         const reading = memory.latest();
         const user = reading?.user;
         if (user?.dead) return 'dead';
-        const low = user?.hp !== undefined && !!user.maxHp && (user.hp / user.maxHp) * 100 < retreatHpPercent;
+        const low = this.lowHealth(user, retreatHpPercent);
         return low && this.losing(reading!, name) ? 'danger' : null;
       },
       stopWhen: () => {
@@ -390,7 +406,7 @@ export class BossCircuit {
         const reading = memory.latest();
         const user = reading?.user;
         if (user?.dead) return 'dead';
-        const low = user?.hp !== undefined && !!user.maxHp && (user.hp / user.maxHp) * 100 < retreatHpPercent;
+        const low = this.lowHealth(user, retreatHpPercent);
         return low && this.losing(reading!, boss) ? 'danger' : null;
       },
       stopWhen: () => {
@@ -433,11 +449,8 @@ export class BossCircuit {
     const n = await this.bot.quests.atQuestNpc(quest.finish, 'handIn', `Handing in ${quest.name}`, quest);
     if (!n) return false;
     // The bag is read once a second.
-    let after = this.stones(memory.latest());
-    for (const since = this.bot.clock.now(); this.bot.clock.now() - since < 3000 && before !== null && after === before; ) {
-      await this.bot.sleep(300);
-      after = this.stones(memory.latest());
-    }
+    if (before !== null) await this.bot.waitUntil(() => this.stones(memory.latest()) !== before, 3000);
+    const after = this.stones(memory.latest());
     const stones = before !== null && after !== null ? ` +${after - before} Forge Stones;` : '';
     const rewards = (quest.items ?? []).map(([item, amount]) => `${amount} ${item}`).join(', ');
     this.bot.status(`Handed in ${quest.name}:${stones} rewards ${rewards || 'experience'}`);

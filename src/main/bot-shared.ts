@@ -37,7 +37,7 @@ export const LOOT_WALK_GIVE_UP_MS = 8000;
 
 export const LOOT_SKIP_MS = 120_000;
 
-/** How often to re-aim while running. */
+/** The longest between two looks while running (each new reading from the game wakes the loop sooner). */
 export const RUN_TICK_MS = 150;
 
 /**
@@ -119,6 +119,12 @@ export function hostile(o: MemoryObject): boolean {
 
 /** How long to let the game update its title after moving the mouse, before reading what's under it. */
 export const HOVER_SETTLE_MS = 100;
+
+/**
+ * A reading taken this soon after a mouse move may not show it yet (the game takes the move in on its next frame):
+ * what's under the mouse is taken from a reading that came at least this long after.
+ */
+export const HOVER_SEEN_MS = 30;
 
 /** What the game's title says is under the mouse ("Mouse Object: name"), or null. */
 export function mouseObjectName(title: string): string | null {

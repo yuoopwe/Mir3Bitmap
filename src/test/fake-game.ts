@@ -45,6 +45,12 @@ export const BAG_KEY = 0x57;
 const REVIVE_MS = 500;
 /** Dead monsters lie this long, then come back (when they respawn) after RESPAWN_MS more. */
 const CORPSE_MS = 2000;
+
+/** The player's own object id. */
+const PLAYER_ID = 0;
+
+/** The memory reader sends a reading this often. */
+const READING_MS = 50;
 /** Aggressive monsters come at a player this close, a tile this often. */
 const AGGRO_TILES = 8;
 const MONSTER_STEP_MS = 500;
@@ -143,9 +149,9 @@ export interface FakeGameSetup {
   data?: TravelData;
   /** Map grids by index; any other map the player reaches is open floor, sized as travel.json has it. */
   maps?: MapGrid[];
-  /** damage: what each blow takes off a monster (else monsters die in their `hits`); hp: the player's health (default 1000, all of it). */
+  /** damage: what each blow takes off a monster (else monsters die in their `hits`); hp and mp: the player's health and mana (default 1000 and 500, all of it). */
   player: {
-    map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number;
+    map: number; x: number; y: number; level?: number; cls?: number; name?: string; mounted?: boolean; hasMount?: boolean; pickUpRadius?: number; damage?: number; hp?: number; mp?: number;
     /** The stats the reader sends (user.combat): none unless given. Putting gear on changes them by what it gives (and takes off), plainly added. */
     combat?: NonNullable<MemoryState['user']>['combat'];
     /** The % stats' sums and the weights worn and allowed, as the reader sends them. */
@@ -283,9 +289,13 @@ export class FakeGame {
   readonly data: TravelData;
   readonly events: FakeEvent[] = [];
   t = 0;
+  /** Whether the reading says what's under the mouse (the game field the reader reads it from may be missing). */
+  mouseInMemory = true;
+  /** How many times the bot captured the screen (each costs about 18 ms in the real game). */
+  captures = 0;
   readonly player: {
     map: number; x: number; y: number; level: number; cls: number; name: string; mounted: boolean; hasMount: boolean; dead: boolean; experience: number; pickUpRadius: number;
-    damage: number | null; hp: number; maxHp: number; combat: NonNullable<MemoryState['user']>['combat'] | null;
+    damage: number | null; hp: number; maxHp: number; mp: number; maxMp: number; combat: NonNullable<MemoryState['user']>['combat'] | null;
     percents: Record<string, number> | null; weights: { wear: number; wearMax: number; hand: number; handMax: number } | null;
   };
   bag: { used: number; slots: number; refuse: boolean };
@@ -378,7 +388,7 @@ export class FakeGame {
     const p = setup.player;
     this.player = {
       map: p.map, x: p.x, y: p.y, level: p.level ?? 10, cls: p.cls ?? 0, name: p.name ?? 'Tester', mounted: p.mounted ?? false, hasMount: p.hasMount ?? true,
-      dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0, damage: p.damage ?? null, hp: p.hp ?? 1000, maxHp: p.hp ?? 1000,
+      dead: false, experience: 0, pickUpRadius: p.pickUpRadius ?? 0, damage: p.damage ?? null, hp: p.hp ?? 1000, maxHp: p.hp ?? 1000, mp: p.mp ?? 500, maxMp: p.mp ?? 500,
       combat: p.combat ?? null, percents: p.percents ?? null, weights: p.weights ?? null,
     };
     this.bag = { used: 10, slots: 40, refuse: false, ...setup.bag };
@@ -445,7 +455,10 @@ export class FakeGame {
       cursorOverWindow: () => false,
       clientSize: () => ({ width: game.view.width, height: game.view.height }),
       isMinimized: () => false,
-      captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => out.fill(0),
+      captureClient: (_hwnd: Handle, _method, _width, _height, out: Uint8Array) => {
+        game.captures++;
+        out.fill(0);
+      },
       keyDown: (_hwnd, vk) => game.key(vk, true),
       keyUp: (_hwnd, vk) => game.key(vk, false),
       keyChord: (_hwnd, modifiers, vk) => {
@@ -469,8 +482,13 @@ export class FakeGame {
       latest: () => game.reading(),
       map: () => game.currentMap(),
       fresh: async (timeoutMs = 3000) => {
-        await game.clock.wait(Math.min(40, timeoutMs));
+        await game.clock.wait(Math.min(READING_MS, timeoutMs));
         return game.reading();
+      },
+      // A reading every READING_MS, as the reader sends them.
+      next: async (timeoutMs: number) => {
+        await game.clock.wait(Math.min(READING_MS, timeoutMs));
+        return timeoutMs >= READING_MS;
       },
       problem: '',
     };
@@ -767,13 +785,14 @@ export class FakeGame {
     }
   }
 
-  /** A belt key's item used: one fewer in the bag; a health potion heals at once. */
+  /** A belt key's item used: one fewer in the bag; a health or mana potion restores at once. */
   private useItem(name: string): void {
     const left = this.itemCounts.get(name) ?? 0;
     if (left <= 0) return;
     this.itemCounts.set(name, left - 1);
     const item = (this.data.consumables ?? []).find((c) => c.name === name);
     if (item?.stats.Health && !item.stats.Duration) this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.Health);
+    if (item?.stats.Mana && !item.stats.Duration) this.player.mp = Math.min(this.player.maxMp, this.player.mp + item.stats.Mana);
     this.events.push({ t: this.t, type: 'use', name, left: left - 1 });
   }
 
@@ -1263,10 +1282,12 @@ export class FakeGame {
       inGame: true,
       user: {
         name: p.name, x: p.x, y: p.y, pickUpRadius: p.pickUpRadius, level: p.level, class: p.cls, mounted: p.mounted, hasMount: p.hasMount, dead: p.dead,
-        experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp, ...(p.combat && { combat: { ...p.combat } }),
+        experience: p.experience, maxExperience: 1_000_000_000, hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp, ...(p.combat && { combat: { ...p.combat } }),
         ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
         trackers: { ...this.trackers },
+        // The game takes a mouse move in at once here.
+        ...(this.mouseInMemory && { id: PLAYER_ID, mouseTile: this.tileAt(this.cursor), mouseObject: this.objectAt(this.tileAt(this.cursor))?.id ?? null }),
       },
       objects: [
         ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS) && chebyshev(m, p) <= this.objectRange),

@@ -212,27 +212,33 @@ export class Hunting {
         if (walkingTo) walkingTo.since += pause;
         for (const [key, since] of inReachSince) inReachSince.set(key, since + pause);
       }
-      this.bot.capture();
-
-      const start = this.bot.clock.now();
-      const targetHp = readBar(this.bot.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
-      // The target frame only hides names while it's showing.
-      const labels = findLabels(this.bot.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
-      this.bot.readVitals();
-      this.bot.scanMs = this.bot.clock.now() - start;
+      const memory = this.bot.options.memory.latest();
+      let sightings: Sighting[] = [];
+      if (memory) {
+        // The memory has the monsters, items and vitals: the screen isn't looked at.
+        this.bot.updateVitals();
+      } else {
+        // No reading: the monsters are the names over their heads on screen.
+        this.bot.capture();
+        const start = this.bot.clock.now();
+        const targetHp = readBar(this.bot.frame, TARGET_HP_BAR, targetHpFill, TARGET_HP_TEXT);
+        // The target frame only hides names while it's showing.
+        const labels = findLabels(this.bot.frame, targetHp === null ? PANEL_MASKS : HUD_MASKS);
+        this.bot.readVitals();
+        this.bot.scanMs = this.bot.clock.now() - start;
+        sightings = this.sightings.update(labels, this.bot.clock.now());
+      }
       const now = this.bot.clock.now();
-      const sightings = this.sightings.update(labels, now);
       const drank = this.bot.drinkPotions();
       this.bot.elixirs.upkeep();
 
       for (const [key, until] of skipped) if (until <= now) skipped.delete(key);
-      const memory = this.bot.options.memory.latest();
       // In a game of another size the screen can't be read: wait for the memory rather than go by the screen.
       if (!memory && !this.bot.screenReadable) {
         this.bot.stopRunning();
         this.bot.releaseHold();
         this.bot.statusEvery(`Waiting for the game's memory (${this.bot.options.memory.problem}; the screen is only read at 1600x900)`);
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!this.bot.options.memory.latest(), 300);
         continue;
       }
       if (memory) {
@@ -408,7 +414,7 @@ export class Hunting {
           this.bot.releaseHold();
           await this.bot.moves.driveAlong({ x: user.x, y: user.y }, path, now, path.length - 1 > SEEK_RIDE_STEPS);
           this.bot.statusEvery(`Going round to ${target.name ?? 'a monster'}`);
-          await this.bot.sleep(RUN_TICK_MS);
+          await this.bot.nextReading(RUN_TICK_MS);
           continue;
         }
       }
@@ -450,9 +456,14 @@ export class Hunting {
         const seek = options.seek ?? this.bot.settings.hunt.roam;
         if (seek && memory && (await this.seekFromMemory(memory, skipped))) {
           // Heading somewhere.
-        } else if (seek && this.bot.screenReadable && !this.onlyNames) await this.seekOrRoam();
+        } else if (seek && this.bot.screenReadable && !this.onlyNames) {
+          // The minimap is read off the screen: captured now when the memory had the rest.
+          if (memory) this.bot.capture();
+          await this.seekOrRoam();
+        }
         else {
-          await this.bot.sleep(150);
+          // Nothing to do: look again with the next reading (a monster turning up is seen at once).
+          await this.bot.nextReading(150);
           this.bot.statusEvery(options.waiting?.() ?? `Waiting for monsters (${memory ? 'game memory' : `screen: ${this.bot.options.memory.problem}`})`);
         }
       }
@@ -633,7 +644,7 @@ export class Hunting {
       if (!plan || plan === 'done') return false;
       await this.bot.moves.driveAlong(here, plan.path, now, false);
       this.bot.statusEvery('Looking for monsters: exploring');
-      await this.bot.sleep(RUN_TICK_MS);
+      await this.bot.nextReading(RUN_TICK_MS);
       return true;
     }
 
@@ -662,7 +673,7 @@ export class Hunting {
     // A long way to go: on the mount (attacking gets off it again).
     await this.bot.moves.driveAlong(here, goal.path, now, goal.path.length - 1 > SEEK_RIDE_STEPS);
     this.bot.statusEvery(goal.kind === 'monster' ? `Heading for ${goal.label}` : `Heading for where ${goal.label} spawn`);
-    await this.bot.sleep(RUN_TICK_MS);
+    await this.bot.nextReading(RUN_TICK_MS);
     return true;
   }
 
@@ -833,8 +844,7 @@ export class Hunting {
         await this.bot.moves.setMounted(false);
         fought = true;
       }
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const tile = this.bot.toScreen(user, monster.x, monster.y);
       const point = await this.bot.aimAt({ key: `m${monster.id}`, point: tile, name: monster.name, tile });

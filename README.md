@@ -14,7 +14,10 @@ npm start
 
 The window has a tab for each mode (Hunt, Explore, Travel, Gather, Triple Triad, Train), each with its Start button
 and that mode's settings, and shared tabs: Keys & potions (spell keys, potions, timing), Monsters, Stats & log, and
-General (the game window, capture, pausing). The status, HP and MP, and Stop stay along the bottom.
+General (the game window, capture, pausing). The status, HP and MP, and Stop stay along the bottom. Stats & log also
+shows how quickly the bot sees and acts: the memory reader's readings a second, how old the latest is and the gaps
+between them over the last minute (median, p90, p99, max), and the running mode's step: how long one takes start to
+start, and how much of it is work rather than waiting.
 
 `npm test` runs the detection tests against real screenshots in `src/test/`.
 
@@ -28,8 +31,10 @@ lists the calls the window made. It isn't part of the app.
 - With the memory reader, Hunt, Explore, Travel, Gather, Quests, Grind and the Boss circuit work with the game at any size (a bigger
   window shows more of the map), at map zoom 100%: the bot stops and asks you to set it back otherwise (other zooms
   aren't measured yet). Without the reader, and for Triple Triad, Best deck and Train, which read the screen, the
-  game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. At
-  other sizes HP comes from the game's memory instead of the bar, and MP isn't known (MP potions need 1600x900).
+  game's client area must be 1600x900 with the default HUD layout; screen positions are in `src/main/layout.ts`. With
+  a reading, HP and MP come from the game's memory, at any size, and Hunt, Grind, Travel, Gather and Explore don't
+  capture the screen at all (Explore by the big map, Triple Triad and the old screen selling still do, as they read
+  it); without one, the bars at the bottom of the screen at 1600x900.
 - Put the spammable attack spell on F1 and buffs on F6 and above.
 - "Background" capture works while other windows cover the game; it can't see a minimized game.
 - "Pause while my mouse is over the game": every mode stops (letting go of keys and buttons) while your mouse
@@ -53,17 +58,57 @@ Kept simple on purpose:
    clicks the feet every second and after each kill.
 5. Nothing to fight: head for the nearest monster marker on the minimap (found by colour, so the panel can be any
    size), or wander, turning when blocked.
-6. Drink potions when HP or MP drops below the set percentages.
+6. Drink potions when HP or MP drops below the set percentages; with the memory reader, the HP potion also as soon
+   as HP, falling as it has over the last readings (`src/main/health-trend.ts`), would be under its line within a
+   second: blow by blow, the potion goes in before the blow that takes it under.
 
 ### Reading the game's memory (better than the screen)
 
 With the memory reader set up, Hunt knows exactly where every monster is instead of reading names off the screen:
 `game-reader/reader.ps1` attaches read-only to the running game (Microsoft's ClrMD) and streams the objects
-around the player (monsters with their names, map tiles and dead/alive, items on the ground, pets) a few times a
+around the player (monsters with their names, map tiles and dead/alive, items on the ground, pets) 20 times a
 second. Hunt then clicks the nearest live monster's tile (not anyone's pet), and lists every monster it has seen
 under "Monsters to hunt" (Monsters tab): untick one to leave it alone. Without the reader it falls back to the screen.
 
-Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`. Tiles are 48x32 pixels on screen (map
+Set up once (needs PowerShell 7): `pwsh -File scripts/setup-game-reader.ps1`.
+
+The reading itself is C# (`game-reader/*.cs`; `Reader.cs` is where it starts): `reader.ps1` compiles it with
+PowerShell's own compiler the first time (a few seconds) and keeps the result in the temp folder
+(`bitmat-game-reader/<hash>`) until those files, ClrMD or PowerShell change, so there's nothing more to install. It
+prints one JSON line every 50 ms (start to start); the rarely changing parts (quest log, gear, profession levels,
+bloodline, auto potion, the monsters known on the map) are read about once a second, one a tick, and re-sent on
+every line. Each object about is read in one go, a monster's max health once a second, and a read that fails on
+memory the game took since the attach makes ClrMD forget what it knew and read again at once rather than attach
+afresh. Measured on a stand-in game (320 monsters, an 800x800 map): 20 readings a second, gaps 50 ms (p99 62 ms, a
+map change aside), under 8% of one CPU core; the old reader managed 3.3 a second there at 46%.
+With a reading this fresh, the bot's waits on the game (a window opening or shutting, the shop's list, a quest
+taken or handed in, an item locked or put on, the map changing, a teleport) look at each reading as it comes and end
+when the game shows the result (`waitUntil` in `bot-context.ts`); the pause they used to be is how long they wait at
+most. The pacing of the bot's own input (the delays, menu pauses, fuzz) is unchanged. The loops that run on the readings
+(Hunt, seeking, Travel, Explore, Gathering trips) look again as each new reading comes (`nextReading`), not on a
+fixed 150 ms tick: a monster turning up, a target dying or a tile reached is acted on within a reading. Before a
+click on a monster, NPC, node or stone the bot hovers it to check it's under the mouse: the reader also sends what's
+under the mouse (`user.mouseObject`, the object `GameScene.MouseObject` holds, by id; the title's "Mouse Object"), so
+the first reading that shows the game took the move in (its `mouseTile` is the hovered tile) answers it, by id, not
+by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before.
+
+`game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
+the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. It also takes over by itself when the new one fails to
+start (it ends, or sends nothing within 30 s: a compile error, say), and the status line says so once ("New memory
+reader failed (...); using the old one"). The new one sends the same, but for three things
+the old one got wrong: a lone game window as a list of one (the old one sent it bare), set bonuses' stats as an
+object (the old one sent the text "System.Collections.Hashtable"), and Triple Triad decks of two cards or more
+(the old one sent `[null]`). Checking it against the game:
+
+- `node scripts/reader-parity.js [seconds]` runs both readers side by side and lists the key paths where their
+  readings differ (pairing each old reading with the new one closest in time; positions may differ by 2 tiles, the
+  objects about must overlap 90%).
+- `node scripts/reader-bench.js [seconds] [--legacy]` measures one: readings a second, the gaps between them
+  (median, p90, p99, max, and the share over 100 ms), and its share of one CPU core.
+- `node scripts/check-game-reader.js` compiles the C# as C# 10 against the ClrMD in `game-reader/lib` (needs the
+  .NET SDK; for changing the reader, not for using it). `BITMAT_READER_TRACE=1` prints each failed read to stderr.
+
+Tiles are 48x32 pixels on screen (map
 zoom 100%), and where they're drawn comes from the map view the reader sends (`view`: the game's size, its zoom, and
 where MapControl draws the character's tile): a tile is at x = (tx − ux + offsetX) × 48 + pixelX + 24,
 y = (ty − uy + offsetY) × 32 + pixelY + 16, which puts the player's own at (width / 2, height / 2 − 34): (800, 416)
@@ -73,7 +118,9 @@ windows (from memory), and of the main panel and target frame, placed for the ga
 
 The reader also sends the current map: which tiles are walls (`MapControl.Cells`, read in one go by
 `game-reader/MapReading.cs`) and which 4x4-tile blocks have been explored (`GameScene.MapExplorationStore`, the fog
-on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. To save the map you're on for
+on the big map), each only when it changes. `src/main/map-grid.ts` decodes them. Walking distances over it
+(`src/main/map-path.ts`) are kept for the last few searches: asked again for the same walls, start and tiles
+avoided (as a seeking tick does several times, and every tick while standing), the answer is the one found. To save the map you're on for
 tests, run `node scripts/save-map.js` (writes `src/test/fixture-map-<name>.json`).
 
 ### Quest monsters only
@@ -128,7 +175,10 @@ can't, what would do it: "needs +76 AC, or +19154 HP, or 168 Health Potion (XL) 
 levels alone won't close it)". Its guesses (the miss roll, crits, regeneration) are checked against your own fights
 (`src/main/calibration.ts`): each kill is now logged with the monster, your stats, the potions drunk, the health put
 back and the lowest it got, and the model's kill times and health lost are compared with what was measured, newer
-kills counting most, trusted as far as there are kills and capped, per level gap too. What follows each press of the
+kills counting most, trusted as far as there are kills and capped, per level gap too. Kills read blow by blow
+(readings never more than 150 ms apart, so each blow shows as its own drop in the monster's health) also split kill
+speed in two: "your blows 20% harder, 10% fewer a second" says whether it's the damage of a blow or how often blows
+land that the model gets wrong. What follows each press of the
 HP potion key teaches it which potion the key drinks, what one really heals and how soon the game allows another.
 
 `src/main/stat-values.ts` turns that into the **Stat guide** (its own tab): what a point of each stat is worth for
@@ -323,7 +373,8 @@ been about for a minute; a spawn cleared or found empty isn't expected back unti
 the Supply Hunt's) and the circuit waits for it only when nothing else is left. Monsters further above your level
 than your fights say is safe (Grind's measurements) are skipped, as are those the combat model says can't be survived
 even with potions (with what it would take; see the stat guide), and so is a spawn where the HP went below the
-"Get away below" share (35% unless set) with the monster not nearly dead: it reads a Town Portal scroll (else
+"Get away below" share (35% unless set), or heading under it within 1.5 s by how it's been falling, with the
+monster not nearly dead: it reads a Town Portal scroll (else
 Returns to Arcadia once out of combat) and leaves that spawn for the run. A death means Return and carrying on; a
 full bag is sold as Grind sells it; five minutes with nothing happening at a spawn plans again. Once every task is
 done it hands the quest in and says what it brought (the Forge Stones counted in the bag). With the quests done for
@@ -363,6 +414,11 @@ level), `maps.md`, `monsters.md`, `quests.md`, `quests-by-level.md`, `npcs.md`, 
 
 ## Layout
 
+- `game-reader/` – the memory reader: `reader.ps1` compiles and runs the C#; `Reader.cs` (the loop, attaching, the
+  output), `Mem.cs` (reading fields, lists and stats), `World.cs` (the tick, the player, the map, the view, waypoints,
+  windows, known monsters), `Objects.cs` (the objects about), `Ui.cs` (buttons, the survival panel, message boxes,
+  Triple Triad), `Character.cs` (quests, gear, bloodline, auto potion, professions), `MapReading.cs` (the walls);
+  `reader-legacy.ps1` the old all-PowerShell reader
 - `src/main/win32.ts` – window capture and input via user32/gdi32
 - `src/main/labels.ts` – finding overhead names (and fingerprinting them) and item boxes
 - `src/main/sightings.ts` – following overhead names from frame to frame

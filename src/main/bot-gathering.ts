@@ -86,8 +86,7 @@ export class Gathering {
         }
         wander = { ...wander, until: wander.until + pause, movedAt: wander.movedAt + pause };
       }
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const now = this.bot.clock.now();
       for (const [id, until] of skipped) if (until <= now) skipped.delete(id);
@@ -96,7 +95,7 @@ export class Gathering {
       if (!reading) {
         this.bot.stopRunning();
         this.bot.statusEvery(this.bot.clock.now() - started < MEMORY_START_MS ? 'Starting the memory reader' : `Waiting for the game's memory (${memory.problem})`);
-        await this.bot.sleep(300);
+        await this.bot.waitUntil(() => !!memory.latest(), 300);
         continue;
       }
       const user = reading.user!;
@@ -200,7 +199,9 @@ export class Gathering {
         else current.retried = true;
       }
       this.bot.statusEvery(`Gathering a ${node.name} (${gathered} gathered)`);
-      await this.bot.sleep(300);
+      // Picked (or gone): on to the next at once.
+      const picking = node.id;
+      await this.bot.waitUntil(() => !memory.latest()?.objects?.some((o) => o.id === picking && !o.harvested), 300);
     }
   }
 
@@ -216,8 +217,7 @@ export class Gathering {
     let casts = 0;
     while (true) {
       await this.bot.yieldToEvents();
-      this.bot.capture();
-      this.bot.readVitals();
+      this.bot.updateVitals();
       this.bot.drinkPotions();
       const player = this.bot.player();
       this.bot.input.mouseMove(this.bot.hwnd, player.x, player.y + SELF_BELOW);
