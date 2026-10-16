@@ -177,6 +177,9 @@ export class BotContext {
   }
 
   status(message: string): void {
+    // The reader falling back on the legacy one is said once, before whatever comes next.
+    const notice = this.options.memory.takeNotice?.();
+    if (notice) this.status(notice);
     this.lastStatusAt = this.clock.now();
     this.options.report({
       mode: this.mode,

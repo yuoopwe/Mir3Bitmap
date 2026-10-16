@@ -305,6 +305,8 @@ export interface MemorySource {
   speed?(): ReaderSpeed | null;
   /** Waits for the next reading (true), or `timeoutMs` without one (false). */
   next?(timeoutMs: number): Promise<boolean>;
+  /** Something to say once, such as the compiled reader failing and the legacy one taking over (GameMemory). */
+  takeNotice?(): string | null;
 }
 
 /** How far back the reader's speed is measured. */
@@ -330,6 +332,24 @@ export function readerSpeed(arrivals: readonly number[], now: number): ReaderSpe
  */
 export const LEGACY_READER = 'reader-legacy.ps1';
 
+/**
+ * The compiled reader sending nothing for this long after starting (the first start compiles it, a few seconds), or
+ * ending before it sends anything, falls back on the legacy reader for the rest of the session.
+ */
+export const READER_FALLBACK_MS = 30_000;
+
+/** How GameMemory runs a reader script: pwsh, unless a test stands one in. */
+export type ReaderSpawner = (script: string, parentPid: number) => ChildProcessWithoutNullStreams;
+
+const spawnPwsh: ReaderSpawner = (script, parentPid) =>
+  spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-ParentPid', String(parentPid)], { windowsHide: true });
+
+/** The last non-empty line of a reader's error output, short enough for the status line. */
+function lastLine(text: string): string {
+  const line = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).at(-1) ?? '';
+  return line.length > 120 ? `${line.slice(0, 117)}...` : line;
+}
+
 /** Runs the memory reader in the background and keeps its latest reading. */
 export class GameMemory implements MemorySource {
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -343,10 +363,28 @@ export class GameMemory implements MemorySource {
   /** Who's waiting for the next reading (next()). */
   private waiting: ((came: boolean) => void)[] = [];
 
-  private readonly script: string;
+  private script: string;
+  /** Said once when the compiled reader failed and the legacy one took over (taken by takeNotice). */
+  private notice: string | null = null;
+  private fallbackTimer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly folder: string) {
+  constructor(
+    private readonly folder: string,
+    private readonly options: { spawnReader?: ReaderSpawner; fallbackAfterMs?: number } = {},
+  ) {
     this.script = process.env.BITMAT_LEGACY_READER === '1' ? LEGACY_READER : 'reader.ps1';
+  }
+
+  /** "New memory reader failed (...); using the old one", once, after it happened; else null. */
+  takeNotice(): string | null {
+    const notice = this.notice;
+    this.notice = null;
+    return notice;
+  }
+
+  /** Whether the legacy reader is the one running (asked for, or fallen back on). */
+  get legacy(): boolean {
+    return this.script === LEGACY_READER;
   }
 
   /** The reader and its libraries are installed (scripts/setup-game-reader.ps1). */
@@ -357,8 +395,23 @@ export class GameMemory implements MemorySource {
   start(): void {
     if (this.child || !this.installed) return;
     // With our process id, so the reader ends itself if this app is closed or killed without stopping it.
-    const child = spawn('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(this.folder, this.script), '-ParentPid', String(process.pid)], { windowsHide: true });
+    const child = (this.options.spawnReader ?? spawnPwsh)(path.join(this.folder, this.script), process.pid);
     this.child = child;
+    // The compiled reader has to show it works: a line of any kind (even "Game not running") before the timeout.
+    let heard = false;
+    let errors = '';
+    const fallBack = (why: string) => {
+      if (heard || this.child !== child || this.legacy) return;
+      this.clearFallbackTimer();
+      this.child = null;
+      child.kill();
+      this.script = LEGACY_READER;
+      this.notice = `New memory reader failed (${why}); using the old one`;
+      this.start();
+    };
+    if (!this.legacy) {
+      this.fallbackTimer = setTimeout(() => fallBack(`nothing from it in ${Math.round((this.options.fallbackAfterMs ?? READER_FALLBACK_MS) / 1000)} s`), this.options.fallbackAfterMs ?? READER_FALLBACK_MS);
+    }
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
       this.buffer += chunk;
@@ -366,21 +419,32 @@ export class GameMemory implements MemorySource {
       while ((newline = this.buffer.indexOf('\n')) >= 0) {
         const line = this.buffer.slice(0, newline).trim();
         this.buffer = this.buffer.slice(newline + 1);
-        this.take(line);
+        if (this.take(line) && !heard) {
+          heard = true;
+          this.clearFallbackTimer();
+        }
       }
     });
-    child.stderr.on('data', () => {});
-    child.on('exit', () => {
-      if (this.child === child) this.child = null;
+    // Kept short: the end of it says why a reader that never got going failed (a compile error, say).
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      errors = (errors + String(chunk)).slice(-2000);
     });
-    child.on('error', () => {
+    const ended = (why: string) => {
+      if (!heard) fallBack(why);
       if (this.child === child) this.child = null;
-    });
+    };
+    child.on('exit', (code) => ended(lastLine(errors) || `it ended with code ${code}`));
+    child.on('error', (error) => ended(error.message));
   }
 
-  /** One line from the reader: the latest reading, once it parses. Whoever waits for the next (next()) is woken. */
-  take(line: string): void {
-    if (!line.startsWith('{')) return;
+  private clearFallbackTimer(): void {
+    if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
+    this.fallbackTimer = null;
+  }
+
+  /** One line from the reader: the latest reading, once it parses (true then). Whoever waits for the next (next()) is woken. */
+  take(line: string): boolean {
+    if (!line.startsWith('{')) return false;
     try {
       this.state = JSON.parse(line) as MemoryState;
       this.stateAt = performance.now();
@@ -396,11 +460,12 @@ export class GameMemory implements MemorySource {
       }
     } catch {
       // A partial or garbled line: the next one will do.
-      return;
+      return false;
     }
     const waiting = this.waiting;
     this.waiting = [];
     for (const wake of waiting) wake(true);
+    return true;
   }
 
   /** Waits for the next reading (true), or `timeoutMs` without one (false). */
@@ -419,6 +484,7 @@ export class GameMemory implements MemorySource {
   }
 
   stop(): void {
+    this.clearFallbackTimer();
     this.child?.kill();
     this.child = null;
     this.state = null;

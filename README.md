@@ -93,7 +93,9 @@ the first reading that shows the game took the move in (its `mouseTile` is the h
 by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
-the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. The new one sends the same, but for three things
+the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. It also takes over by itself when the new one fails to
+start (it ends, or sends nothing within 30 s: a compile error, say), and the status line says so once ("New memory
+reader failed (...); using the old one"). The new one sends the same, but for three things
 the old one got wrong: a lone game window as a list of one (the old one sent it bare), set bonuses' stats as an
 object (the old one sent the text "System.Collections.Hashtable"), and Triple Triad decks of two cards or more
 (the old one sent `[null]`). Checking it against the game:
