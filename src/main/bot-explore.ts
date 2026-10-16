@@ -360,7 +360,8 @@ export class Exploring {
    * whether it did anything this tick (so exploring waits).
    */
   private async lootFromMemory(reading: MemoryState, map: MapGrid, now: number): Promise<boolean> {
-    if (!this.bot.settings.hunt.loot || !reading.user) return false;
+    // (Left to the companion when it's doing the looting.)
+    if (!this.bot.settings.hunt.loot || !reading.user || this.bot.companion.looting(reading)) return false;
     const loot = this.exploreLoot;
     for (const [key, until] of loot.skipped) if (until <= now) loot.skipped.delete(key);
     const here = { x: reading.user.x, y: reading.user.y };

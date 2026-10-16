@@ -65,6 +65,9 @@
                 <label title="Clicks the ground at your feet between every attack, cast and step (the character picks up everything in reach)"><input id="loot" type="checkbox"> Pick up items</label>
                 <label>Pick-up key <select id="pickup-key"></select></label>
                 <p class="hint">The pick-up key is pressed after each click, if the game needs one.</p>
+                <label title="A companion only gains experience from what it picks up. With one out, the bot picks nothing up itself; when the companion's bag is nearly full (between fights) it presses Companion Transfer and confirms, moving what matches the companion's Transfer filter into your bag"><input id="companion-loot" type="checkbox"> Let my companion loot</label>
+                <label title="The key bound to Companion Transfer in the game's key settings (bind one there first)">Companion Transfer key <select id="companion-transfer-key"></select></label>
+                <p class="hint">Locked and bound items stay in the companion's bag. Without a companion out, or the key, the bot loots as usual.</p>
                 <p class="hint shared-note">Hunt and Explore both use these.</p>
               </fieldset>
             </div>
