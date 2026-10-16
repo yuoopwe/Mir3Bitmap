@@ -4,6 +4,7 @@ type KeyId = import('../shared/types').KeyId;
 type Area = import('../shared/types').Area;
 type Status = import('../shared/types').Status;
 type SpeedView = import('../shared/types').SpeedView;
+type KeyView = import('../shared/types').KeyView;
 type NameEntry = import('../shared/types').NameEntry;
 type NameRule = import('../shared/types').NameRule;
 type Stats = import('../shared/types').Stats;

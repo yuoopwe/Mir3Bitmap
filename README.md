@@ -43,7 +43,8 @@ lists the calls the window made. It isn't part of the app.
 
 ## Spell keys
 
-Each spell key (F1-F12, and Item 1, on the Keys & potions tab) is pressed **Auto**, **Every N s** or **Off**.
+Each spell key (F1-F12 on the Keys & potions tab) is pressed **Auto**, **Every N s** or **Off** (Item 1, with no
+skill on it, Every N s or Off).
 
 - **Auto** (needs the memory reader) goes by what the game shows of the skill on that key in the key set the skill
   bar is on (Spell01-Spell12 are F1-F12; skills on Spell13-24 aren't pressed, and the tab says which). A **passive**
