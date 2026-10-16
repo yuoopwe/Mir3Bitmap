@@ -546,13 +546,16 @@ function withTrip(rating: MapRating, route: Route): number {
  * and quest targets about, only maps where they spawn are looked at, and only
  * those making at least questsFirstFloor of the best map's rate (a low-level
  * quest isn't worth hours at a fraction of the experience); all of them again
- * when none such can be reached. Null if nowhere suits and can be reached.
+ * when none such can be reached. With `pin` (a map picked by hand), that map
+ * whatever else rates better, while it can be reached and gives experience
+ * (else as without, the reason it was skipped said first). Null if nowhere
+ * suits and can be reached.
  */
 export function chooseGrindMap(
   data: TravelData,
   start: Start,
   who: Grinder,
-  options: GrindOptions & { current?: number; questsFirst?: boolean },
+  options: GrindOptions & { current?: number; questsFirst?: boolean; pin?: number },
 ): GrindChoice | null {
   const rated = rateMaps(data, who, options);
   // Routes are slow to work out: each map's once.
@@ -563,10 +566,30 @@ export function chooseGrindMap(
   };
   const questName = (choice: GrindChoice) => `quest: ${choice.quests.join(', ')}`;
 
+  // A map picked by hand: there, whatever else rates better, while it can be reached and suits the level at all.
+  let pinNote = '';
+  if (options.pin !== undefined) {
+    const pinned = rated.find((r) => r.map === options.pin);
+    const way = pinned && route(pinned);
+    if (pinned && way) {
+      // What it would grind on left to itself, for comparison.
+      const best = pickMap(data, start, rated, route, options.current);
+      const vs = !best || best.map === pinned.map ? 'also the best' : `best: ${best.name} ~${shortNumber(best.rate)}`;
+      return { ...pinned, route: way, effective: withTrip(pinned, way), stay: pinned.map === (options.current ?? start.map), reason: `your pick; ${vs}` };
+    }
+    const rating = pinned ? null : rateMap(data, options.pin, who, options);
+    const why = !pinned ? (rating && 'skip' in rating ? rating.skip : 'no experience there') : "can't be reached";
+    pinNote = `your pick ${mapName(data, options.pin)} skipped (${why}); `;
+  }
+  const noted = (choice: GrindChoice | null) => {
+    if (choice && pinNote) choice.reason = pinNote + choice.reason;
+    return choice;
+  };
+
   if (options.questsFirst && options.quests?.length) {
     const floor = (rated[0]?.rate ?? 0) * GRIND.questsFirstFloor;
     const choice = pickMap(data, start, rated.filter((r) => r.quests.length && r.rate >= floor), route, options.current);
-    if (choice) return { ...choice, reason: questName(choice) };
+    if (choice) return noted({ ...choice, reason: questName(choice) });
   }
   const choice = pickMap(data, start, rated, route, options.current);
   // Chosen where quest monsters spawn: say so if the bonus is what decided it.
@@ -574,7 +597,7 @@ export function chooseGrindMap(
     const without = rated.map((r) => ({ ...r, rate: r.rate / r.questFactor })).sort((a, b) => b.rate - a.rate || a.map - b.map);
     if (pickMap(data, start, without, route, options.current)?.map !== choice.map) choice.reason = questName(choice);
   }
-  return choice;
+  return noted(choice);
 }
 
 /** chooseGrindMap's choice among `rated` (best rate first), with the hysteresis. */

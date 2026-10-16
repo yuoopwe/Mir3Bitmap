@@ -118,6 +118,8 @@ const bagFree = element<HTMLInputElement>('bag-free');
 const bagWeight = element<HTMLInputElement>('bag-weight');
 const grindQuestsFirst = element<HTMLInputElement>('grind-quests-first');
 const grindPlan = element<HTMLParagraphElement>('grind-plan');
+const grindMap = element<HTMLSelectElement>('grind-map');
+const grindMapsButton = element<HTMLButtonElement>('grind-maps-button');
 const stopButton = element<HTMLButtonElement>('stop-button');
 const modeText = element<HTMLSpanElement>('mode');
 const statusText = element<HTMLSpanElement>('status');
@@ -352,6 +354,7 @@ function readSettings(): Settings {
       replanMinutes: Math.max(readNumber(grindReplan, DEFAULT_GRIND.replanMinutes), 1),
       maxLevelsAbove: Math.min(readNumber(grindAbove, DEFAULT_GRIND.maxLevelsAbove), 50),
       questsFirst: grindQuestsFirst.checked,
+      pin: grindMap.value ? { map: Number(grindMap.value), name: grindMap.selectedOptions[0]?.dataset.name ?? '' } : null,
     },
     hunt: {
       roam: roam.checked,
@@ -422,6 +425,10 @@ function applySettings(settings: Partial<Settings>): void {
   }
   if (settings.grind?.maxLevelsAbove !== undefined) grindAbove.value = String(settings.grind.maxLevelsAbove);
   if (settings.grind?.questsFirst !== undefined) grindQuestsFirst.checked = settings.grind.questsFirst;
+  if (settings.grind?.pin) {
+    pickedMap(settings.grind.pin.map, settings.grind.pin.name);
+    grindMap.value = String(settings.grind.pin.map);
+  }
   const hunt = settings.hunt;
   if (hunt) {
     roam.checked = hunt.roam;
@@ -743,6 +750,38 @@ function buildElixirKeys(): void {
 }
 
 /** The stat guide: each stat's worth best first, what's out of reach and what it would take, the elixirs, potions and how the model measures up. */
+/** 40k, 1.2M: an experience rate (as grind.ts shortNumber). */
+function shortRate(value: number): string {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(value >= 1e7 ? 0 : 1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(value >= 1e4 ? 0 : 1)}k`;
+  return String(Math.round(value));
+}
+
+/** The map choice's option for a map, added (with just its name) if the list doesn't have it yet. */
+function pickedMap(map: number, name: string): HTMLOptionElement {
+  const found = Array.from(grindMap.options).find((o) => o.value === String(map));
+  if (found) return found;
+  const option = new Option(name || `Map ${map}`, String(map));
+  option.dataset.name = name;
+  grindMap.add(option);
+  return option;
+}
+
+/** Grind's rated maps, best first, in the map choice: the pick kept selected (and listed) even when it's fallen off the list. */
+function showGrindMaps(view: GrindMapsView): void {
+  const picked = grindMap.value;
+  const pickedName = grindMap.selectedOptions[0]?.dataset.name ?? '';
+  while (grindMap.options.length > 1) grindMap.remove(1);
+  grindMap.options[0].textContent = `The best for my level (${view.level})`;
+  for (const [i, m] of view.maps.entries()) {
+    const option = new Option(`${m.name}: ~${shortRate(m.rate)} exp/h${m.measured ? ' measured' : ''}${i === 0 ? ' (best)' : ''}`, String(m.map));
+    option.dataset.name = m.name;
+    grindMap.add(option);
+  }
+  if (picked) pickedMap(Number(picked), pickedName);
+  grindMap.value = picked;
+}
+
 function showStatGuide(view: StatGuideView): void {
   const share = (n: number) => `${Math.round(n * 100)}%`;
   guideSummary.textContent =
@@ -808,6 +847,7 @@ async function init(): Promise<void> {
   window.bot.onKept(showKept);
   window.bot.onCircuit(showCircuit);
   window.bot.onStatGuide(showStatGuide);
+  window.bot.onGrindMaps(showGrindMaps);
   window.bot.onMonsters((names) => {
     monstersSeen = names;
     showMonsters();
@@ -821,6 +861,10 @@ async function init(): Promise<void> {
   grindButton.addEventListener('click', () => void window.bot.startGrind());
   questsButton.addEventListener('click', () => void window.bot.startQuests());
   circuitButton.addEventListener('click', () => void window.bot.startCircuit());
+  grindMapsButton.addEventListener('click', () => {
+    grindMapsButton.disabled = true;
+    void window.bot.listGrindMaps().finally(() => (grindMapsButton.disabled = false));
+  });
   checkGearButton.addEventListener('click', () => {
     checkGearButton.disabled = true;
     void window.bot.checkGear().finally(() => (checkGearButton.disabled = false));

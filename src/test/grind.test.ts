@@ -86,6 +86,28 @@ test('hysteresis: a map nearly as good is kept; one outgrown or no longer allowe
   assert.equal(moved.reason, `${close.name} no longer suits`);
 });
 
+test('a map picked by hand: there over the best, saying what the best is; skipped, saying why, when it suits nowhere near', () => {
+  const level = 35;
+  const who = { level, cls: 0 };
+  const best = choices.get(level)!;
+  const second = rateMaps(data, who, options).find((r) => r.map !== best.map && chooseGrindMap(data, startOn(), who, { ...options, pin: r.map })?.map === r.map)!;
+  assert.ok(second, 'a reachable map rated below the best');
+  const picked = chooseGrindMap(data, startOn(), who, { ...options, pin: second.map })!;
+  assert.equal(picked.map, second.map);
+  assert.ok(picked.reason.startsWith(`your pick; best: ${best.name} ~`), picked.reason);
+  // Picked even while grinding on the best, and kept once there.
+  assert.equal(chooseGrindMap(data, startOn(best.map), who, { ...options, current: best.map, pin: second.map })!.map, second.map);
+  assert.ok(chooseGrindMap(data, startOn(second.map), who, { ...options, pin: second.map })!.stay);
+  // Picking the best says so.
+  assert.equal(chooseGrindMap(data, startOn(), who, { ...options, pin: best.map })!.reason, 'your pick; also the best');
+
+  // One the level may not enter: the best instead, and why.
+  const golden = mapIndex('Golden Temple Lv 1');
+  const fallback = chooseGrindMap(data, startOn(), { level: 20, cls: 0 }, { ...options, pin: golden })!;
+  assert.equal(fallback.map, choices.get(20)!.map);
+  assert.match(fallback.reason, /^your pick Golden Temple Lv 1 skipped \(needs level \d+\+?\); /);
+});
+
 test('maps with no spawn data are skipped', () => {
   const empty = data.maps.filter((m) => !data.spawns?.[m.i]?.length);
   assert.ok(empty.length > 0);

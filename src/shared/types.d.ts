@@ -72,6 +72,8 @@ export interface GrindSettings {
   maxLevelsAbove: number;
   /** While unfinished quests need monsters killed, grind only where they spawn (when one can be reached). */
   questsFirst?: boolean;
+  /** Grind on this map rather than the best (null: the best for the level). Skipped, with the reason said, while it can't be reached or suits nowhere near the level. */
+  pin?: { map: number; name: string } | null;
 }
 
 export interface Settings {
@@ -218,6 +220,14 @@ export interface CircuitView {
   stones: number | null;
 }
 
+/** The maps Grind rates for the character, best first, for the Grind tab's map choice. */
+export interface GrindMapsView {
+  character: string;
+  level: number;
+  /** Expected experience an hour on each; measured: some of it from the character's own stints there. */
+  maps: { map: number; name: string; rate: number; measured: boolean }[];
+}
+
 /** The stat guide, for its card: what each stat, potion and elixir is worth to the character for what they do. */
 export interface StatGuideView {
   /** "Level 48 Warrior", and what was weighed: "Zuma Temple Lv 5 (~94k exp/h)", "Zuma Keeper (boss)". */
@@ -275,6 +285,8 @@ export interface BotApi {
   startCircuit(): Promise<void>;
   /** Works the stat guide and the best gear out now from what's worn and the bag, without starting a mode. */
   checkGear(): Promise<void>;
+  /** Rates the maps for the character now (sent with onGrindMaps), without starting a mode. */
+  listGrindMaps(): Promise<void>;
   /** Maps and NPCs whose names match what's typed. */
   searchPlaces(query: string): Promise<TravelPlace[]>;
   stop(): Promise<void>;
@@ -298,4 +310,6 @@ export interface BotApi {
   onCircuit(listener: (view: CircuitView) => void): void;
   /** The stat guide, worked out again at each Grind plan and Boss circuit plan. */
   onStatGuide(listener: (view: StatGuideView) => void): void;
+  /** The maps Grind rates for the character, at each Grind plan and on listGrindMaps. */
+  onGrindMaps(listener: (view: GrindMapsView) => void): void;
 }

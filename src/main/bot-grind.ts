@@ -1,15 +1,84 @@
 /** Grind mode: the best map for the level (grind.ts), travelled to and hunted on, measuring the experience. */
 
 import { walkDistances } from './map-path';
-import { loadTravelData, mapName } from './travel';
+import { loadTravelData, mapName, type TravelData } from './travel';
 import { autoLevelsAbove, chooseGrindMap, dangerByGap, describeChoice, measuredDamage, rateMap, rateMaps, spawnDensity, type GrindOptions } from './grind';
+import type { MapGrid } from './map-grid';
+import type { MemoryState } from './game-memory';
 import { describeArea, learnAreaDamage, learnCrowding, stintArea } from './area-damage';
 import { ExperienceMeter, damageDealt } from './grind-log';
 import { BotError, MEMORY_START_MS } from './bot-shared';
 import type { BotContext } from './bot-context';
 
+/** How many of the best maps the Grind tab's map choice lists. */
+const LISTED_MAPS = 15;
+/** How long listing the maps waits for the memory reader to read the character. */
+const LIST_WAIT_MS = 15_000;
+
 export class Grinding {
   constructor(private readonly bot: BotContext) {}
+
+  /** What the planner goes by, from a reading of the game: the character, where they stand, and what their fights have shown. */
+  private planInputs(data: TravelData, reading: MemoryState, map: MapGrid) {
+    const user = reading.user!;
+    const level = user.level!;
+    const here = { x: user.x, y: user.y };
+    const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
+    const start = { map: map.index, steps: this.bot.travel.exitSteps(data, map, walkDistances(map, here)), at: here };
+    // How hard they hit, and how far above their level is safe (the setting is the cap).
+    const log = this.bot.options.grindLog;
+    const fights = log.fights(user.name);
+    const band = autoLevelsAbove(fights, this.bot.settings.grind.maxLevelsAbove, Date.now());
+    const who = { level, cls: user.class, waypoints: unlocked };
+    const options: GrindOptions = {
+      maxLevelsAbove: band.levels,
+      damage: measuredDamage(data, fights.kills, level, user.class),
+      danger: dangerByGap(fights),
+      measured: log.sessions(user.name),
+      quests: reading.questTargets ?? undefined,
+      // How much faster crowds go down (none seen: one at a time, as before), and how crowded each map gets.
+      area: {
+        damage: learnAreaDamage(log.areaSamples(user.name), level),
+        crowding: learnCrowding(log.areaSamples(user.name), (m) => spawnDensity(data, m)),
+      },
+    };
+    return { user, level, start, band, who, options };
+  }
+
+  /** The best maps for the character as rated now, for the Grind tab's map choice. */
+  private sendMaps(data: TravelData, name: string, level: number, who: Parameters<typeof rateMaps>[1], options: GrindOptions): void {
+    const maps = rateMaps(data, who, options)
+      .slice(0, LISTED_MAPS)
+      .map((r) => ({ map: r.map, name: r.name, rate: r.rate, measured: !!r.measured && r.measured.trust > 0 }));
+    this.bot.options.grindMaps?.({ character: name, level, maps });
+  }
+
+  /** Rates the maps for the character now and sends them to the Grind tab, without starting a mode (as Check my gear does). */
+  async listMaps(): Promise<void> {
+    const memory = this.bot.options.memory;
+    if (!memory.installed) {
+      this.bot.status('Listing maps needs the memory reader (run scripts/setup-game-reader.ps1).');
+      return;
+    }
+    const idle = this.bot.mode === 'idle';
+    if (idle) memory.start();
+    try {
+      const ready = () => memory.latest()?.user?.level !== undefined && !!memory.map();
+      for (const since = Date.now(); !ready() && Date.now() - since < LIST_WAIT_MS; ) await new Promise((resolve) => setTimeout(resolve, 200));
+      const reading = memory.latest();
+      const map = memory.map();
+      if (!ready() || !reading || !map) {
+        this.bot.status(`Couldn't read your character (${memory.problem}): is the game running and in game?`);
+        return;
+      }
+      const data = loadTravelData();
+      const { user, level, who, options } = this.planInputs(data, reading, map);
+      this.sendMaps(data, user.name, level, who, options);
+      this.bot.status(`Maps rated for level ${level} (Grind tab)`);
+    } finally {
+      if (idle && this.bot.mode === 'idle') memory.stop();
+    }
+  }
 
   /**
    * Levels the character up: picks the best map for their level and class
@@ -45,31 +114,13 @@ export class Grinding {
         await this.bot.sleep(300);
         continue;
       }
-      const level = user.level;
-      const here = { x: user.x, y: user.y };
-      const unlocked = reading.waypoints?.unlocked?.length ? new Set(reading.waypoints.unlocked.map((w) => w.name)) : undefined;
-      const { replanMinutes, maxLevelsAbove, questsFirst } = this.bot.settings.grind;
-      const start = { map: map.index, steps: this.bot.travel.exitSteps(data, map, walkDistances(map, here)), at: here };
-      // What the character's fights have shown: how hard they hit, and how far above their level is safe (the setting is the cap).
+      const { replanMinutes, questsFirst, pin } = this.bot.settings.grind;
+      const { level, start, band, who, options } = this.planInputs(data, reading, map);
       const log = this.bot.options.grindLog;
-      const fights = log.fights(user.name);
-      const band = autoLevelsAbove(fights, maxLevelsAbove, Date.now());
-      const who = { level, cls: user.class, waypoints: unlocked };
-      const options: GrindOptions = {
-        maxLevelsAbove: band.levels,
-        damage: measuredDamage(data, fights.kills, level, user.class),
-        danger: dangerByGap(fights),
-        measured: log.sessions(user.name),
-        quests: reading.questTargets ?? undefined,
-        // How much faster crowds go down (none seen: one at a time, as before), and how crowded each map gets.
-        area: {
-          damage: learnAreaDamage(log.areaSamples(user.name), level),
-          crowding: learnCrowding(log.areaSamples(user.name), (m) => spawnDensity(data, m)),
-        },
-      };
+      this.sendMaps(data, user.name, level, who, options);
       // Maps the combat model says can't be survived even with potions are left out (once they can, they're back).
       const cantSurvive: GrindOptions['cantSurvive'] = (m) => this.bot.guide.cantSurvive(m.name);
-      const choice = chooseGrindMap(data, start, who, { ...options, cantSurvive, current: grinding, questsFirst });
+      const choice = chooseGrindMap(data, start, who, { ...options, cantSurvive, current: grinding, questsFirst, pin: pin?.map });
       if (!choice) throw new BotError(`No map to grind on at level ${level} can be reached from ${mapName(data, map.index)}.`);
       grinding = choice.map;
       for (const better of rateMaps(data, who, options).filter((r) => r.rate > choice.rate)) {
@@ -103,6 +154,7 @@ export class Grinding {
           const newLevel = now?.user?.level;
           if (newLevel !== undefined && newLevel !== level) return `Level ${newLevel}: planning again`;
           if (now?.map && now.map.index !== choice.map) return `Left ${choice.name}: planning again`;
+          if (this.bot.settings.grind.pin?.map !== pin?.map) return 'Map choice changed: planning again';
           const minutes = (this.bot.clock.now() - huntStart - (this.bot.pausedMs - pausedBefore)) / 60_000;
           return minutes >= replanMinutes ? `${replanMinutes} minutes on ${choice.name}: planning again` : null;
         },

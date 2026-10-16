@@ -13,6 +13,7 @@ const api: BotApi = {
   startQuests: () => ipcRenderer.invoke('bot:quests'),
   startCircuit: () => ipcRenderer.invoke('bot:circuit'),
   checkGear: () => ipcRenderer.invoke('bot:check-gear'),
+  listGrindMaps: () => ipcRenderer.invoke('bot:grind-maps'),
   searchPlaces: (query) => ipcRenderer.invoke('travel:search', query),
   stop: () => ipcRenderer.invoke('bot:stop'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
@@ -33,6 +34,9 @@ const api: BotApi = {
   },
   onStatGuide: (listener) => {
     ipcRenderer.on('stat-guide', (_event, view) => listener(view));
+  },
+  onGrindMaps: (listener) => {
+    ipcRenderer.on('grind-maps', (_event, view) => listener(view));
   },
   onKept: (listener) => {
     ipcRenderer.on('kept', (_event, items) => listener(items));

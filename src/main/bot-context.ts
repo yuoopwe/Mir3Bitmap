@@ -7,7 +7,7 @@
  * call one another through it and never import each other.
  */
 
-import type { CircuitView, Delays, KeptItem, KeyId, Point, Settings, StatGuideView, Status } from '../shared/types';
+import type { CircuitView, Delays, GrindMapsView, KeptItem, KeyId, Point, Settings, StatGuideView, Status } from '../shared/types';
 import type { TriadMemory } from './triad-memory';
 import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEXT, PLAYER_HP_BAR, PLAYER_MP_BAR, hudPanels, type Rect } from './layout';
 import type { NameBook } from './names';
@@ -88,6 +88,8 @@ export interface BotOptions {
   circuit?: (view: CircuitView) => void;
   /** The stat guide, for the window's Stat guide card. */
   statGuide?: (view: StatGuideView) => void;
+  /** The maps Grind rates for the character, for the Grind tab's map choice. */
+  grindMaps?: (view: GrindMapsView) => void;
   /** Grind's measurements: the experience each character gained hunting on each map, saved between runs. */
   grindLog: GrindLog;
   /** The game window's mouse, keys, title and pictures: the real window (win32.ts) unless a test gives a stand-in. */

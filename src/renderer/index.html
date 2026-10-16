@@ -208,6 +208,13 @@
               <p class="hint">A new level, or leaving the map (a death, say), plans again straight away. How hard you hit and how far above your level is safe are measured as you fight, and the last plan says how far it goes.</p>
             </fieldset>
             <fieldset class="card">
+              <legend>Map</legend>
+              <label title="Grind on this map rather than the one rated best, for trying a close second (it says what the best is). Skipped, saying why, while it can't be reached or suits nowhere near your level.">Grind on <select id="grind-map"><option value="">The best for my level</option></select></label>
+              <button type="button" id="grind-maps-button" title="Rate the maps for your character now from the game's memory (no mode needs to be running)">Rate maps now</button>
+              <p class="hint">Each plan lists the best maps with their experience an hour: "measured" ones count your own time there,
+                the rest are estimates. Grinding a while on one gets it measured; changing this plans again straight away.</p>
+            </fieldset>
+            <fieldset class="card">
               <legend>Selling</legend>
               <label title="Back to Arcadia to sell to Ludvik once the bag has this few slots free">Sell when <input id="bag-free" type="number" min="0" max="100"> or fewer bag slots are free</label>
               <label title="Or once the bag is this heavy, as a share of what you can carry">or the bag is <input id="bag-weight" type="number" min="10" max="100"> % full by weight</label>

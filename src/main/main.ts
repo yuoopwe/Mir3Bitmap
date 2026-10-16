@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { CircuitView, KeptItem, KeyId, NameRule, Settings, StatGuideView, Status } from '../shared/types';
+import type { CircuitView, GrindMapsView, KeptItem, KeyId, NameRule, Settings, StatGuideView, Status } from '../shared/types';
 import { loadTravelData, places, searchPlaces } from './travel';
 import { Bot } from './bot';
 import type { Rect } from './layout';
@@ -142,6 +142,7 @@ const bot = new Bot(defaultSettings, {
   kept: (items: KeptItem[]) => window?.webContents.send('kept', items),
   circuit: (view: CircuitView) => window?.webContents.send('circuit', view),
   statGuide: (view: StatGuideView) => window?.webContents.send('stat-guide', view),
+  grindMaps: (view: GrindMapsView) => window?.webContents.send('grind-maps', view),
   imageOf,
   report: (status: Status) => window?.webContents.send('bot:status', status),
 });
@@ -161,6 +162,7 @@ ipcMain.handle('bot:grind', () => bot.startGrind());
 ipcMain.handle('bot:quests', () => bot.startQuests());
 ipcMain.handle('bot:circuit', () => bot.startCircuit());
 ipcMain.handle('bot:check-gear', () => bot.checkGear());
+ipcMain.handle('bot:grind-maps', () => bot.listGrindMaps());
 ipcMain.handle('travel:search', (_event, query: string) => searchPlaces(travelPlaces(), query).map(({ id, label }) => ({ id, label })));
 ipcMain.handle('bot:stop', () => bot.stop());
 ipcMain.handle('settings:update', (_event, settings: Settings) => {

@@ -158,6 +158,11 @@ export class Bot {
     }
   }
 
+  /** Rates the maps for the character now, for the Grind tab's map choice (bot-grind.ts listMaps). */
+  listGrindMaps(): Promise<void> {
+    return this.ctx.grind.listMaps();
+  }
+
   startGrind(): void {
     void this.run('grind', () => this.ctx.grind.grindLoop());
   }
