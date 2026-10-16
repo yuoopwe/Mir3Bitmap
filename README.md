@@ -35,10 +35,30 @@ lists the calls the window made. It isn't part of the app.
   a reading, HP and MP come from the game's memory, at any size, and Hunt, Grind, Travel, Gather and Explore don't
   capture the screen at all (Explore by the big map, Triple Triad and the old screen selling still do, as they read
   it); without one, the bars at the bottom of the screen at 1600x900.
-- Put the spammable attack spell on F1 and buffs on F6 and above.
+- With the memory reader, set the spell keys to Auto (Keys & potions): each is pressed by what the game shows of the
+  skill on it. Without it, put the spammable attack spell on F1 and buffs on F6 and above, on timers.
 - "Background" capture works while other windows cover the game; it can't see a minimized game.
 - "Pause while my mouse is over the game": every mode stops (letting go of keys and buttons) while your mouse
   pointer is over the game window, and carries on when it leaves. The bot's own clicks don't move your pointer.
+
+## Spell keys
+
+Each spell key (F1-F12, and Item 1, on the Keys & potions tab) is pressed **Auto**, **Every N s** or **Off**.
+
+- **Auto** (needs the memory reader) goes by what the game shows of the skill on that key in the key set the skill
+  bar is on (Spell01-Spell12 are F1-F12; skills on Spell13-24 aren't pressed, and the tab says which). A **passive**
+  skill is never pressed. A **buff** skill (one whose buff the readings have shown come from it) is pressed when its
+  buff is missing or has less than 3 s (plus the reader's gap) left, in a fight or not. Any **other** skill is pressed
+  in a fight as soon as the game says it's ready, never faster than its delay (else the key's seconds), and only with
+  the MP for it. After a press the next readings should show it took (its buff back, its cooldown started, its MP
+  spent): three presses in a row that don't, and the key is left alone for a minute, said once in the status. Nothing
+  is cast while dead, with a shop, an NPC's talk, a quest list, the waypoints or the death window open. A skill not
+  seen to give a buff yet counts as an attack until its first cast shows its buff. (`src/main/skill-casting.ts`)
+- **Every N s** is the old timer: F1 every round while fighting, the others every N seconds. Keys saved before there
+  was a choice keep it (ticked: Every N s; not: Off) until Auto is picked; "Use Auto for all skill keys" does it in
+  one click.
+- The tab shows, from the game's memory while a mode runs, each key's skill (name and level), its kind, and a buff's
+  time left.
 
 ## How hunting works
 
@@ -47,7 +67,7 @@ Kept simple on purpose:
 1. Every frame, find the white overhead names (monsters, herbs, pets...) outside the HUD panels, and follow each
    from frame to frame by where it is (damage numbers and "Miss" floating away are ignored).
 2. **Click the nearest name, and keep clicking it until it's gone**, then the next nearest. With "Archer" the left
-   button is held down on it instead. Spell keys (F1 every round, the others on their timers) are pressed as it goes.
+   button is held down on it instead. Spell keys are pressed as it goes (see "Spell keys" below).
 3. A target still there after 20 seconds (out of reach, or not really a monster) is skipped for 30 seconds.
    Names set to "Never attack" under "Names seen on screen" (Monsters tab) are skipped.
 4. With "Pick up items", **click the ground at the character's feet**, which picks up everything within the

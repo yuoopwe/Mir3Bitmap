@@ -17,6 +17,7 @@ import { DEFAULT_VIEW, screenToTile, tileToScreen, type MapView, type MemorySour
 import { createFrame, playerHpFill, playerMpFill, readBar, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
 import { HealthTrend } from './health-trend';
+import { SkillCaster, keyMode } from './skill-casting';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, ViewError, keyCode, wholeSecondsSince } from './bot-shared';
 import { HOVER_SEEN_MS, HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
@@ -84,6 +85,12 @@ const KEY_ACTIONS: KeyAction[] = [
   { id: 'N1', vk: VK.N1, delay: 'itemKey', delayWhen: 'before' },
 ];
 
+/** One of the game's windows over the world (a shop, an NPC's talk, a quest list, the waypoints, the death window): no casting meanwhile. */
+function menuOpen(reading: NonNullable<ReturnType<MemorySource['latest']>>): boolean {
+  const s = reading.survival;
+  return !!(s?.sell || s?.npcDialog || s?.npcMenu || s?.questList || s?.questBox || s?.death || reading.waypoints?.open);
+}
+
 export interface BotOptions {
   report: (status: Status) => void;
   names: NameBook;
@@ -127,6 +134,10 @@ export class BotContext {
   /** Where the right button is being held to run, while exploring. */
   running: Point | null = null;
   private captureMs = 0;
+  /** Which skill each key casts, and when (the keys on 'auto'). */
+  readonly casting = new SkillCaster();
+  /** Said once: a key on Auto with no skills in the reading. */
+  private autoWithoutSkillsSaid = false;
   /** Health over the last readings, and the reading last taken into it. */
   private readonly healthTrend = new HealthTrend();
   private trendReading: ReturnType<MemorySource['latest']> = null;
@@ -192,6 +203,7 @@ export class BotContext {
       explored: this.explored,
       level: this.options.memory.latest()?.user?.level ?? null,
       stats: this.stats.snapshot(this.clock.now()),
+      keys: this.casting.view(this.options.memory.latest(), this.clock.now()),
       speed: { reader: this.options.memory.speed?.() ?? null, tick: this.tickTimes() },
     });
   }
@@ -530,12 +542,39 @@ export class BotContext {
     return drank;
   }
 
-  /** Presses the enabled spell and buff keys that are due; returns whether the attack spell (F1) was cast. */
+  /**
+   * Presses the spell and buff keys that are due; returns whether the attack spell (F1) was cast. A key on 'auto' goes
+   * by what the game shows of the skill on it (skill-casting.ts); one on 'every' (or saved before there was a choice,
+   * and ticked) by its timer, as it always was.
+   */
   async pressKeys(fighting: boolean): Promise<boolean> {
     let cast = false;
+    const reading = this.options.memory.latest();
+    // Auto keys cast nothing while dead, with one of the game's windows open over the world, or without a reading.
+    const busy = !reading?.user || reading.user.dead || menuOpen(reading);
+    const gap = this.options.memory.speed?.()?.gaps.p90 ?? 0;
     for (const action of KEY_ACTIONS) {
       const setting = this.settings.keys[action.id];
-      if (!setting?.enabled) continue;
+      const mode = keyMode(setting);
+      if (mode === 'off') continue;
+      if (mode === 'auto') {
+        if (busy) continue;
+        if (!reading.user!.skills) {
+          if (!this.autoWithoutSkillsSaid) this.status(`${action.id} is on Auto, which goes by the skills in the game's memory: they're not in the reading (Every N s works without)`);
+          this.autoWithoutSkillsSaid = true;
+          continue;
+        }
+        const now = this.clock.now();
+        const { press, say } = this.casting.due(action.id, setting, reading, now, fighting, gap);
+        if (say) this.status(say);
+        if (!press) continue;
+        if (action.delay && action.delayWhen === 'before') await this.sleep(this.delay(action.delay));
+        this.key(action.vk);
+        this.casting.pressed(action.id, reading, this.clock.now());
+        if (action.always) cast = true;
+        if (action.delay && action.delayWhen === 'after') await this.sleep(this.delay(action.delay));
+        continue;
+      }
       if (action.always && !fighting) continue;
 
       const last = this.lastPressed.get(action.id);
