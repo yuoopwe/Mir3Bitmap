@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import type { Point } from '../shared/types';
+import type { Point, ReaderSpeed } from '../shared/types';
 import { updateMap, type MapGrid, type MapReading } from './map-grid';
 
 /**
@@ -296,6 +296,25 @@ export interface MemorySource {
   map(): MapGrid | null;
   fresh(timeoutMs?: number): Promise<MemoryState | null>;
   readonly problem: string;
+  /** How the readings have been coming over the last minute (GameMemory; null without readings). */
+  speed?(): ReaderSpeed | null;
+}
+
+/** How far back the reader's speed is measured. */
+const SPEED_WINDOW_MS = 60_000;
+
+/** The reader's speed from when its in-game readings came (ms, oldest first) over the last minute; null with fewer than two. */
+export function readerSpeed(arrivals: readonly number[], now: number): ReaderSpeed | null {
+  const recent = arrivals.filter((at) => now - at <= SPEED_WINDOW_MS);
+  if (recent.length < 2) return null;
+  const gaps = recent.slice(1).map((at, i) => at - recent[i]).sort((a, b) => a - b);
+  const at = (p: number) => gaps[Math.min(gaps.length - 1, Math.ceil(p * gaps.length) - 1)];
+  const span = recent[recent.length - 1] - recent[0];
+  return {
+    perSecond: span > 0 ? ((recent.length - 1) * 1000) / span : 0,
+    ageMs: now - recent[recent.length - 1],
+    gaps: { median: at(0.5), p90: at(0.9), p99: at(0.99), max: gaps[gaps.length - 1] },
+  };
 }
 
 /**
@@ -311,6 +330,8 @@ export class GameMemory implements MemorySource {
   private stateAt = 0;
   private buffer = '';
   private grid: MapGrid | null = null;
+  /** When the in-game readings of the last minute came. */
+  private arrivals: number[] = [];
 
   private readonly script: string;
 
@@ -339,6 +360,10 @@ export class GameMemory implements MemorySource {
         try {
           this.state = JSON.parse(line) as MemoryState;
           this.stateAt = performance.now();
+          if (this.state.inGame) {
+            this.arrivals.push(this.stateAt);
+            while (this.arrivals.length > 0 && this.stateAt - this.arrivals[0] > SPEED_WINDOW_MS) this.arrivals.shift();
+          }
           this.grid = updateMap(this.grid, this.state.map);
           // Decoded into the grid; no need to keep the text.
           if (this.state.map) {
@@ -364,6 +389,11 @@ export class GameMemory implements MemorySource {
     this.child = null;
     this.state = null;
     this.grid = null;
+    this.arrivals = [];
+  }
+
+  speed(): ReaderSpeed | null {
+    return readerSpeed(this.arrivals, performance.now());
   }
 
   /** The current map's walls and explored blocks, once known. */

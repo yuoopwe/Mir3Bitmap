@@ -178,6 +178,21 @@ export interface Status {
   /** The character's level, from the game's memory (while a mode that reads it runs). */
   level?: number | null;
   stats?: Stats;
+  speed?: SpeedView;
+}
+
+/** How quickly the bot sees and acts (the Speed line on the Stats & log tab). */
+export interface SpeedView {
+  /** The memory reader over the last minute: readings a second, how old the latest is, the gaps between them (ms). Null without readings. */
+  reader: ReaderSpeed | null;
+  /** The running mode's steps (look, decide, act), the last few: one's length start to start, and of that the time spent working, not waiting (ms, medians). */
+  tick: { ms: number; busyMs: number } | null;
+}
+
+export interface ReaderSpeed {
+  perSecond: number;
+  ageMs: number;
+  gaps: { median: number; p90: number; p99: number; max: number };
 }
 
 /** What the bot has done (counted by src/main/session-stats.ts). */

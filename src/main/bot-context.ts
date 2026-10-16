@@ -40,6 +40,9 @@ const PAUSE_POLL_MS = 150;
 /** How often a wait on the game (waitUntil) looks at the memory again: the reader sends a reading this often. */
 const WATCH_MS = 50;
 
+/** How many of a mode's steps its tick time is the median of. */
+const TICKS_KEPT = 50;
+
 /** Captures failing this many times in a row stop the bot. */
 const MAX_CAPTURE_FAILURES = 20;
 
@@ -117,6 +120,12 @@ export class BotContext {
   /** Where the right button is being held to run, while exploring. */
   running: Point | null = null;
   private captureMs = 0;
+  /** Time spent waiting so far, and the steps of the running mode (see tickDone). */
+  private waitedMs = 0;
+  private tickMode: Status['mode'] = 'idle';
+  private tickAt: number | null = null;
+  private tickWaited = 0;
+  private ticks: { ms: number; busyMs: number }[] = [];
   private captureFailures = 0;
   scanMs = 0;
   hp: number | null = null;
@@ -170,7 +179,32 @@ export class BotContext {
       explored: this.explored,
       level: this.options.memory.latest()?.user?.level ?? null,
       stats: this.stats.snapshot(this.clock.now()),
+      speed: { reader: this.options.memory.speed?.() ?? null, tick: this.tickTimes() },
     });
+  }
+
+  /**
+   * A mode's loop yields at the start of each step: the time since the last is that step's length, and of it what
+   * wasn't spent waiting (sleeps, waits on the game) its work. The last TICKS_KEPT are kept, the mode's own.
+   */
+  private tickDone(): void {
+    const now = this.clock.now();
+    if (this.tickMode !== this.mode) {
+      this.tickMode = this.mode;
+      this.ticks = [];
+    } else if (this.tickAt !== null) {
+      this.ticks.push({ ms: now - this.tickAt, busyMs: Math.max(0, now - this.tickAt - (this.waitedMs - this.tickWaited)) });
+      if (this.ticks.length > TICKS_KEPT) this.ticks.shift();
+    }
+    this.tickAt = now;
+    this.tickWaited = this.waitedMs;
+  }
+
+  /** The running mode's step length and work (medians of the last steps), or null when none has run. */
+  private tickTimes(): { ms: number; busyMs: number } | null {
+    if (this.mode === 'idle' || this.tickMode !== this.mode || this.ticks.length === 0) return null;
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+    return { ms: median(this.ticks.map((t) => t.ms)), busyMs: median(this.ticks.map((t) => t.busyMs)) };
   }
 
   statusEvery(message: string): void {
@@ -185,8 +219,15 @@ export class BotContext {
   async sleep(ms: number): Promise<void> {
     const fuzz = Math.min(Math.max(this.settings.fuzzPercent, 0), 100) / 100;
     const actual = Math.max(0, ms * (1 + (Math.random() * 2 - 1) * fuzz));
-    await this.clock.wait(actual);
+    await this.idle(actual);
     this.checkpoint();
+  }
+
+  /** Waits, counting the time as waited (not worked) for the tick times. */
+  private async idle(ms: number): Promise<void> {
+    const start = this.clock.now();
+    await this.clock.wait(ms);
+    this.waitedMs += this.clock.now() - start;
   }
 
   /**
@@ -200,7 +241,7 @@ export class BotContext {
       if (shown()) return true;
       const left = timeoutMs - (this.clock.now() - since);
       if (left <= 0) return false;
-      await this.clock.wait(Math.min(WATCH_MS, left));
+      await this.idle(Math.min(WATCH_MS, left));
       this.checkpoint();
     }
   }
@@ -216,6 +257,7 @@ export class BotContext {
 
   /** Lets queued events (such as a Stop click) run between loop iterations. */
   async yieldToEvents(): Promise<void> {
+    this.tickDone();
     await new Promise((resolve) => setImmediate(resolve));
     this.checkpoint();
     await this.pauseWhileMouseOver();

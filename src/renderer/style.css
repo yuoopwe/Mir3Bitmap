@@ -689,6 +689,12 @@ table {
   text-align: right;
 }
 
+.speed {
+  margin: 0 0 6px;
+  white-space: pre-line;
+  font-variant-numeric: tabular-nums;
+}
+
 .stats-foot {
   display: flex;
   flex-wrap: wrap;

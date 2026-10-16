@@ -14,7 +14,10 @@ npm start
 
 The window has a tab for each mode (Hunt, Explore, Travel, Gather, Triple Triad, Train), each with its Start button
 and that mode's settings, and shared tabs: Keys & potions (spell keys, potions, timing), Monsters, Stats & log, and
-General (the game window, capture, pausing). The status, HP and MP, and Stop stay along the bottom.
+General (the game window, capture, pausing). The status, HP and MP, and Stop stay along the bottom. Stats & log also
+shows how quickly the bot sees and acts: the memory reader's readings a second, how old the latest is and the gaps
+between them over the last minute (median, p90, p99, max), and the running mode's step: how long one takes start to
+start, and how much of it is work rather than waiting.
 
 `npm test` runs the detection tests against real screenshots in `src/test/`.
 
