@@ -368,6 +368,8 @@ export class FakeGame {
   /** The skills (null: the reading has none), the key set in use, and the buffs on (`until`: game time; null permanent). */
   readonly skills: (FakeSkill & { lastCastAt: number; nextCastAt: number })[] | null;
   spellSet: number;
+  /** Whether the reading has buffs and skills (a setup giving either). */
+  readonly castingInMemory: boolean;
   readonly buffs: { type: string; until: number | null; source: string | null; item: number | null }[];
 
   private readonly maps = new Map<number, MapGrid>();
@@ -451,6 +453,7 @@ export class FakeGame {
     this.belt = new Map(Object.entries(setup.belt ?? {}).map(([vk, name]) => [Number(vk), name]));
     this.skills = setup.skills ? setup.skills.map((s) => ({ ...s, lastCastAt: -Infinity, nextCastAt: 0 })) : null;
     this.spellSet = setup.spellSet ?? 1;
+    this.castingInMemory = !!(setup.skills || setup.buffs);
     this.buffs = (setup.buffs ?? []).map((b) => ({ type: b.type, until: b.seconds === null ? null : b.seconds * 1000, source: b.source ?? null, item: b.item ?? null }));
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
@@ -856,6 +859,13 @@ export class FakeGame {
     const item = (this.data.consumables ?? []).find((c) => c.name === name);
     if (item?.stats.Health && !item.stats.Duration) this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.Health);
     if (item?.stats.Mana && !item.stats.Duration) this.player.mp = Math.min(this.player.maxMp, this.player.mp + item.stats.Mana);
+    // An elixir: its buff (an ItemBuff naming it) for its duration, refreshed by another.
+    if (item?.stats.Duration) {
+      const until = this.t + item.stats.Duration * 1000;
+      const on = this.buffs.find((b) => b.item === item.id);
+      if (on) on.until = until;
+      else this.buffs.push({ type: 'ItemBuff', until, source: null, item: item.id });
+    }
     this.events.push({ t: this.t, type: 'use', name, left: left - 1 });
   }
 
@@ -1349,10 +1359,10 @@ export class FakeGame {
         ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
         trackers: { ...this.trackers },
-        ...(this.skills && {
+        ...(this.castingInMemory && {
           spellSet: this.spellSet,
           buffs: this.buffsNow(),
-          skills: this.skills.map((s) => ({
+          skills: (this.skills ?? []).map((s) => ({
             name: s.name, magic: s.magic, school: s.school ?? 'Combat', level: s.level ?? 1,
             keys: typeof s.keys === 'string' ? [s.keys, null, null, null] : s.keys,
             readyIn: Math.max(0, Math.round((s.nextCastAt - this.t) / 100) / 10), delay: s.delay ?? 0, cost: s.cost ?? 0,

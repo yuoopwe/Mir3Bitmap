@@ -216,7 +216,8 @@ to nothing. It lists what's out of reach and what it would take, the potions a k
 the loot judge scores by it, Grind leaves out maps and the circuit skips bosses it says can't be survived even with
 potions (saying why, and taking them on again once the gap is closed), and with "Keep elixirs up that pay" ticked (off
 unless ticked) each kind with a belt key set is drunk while grinding and on the circuit when it pays and some are in
-the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run). Luck,
+the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run), and drunk
+again when the game's own buff for it (an ItemBuff naming the elixir, from the memory reader) has 10 s left. Luck,
 crits and the server's level-difference rules aren't modelled yet; the corrections from your fights cover them as
 far as they go.
 
