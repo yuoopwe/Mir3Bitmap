@@ -1,5 +1,5 @@
 # Reads what's around the player straight from the running game's memory (read-only, using Microsoft's
-# ClrMD) and prints it as one JSON line every ~150 ms, for the bot to use instead of reading the screen.
+# ClrMD) and prints it as one JSON line about every 200 ms (150 ms apart), for the bot to use instead of reading the screen.
 # Needs the libraries in .\lib (scripts/setup-game-reader.ps1 downloads them). Runs until the bot (-ParentPid)
 # is gone, so a bot that was closed or killed never leaves it reading the game in the background.
 param([int]$IntervalMs = 150, [int]$ParentPid = 0)
@@ -852,6 +852,13 @@ function Read-View($scene, $module, $domain) {
 # monsters) reading and sending them all made readings come too late. The screen shows about 27 either way at 2560x1440.
 $ObjectRange = 40
 
+# The rarely changing part read on the next tick (see the loop).
+$script:slowNext = 0
+# A tick's read failing this many times in a row, TickRetryMs apart (the game moving memory mid-read: "object is
+# corrupted"), attaches afresh.
+$TickRetries = 12
+$TickRetryMs = 50
+
 $kinds = @{ 'Client.Models.MonsterObject' = 'monster'; 'Client.Models.ItemObject' = 'item'; 'Client.Models.PlayerObject' = 'player'; 'Client.Models.NPCObject' = 'npc'; 'Client.Models.GatheringNodeObject' = 'node' }
 
 while ($true) {
@@ -874,7 +881,9 @@ while ($true) {
     $uiScaleField = $module.GetTypeByName('Client.Rendering.RenderingPipelineManager').GetStaticFieldByName('_displayScale')
     # Reads go straight to the game's live memory; attach afresh now and then all the same.
     $attachedAt = [Diagnostics.Stopwatch]::StartNew()
+    $failed = 0
     while (-not $game.HasExited -and $attachedAt.Elapsed.TotalSeconds -lt 30) {
+     try {
       $scene = $sceneField.ReadObject($domain)
       try { $k = $uiScaleField.Read[single]($domain); $script:uiScale = $(if ($k -gt 0) { [double]$k } else { 1.0 }) } catch { $script:uiScale = 1.0 }
       if ($scene.IsNull) {
@@ -929,26 +938,38 @@ while ($true) {
         try { $waypoints = Read-Waypoints $scene } catch { $waypoints = @{ error = $_.Exception.Message } }
         $windows = $null
         try { $windows = Read-Windows $scene } catch { $script:windowFields = $null }
-        # The quest log changes rarely: read it once a second.
-        if (-not $script:questsAt -or $script:questsAt.ElapsedMilliseconds -gt 1000) {
-          try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null }
-          try { $script:professions = Read-Professions $scene } catch { $script:professions = $null }
-          try { $script:gear = Read-Gear $scene } catch { $script:gear = $null }
-          try { $script:bloodline = Read-Bloodline $scene } catch { $script:bloodline = $null }
-          try { $script:autoPotion = Read-AutoPotion $scene } catch { $script:autoPotion = $null }
-          try { $script:known = @(Read-Known $scene) } catch { $script:known = $null }
-          $script:questsAt = [Diagnostics.Stopwatch]::StartNew()
+        # What changes rarely (the quest log, the bag...) is read about once a second, one part a tick: all of them in
+        # one tick made that reading come 0.6-0.8 s late, past what the bot counts as recent.
+        if (-not $script:slowAt -or $script:slowAt.ElapsedMilliseconds -gt 1000 -or $script:slowNext -gt 0) {
+          switch ($script:slowNext) {
+            0 { try { $script:questTargets = @(Read-QuestTargets $scene) } catch { $script:questTargets = $null; $script:questLog = $null } }
+            1 { try { $script:gear = Read-Gear $scene } catch { $script:gear = $null } }
+            2 { try { $script:known = @(Read-Known $scene) } catch { $script:known = $null } }
+            3 { try { $script:professions = Read-Professions $scene } catch { $script:professions = $null } }
+            4 { try { $script:bloodline = Read-Bloodline $scene } catch { $script:bloodline = $null } }
+            5 { try { $script:autoPotion = Read-AutoPotion $scene } catch { $script:autoPotion = $null } }
+          }
+          if ($script:slowNext -eq 0) { $script:slowAt = [Diagnostics.Stopwatch]::StartNew() }
+          $script:slowNext = ($script:slowNext + 1) % 6
         }
         $survival = $null
         try { $survival = Read-Survival $scene } catch {}
         if ($survival) { try { $survival.messages = @(Read-MessageBoxes $module $domain) } catch {} }
+        $failed = 0
         Write-State @{ inGame = [bool]$user; user = $user; objects = $objects; triad = $triad; collection = $collection; map = $map; waypoints = $waypoints; windows = $windows; questTargets = $script:questTargets; questLog = $script:questLog; questPending = $script:questPending; view = $(try { Read-View $scene $module $domain } catch { $null }); professions = $script:professions; gear = $script:gear; bloodline = $script:bloodline; autoPotion = $script:autoPotion; known = $script:known; survival = $survival }
       }
+     } catch {
+      # One bad read (the game moving memory mid-read) skips the tick; only several in a row attach afresh.
+      $failed++
+      if ($failed -ge $TickRetries) { throw }
+      Start-Sleep -Milliseconds $TickRetryMs
+      continue
+     }
       Start-Sleep -Milliseconds $IntervalMs
     }
   } catch {
     Write-State @{ inGame = $false; reason = "Reader error: $($_.Exception.Message)" }
-    Start-Sleep -Seconds 2
+    Start-Sleep -Milliseconds 500
   } finally {
     if ($target) { $target.Dispose() }
     # Hand back what the last attach used: hours of re-attaching otherwise let the reader grow to a gigabyte or more.

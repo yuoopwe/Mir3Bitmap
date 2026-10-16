@@ -358,8 +358,11 @@ export class GameMemory implements MemorySource {
     return this.latest() ? this.grid : null;
   }
 
-  /** The latest reading if it's recent and in game, else null. */
-  latest(maxAgeMs = 600): MemoryState | null {
+  /**
+   * The latest reading if it's recent and in game, else null. Readings come about every 200 ms, at most about 500 ms
+   * apart but on a map change (up to about 800 ms; measured): a second's grace covers that.
+   */
+  latest(maxAgeMs = 1000): MemoryState | null {
     if (!this.state || performance.now() - this.stateAt > maxAgeMs) return null;
     return this.state.inGame && this.state.user ? this.state : null;
   }
