@@ -16,6 +16,7 @@ import type { GrindLog } from './grind-log';
 import { DEFAULT_VIEW, screenToTile, tileToScreen, type MapView, type MemorySource } from './game-memory';
 import { createFrame, playerHpFill, playerMpFill, readBar, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
+import { HealthTrend } from './health-trend';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, ViewError, keyCode, wholeSecondsSince } from './bot-shared';
 import { HOVER_SEEN_MS, HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
@@ -48,6 +49,12 @@ const MAX_CAPTURE_FAILURES = 20;
 
 /** Minimum time between two drinks of the same potion. */
 const POTION_COOLDOWN_MS = 1500;
+
+/**
+ * The HP potion is drunk as soon as health, falling as it has over the last readings, would be under the line this
+ * soon: a fall blow by blow is caught before the blow that takes it under, not after.
+ */
+export const POTION_LEAD_MS = 1000;
 
 /**
  * The character's feet (about the middle of their tile), this far below where they stand. Names are drawn about a
@@ -120,6 +127,9 @@ export class BotContext {
   /** Where the right button is being held to run, while exploring. */
   running: Point | null = null;
   private captureMs = 0;
+  /** Health over the last readings, and the reading last taken into it. */
+  private readonly healthTrend = new HealthTrend();
+  private trendReading: ReturnType<MemorySource['latest']> = null;
   /** Time spent waiting so far, and the steps of the running mode (see tickDone). */
   private waitedMs = 0;
   private tickMode: Status['mode'] = 'idle';
@@ -365,11 +375,30 @@ export class BotContext {
   }
 
   private memoryVitals(): { hp: number | null; mp: number | null } {
-    const user = this.options.memory.latest()?.user;
+    const reading = this.options.memory.latest();
+    const user = reading?.user;
+    this.followHealth(reading);
     return {
       hp: user?.hp !== undefined && user.maxHp ? user.hp / user.maxHp : null,
       mp: user?.mp !== undefined && user.mp !== null && user.maxMp ? user.mp / user.maxMp : null,
     };
+  }
+
+  /**
+   * Health (from the game's memory) `aheadMs` from the last reading if it goes on falling as over the readings
+   * before; null without readings. Fed by each tick's vitals (updateVitals, readVitals).
+   */
+  healthAhead(aheadMs: number): number | null {
+    return this.healthTrend.ahead(aheadMs);
+  }
+
+  /** Each new reading's health into the trend. */
+  private followHealth(reading: ReturnType<MemorySource['latest']>): void {
+    if (!reading || reading === this.trendReading) return;
+    this.trendReading = reading;
+    const user = reading.user;
+    if (user?.dead) this.healthTrend.clear();
+    else if (user?.hp !== undefined && user.maxHp) this.healthTrend.add(this.clock.now(), user.hp / user.maxHp);
   }
 
   capture(): void {
@@ -479,7 +508,10 @@ export class BotContext {
     const now = this.clock.now();
     const hpKey = keyCode(hunt.hpPotionKey);
     let drank = false;
-    if (hpKey !== null && this.hp !== null && this.hp * 100 < hunt.hpPotionPercent && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
+    // Under the line, or (by the game's memory) about to be.
+    const heading = this.healthAhead(POTION_LEAD_MS);
+    const low = this.hp !== null && (this.hp * 100 < hunt.hpPotionPercent || (heading !== null && heading * 100 < hunt.hpPotionPercent));
+    if (hpKey !== null && low && now - this.lastHpPotion > POTION_COOLDOWN_MS) {
       this.key(hpKey);
       this.lastHpPotion = now;
       drank = true;

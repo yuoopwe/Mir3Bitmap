@@ -31,6 +31,9 @@ const FORGE_STONE = 'Forge Stone';
 
 const DEFAULTS = { quests: [1840], keepHunting: false, retreatHpPercent: 35 };
 
+/** Getting away goes by where health will be this soon, falling as it has (see lowHealth). */
+const RETREAT_LEAD_MS = 1500;
+
 /** Summoning a boss (killing what brings it) is given up after this long, and that boss left for the run. */
 const SUMMON_GIVE_UP_MS = 60 * 60_000;
 
@@ -291,6 +294,16 @@ export class BossCircuit {
    * low ('danger'), or a death, a full bag or leaving the map. A spawn not back
    * yet is waited at (fighting any that turn up).
    */
+  /**
+   * Health under the line to get away at, or (falling as it has over the last readings) about to be within
+   * RETREAT_LEAD_MS: reading the Town Portal scroll takes a moment, and the blows go on meanwhile.
+   */
+  private lowHealth(user: NonNullable<MemoryState['user']> | undefined, retreatHpPercent: number): boolean {
+    if (user?.hp === undefined || !user.maxHp) return false;
+    const heading = this.bot.healthAhead(RETREAT_LEAD_MS);
+    return (user.hp / user.maxHp) * 100 < retreatHpPercent || (heading !== null && heading * 100 < retreatHpPercent);
+  }
+
   private async fightAt(stop: CircuitStop, need: ReadonlyMap<string, number> | null, retreatHpPercent: number, progress: string, elsewhere: readonly CircuitStop[] = []): Promise<string> {
     const memory = this.bot.options.memory;
     const data = loadTravelData();
@@ -321,7 +334,7 @@ export class BossCircuit {
         const reading = memory.latest();
         const user = reading?.user;
         if (user?.dead) return 'dead';
-        const low = user?.hp !== undefined && !!user.maxHp && (user.hp / user.maxHp) * 100 < retreatHpPercent;
+        const low = this.lowHealth(user, retreatHpPercent);
         return low && this.losing(reading!, name) ? 'danger' : null;
       },
       stopWhen: () => {
@@ -393,7 +406,7 @@ export class BossCircuit {
         const reading = memory.latest();
         const user = reading?.user;
         if (user?.dead) return 'dead';
-        const low = user?.hp !== undefined && !!user.maxHp && (user.hp / user.maxHp) * 100 < retreatHpPercent;
+        const low = this.lowHealth(user, retreatHpPercent);
         return low && this.losing(reading!, boss) ? 'danger' : null;
       },
       stopWhen: () => {

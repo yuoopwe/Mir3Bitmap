@@ -58,7 +58,9 @@ Kept simple on purpose:
    clicks the feet every second and after each kill.
 5. Nothing to fight: head for the nearest monster marker on the minimap (found by colour, so the panel can be any
    size), or wander, turning when blocked.
-6. Drink potions when HP or MP drops below the set percentages.
+6. Drink potions when HP or MP drops below the set percentages; with the memory reader, the HP potion also as soon
+   as HP, falling as it has over the last readings (`src/main/health-trend.ts`), would be under its line within a
+   second: blow by blow, the potion goes in before the blow that takes it under.
 
 ### Reading the game's memory (better than the screen)
 
@@ -366,7 +368,8 @@ been about for a minute; a spawn cleared or found empty isn't expected back unti
 the Supply Hunt's) and the circuit waits for it only when nothing else is left. Monsters further above your level
 than your fights say is safe (Grind's measurements) are skipped, as are those the combat model says can't be survived
 even with potions (with what it would take; see the stat guide), and so is a spawn where the HP went below the
-"Get away below" share (35% unless set) with the monster not nearly dead: it reads a Town Portal scroll (else
+"Get away below" share (35% unless set), or heading under it within 1.5 s by how it's been falling, with the
+monster not nearly dead: it reads a Town Portal scroll (else
 Returns to Arcadia once out of combat) and leaves that spawn for the run. A death means Return and carrying on; a
 full bag is sold as Grind sells it; five minutes with nothing happening at a spawn plans again. Once every task is
 done it hands the quest in and says what it brought (the Forge Stones counted in the bag). With the quests done for
