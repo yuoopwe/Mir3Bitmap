@@ -107,6 +107,8 @@ export class Survival {
 
   /** The bag has too few slots free, or is too near its weight limit (the Hunt settings). */
   bagFull(reading: MemoryState | null | undefined): boolean {
+    // The companion's bag couldn't be emptied into ours for want of room: full, whatever the count says.
+    if (this.bot.companion?.blocked) return true;
     const bag = reading?.survival?.bag;
     if (!bag || bag.slots <= 0) return false;
     // The last trip couldn't sell: hunting goes on for a while, picking up what still fits, before trying again.
@@ -257,6 +259,8 @@ export class Survival {
   /** Bag full: back to Arcadia, over to Ludvik, and sell what he'll take from the Main bag tab. */
   async emptyBag(): Promise<void> {
     const from = this.bot.options.memory.latest()?.map?.index;
+    // Selling makes room for the companion's bag again (tried again once back).
+    if (this.bot.companion) this.bot.companion.blocked = false;
     await this.returnToArcadia('Bag full');
     try {
       await this.sellAndGoBack(from);

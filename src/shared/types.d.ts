@@ -48,6 +48,12 @@ export interface HuntSettings {
   loot: boolean;
   /** Extra key pressed after walking onto an item, if the client uses one. */
   pickUpKey: BindableKey;
+  /**
+   * Leave the loot to the companion (it only gains experience from what it picks up): the bot picks nothing up while one
+   * is out, and moves the companion's bag into the player's with the game's Companion Transfer (on this key) when it fills.
+   */
+  companionLoot?: boolean;
+  companionTransferKey?: BindableKey;
   /** Grind and Quests: the Town Portal scroll's key, used when Return to Arcadia can't be (still in combat after a minute). */
   townPortalKey?: BindableKey;
   /** After selling, put on bag items that beat what's worn by a clear margin (src/main/loot-judge.ts). */

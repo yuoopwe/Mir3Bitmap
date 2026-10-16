@@ -119,6 +119,8 @@ namespace Bitmat.GameReader
                 try { survival["messages"] = ReadMessageBoxes(); } catch (Exception) { }
             }
             try { view = ReadView(); } catch (Exception) { }
+            JsonObject companion = null;
+            try { companion = ReadCompanion(scene); } catch (Exception) { }
 
             Write(w, "triad", triad);
             Write(w, "collection", collection);
@@ -135,6 +137,7 @@ namespace Bitmat.GameReader
             WriteRaw(w, "autoPotion", state.AutoPotion);
             WriteRaw(w, "known", state.Known);
             Write(w, "survival", survival);
+            Write(w, "companion", companion);
             w.WriteEndObject();
             output.End();
         }

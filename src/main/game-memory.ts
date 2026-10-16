@@ -223,6 +223,22 @@ export interface MemoryState {
    * Null until the game's Professions window (Ctrl+Shift+P) has been opened once this session.
    */
   professions?: { id: number; name: string; level: number; usable: number; exp: number; toNext: number; canGain: boolean; lockReason: string | null }[] | null;
+  /**
+   * The companion out (null: none): its level, hunger and experience; its bag (slots used of those it has, weight of the
+   * most) and whether the game's transfer is moving items into the player's bag; whether its window shows; and the
+   * transfer's confirmation box's button while it's up (its text says the action: Transfer, or Drop for the whole bag).
+   */
+  companion?: {
+    name: string | null;
+    level: number | null;
+    hunger: number | null;
+    maxHunger?: number | null;
+    experience: number | null;
+    maxExperience?: number | null;
+    bag: { used: number; slots?: number | null; weight?: number | null; maxWeight?: number | null; transferring?: boolean };
+    window?: boolean;
+    confirm?: MemoryButton | null;
+  } | null;
   /** The Return to Arcadia button, the death window while it's up, and how full the bag is. */
   survival?: {
     arcadia?: MemoryButton | null;

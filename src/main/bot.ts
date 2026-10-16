@@ -25,6 +25,7 @@ import { Looting } from './bot-loot';
 import { BossCircuit } from './bot-circuit';
 import { StatGuide } from './bot-guide';
 import { Elixirs } from './bot-elixirs';
+import { CompanionLoot } from './bot-companion';
 
 export type { BotOptions } from './bot-context';
 
@@ -56,6 +57,7 @@ export class Bot {
     ctx.circuit = new BossCircuit(ctx);
     ctx.guide = new StatGuide(ctx);
     ctx.elixirs = new Elixirs(ctx);
+    ctx.companion = new CompanionLoot(ctx);
     this.ctx = ctx;
   }
 
@@ -207,6 +209,7 @@ export class Bot {
     this.ctx.mode = mode;
     this.ctx.active = true;
     this.ctx.stats.start(this.ctx.clock.now());
+    this.ctx.companion.reset();
     let message = 'Stopped';
     try {
       this.ctx.hwnd = this.ctx.input.findWindow(this.ctx.settings.windowTitle);

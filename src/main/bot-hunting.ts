@@ -286,7 +286,8 @@ export class Hunting {
         return stopping;
       }
 
-      if (memory && this.bot.settings.hunt.loot) {
+      // (Not with the companion doing the looting: it only gains experience from what it picks up.)
+      if (memory && this.bot.settings.hunt.loot && !this.bot.companion.looting(memory)) {
         const reach = memory.user!.pickUpRadius ?? 0;
         const items = this.groundItems(memory, skipped);
         // Items within reach: click the feet straight away (between attacks), giving up on any that stay put.
@@ -473,6 +474,12 @@ export class Hunting {
         this.bot.releaseHold();
         await this.bot.clickFloor(FLOOR_CLICKS, FLOOR_CLICK_GAP_MS);
         nextFloorAt = this.bot.clock.now() + FLOOR_CLICK_EVERY_MS;
+      }
+
+      // The companion doing the looting: between fights, its bag emptied into ours when it fills (in every mode that hunts).
+      if (memory && !current && this.bot.companion.wanted(memory)) {
+        await this.bot.companion.transfer();
+        continue;
       }
 
       // Selling. Grind and Quests (which pass stopWhen) sell their own way when the bag fills; Hunt with the

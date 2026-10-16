@@ -85,6 +85,8 @@ export type FakeEvent =
   /** Return to Arcadia pressed while still in combat: the game says no. */
   | { t: number; type: 'refused'; what: 'arcadia'; combatAgo: number }
   | { t: number; type: 'pickup'; items: number; refused: boolean }
+  /** The companion: an item it picked up, Companion Transfer's box shown (or nothing to move), an item moved into the bag, a transfer done. */
+  | { t: number; type: 'companion'; what: 'pickup' | 'confirm' | 'nothing' | 'move' | 'done'; used: number }
   /** A monster hit the player. */
   | { t: number; type: 'hurt'; name: string; damage: number; hp: number }
   /** A node clicked next to the player: refused (too low a level, or no tool), or picked (once the pick is done). */
@@ -195,6 +197,12 @@ export interface FakeGameSetup {
   players?: { name: string; x: number; y: number; map?: number }[];
   /** Where the Town Portal scroll takes you, and its key (default '3'). */
   townPortal?: { map: number; x: number; y: number; key?: number };
+  /**
+   * A companion out: its bag's slots, how many hold items (and how many of those are bound: they never move), the key
+   * bound to Companion Transfer, and whether anything matches its Transfer filter (default: all that isn't bound). It
+   * picks up items near the player, one at a time, while its bag has room.
+   */
+  companion?: { slots: number; used?: number; bound?: number; transferKey: number; filterMatches?: boolean };
   /** Return to Arcadia's casts broken off (as by a monster walking up) this many times on maps other than the town portal's. */
   arcadiaBroken?: number;
   /** Random teleport scrolls on `key`: each read lands on the next of `landings` (on the map the player is on), while `scrolls` last. */
@@ -318,6 +326,11 @@ export class FakeGame {
   private returnTo: { map: number; x: number; y: number } | null = null;
   private portalAt: number | null = null;
   private readonly townPortal: { map: number; x: number; y: number; key: number };
+  /** The companion (see FakeGameSetup), its confirmation box, and the transfer moving items one at a time. */
+  readonly companion: {
+    slots: number; used: number; bound: number; transferKey: number; filterMatches: boolean;
+    confirm: boolean; transferring: boolean; nextMoveAt: number; nextPickAt: number; picked: number;
+  } | null;
   private readonly randomTeleport: { key: number; landings: [number, number][]; scrolls: number } | null;
   private randomTeleportAt: number | null = null;
   private randomTeleportsUsed = 0;
@@ -402,6 +415,9 @@ export class FakeGame {
     this.sellConfirm = confirm ? { showMs: 0, cooldownMs: 0, text: 'Sell the selected items?', ...(confirm === true ? {} : confirm) } : null;
     this.arcadiaBroken = setup.arcadiaBroken ?? 0;
     this.townPortal = { map: 6, x: 190, y: 156, key: 0x33, ...setup.townPortal };
+    this.companion = setup.companion
+      ? { used: 0, bound: 0, filterMatches: true, ...setup.companion, confirm: false, transferring: false, nextMoveAt: 0, nextPickAt: 0, picked: 0 }
+      : null;
     this.randomTeleport = setup.randomTeleport ? { scrolls: Infinity, ...setup.randomTeleport } : null;
     for (const i of setup.items ?? []) this.addItem(i.name, i.x, i.y, i.map ?? p.map);
     for (const n of setup.nodes ?? []) this.addNode(n);
@@ -567,6 +583,7 @@ export class FakeGame {
 
   /** Brings the world up to now: moves ending, the next stride, casts, corpses and respawns. */
   update(): void {
+    this.updateCompanion();
     for (let guard = 0; guard < 1000; guard++) {
       if (this.move && this.move.at <= this.t) {
         this.finishMove();
@@ -767,6 +784,7 @@ export class FakeGame {
       if (vk === LOCK_KEY) this.toggleLock();
       if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
+      if (this.companion && vk === this.companion.transferKey && !this.player.dead) this.companionTransfer();
       if (this.randomTeleport && vk === this.randomTeleport.key && !this.player.dead && this.randomTeleportsUsed < this.randomTeleport.scrolls) this.randomTeleportAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
       if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
@@ -880,6 +898,42 @@ export class FakeGame {
     return this.professionLevels.get(id) ?? 1;
   }
 
+  /** Companion Transfer pressed: its box, if anything in the bag matches the filter (and isn't bound); else nothing. */
+  private companionTransfer(): void {
+    const c = this.companion!;
+    if (c.confirm || c.transferring) return;
+    const movable = c.filterMatches ? c.used - c.bound : 0;
+    c.confirm = movable > 0;
+    this.events.push({ t: this.t, type: 'companion', what: c.confirm ? 'confirm' : 'nothing', used: c.used });
+  }
+
+  /** The companion picks up items near the player (one at a time, while its bag has room); a transfer moves one item at a time while the bag takes them. */
+  private updateCompanion(): void {
+    const c = this.companion;
+    if (!c) return;
+    while (c.transferring && this.t >= c.nextMoveAt) {
+      if (c.used - c.bound > 0 && !this.bag.refuse && this.bag.used < this.bag.slots) {
+        c.used--;
+        this.bag.used++;
+        c.nextMoveAt += COMPANION_MOVE_MS;
+        this.events.push({ t: this.t, type: 'companion', what: 'move', used: c.used });
+      } else {
+        c.transferring = false;
+        this.events.push({ t: this.t, type: 'companion', what: 'done', used: c.used });
+      }
+    }
+    if (this.t >= c.nextPickAt && c.used < c.slots) {
+      const near = this.items.find((i) => i.map === this.player.map && chebyshev(i, this.player) <= COMPANION_REACH);
+      if (near) {
+        this.items.splice(this.items.indexOf(near), 1);
+        c.used++;
+        c.picked++;
+        c.nextPickAt = this.t + COMPANION_PICK_MS;
+        this.events.push({ t: this.t, type: 'companion', what: 'pickup', used: c.used });
+      }
+    }
+  }
+
   /** A click at the feet: picks up what's within reach, unless the bag won't take it. */
   private pickUp(): void {
     const reach = this.items.filter((i) => i.map === this.player.map && chebyshev(i, this.player) <= this.player.pickUpRadius);
@@ -978,6 +1032,14 @@ export class FakeGame {
     if (reading.questBox) {
       out.push(['Accept', reading.questBox.accept, () => this.acceptAll(this.listNpc!.npc, this.pickedQuest)]);
       out.push(['Complete', reading.questBox.complete, () => this.handIn(this.listNpc!.npc, this.pickedQuest)]);
+    }
+    if (this.companion?.confirm) {
+      out.push(['Transfer', COMPANION_CONFIRM, () => {
+        const c = this.companion!;
+        c.confirm = false;
+        c.transferring = true;
+        c.nextMoveAt = this.t + COMPANION_MOVE_MS;
+      }]);
     }
     // Yes sells (once past the box's cooldown: before, the click does nothing); No calls the sale off.
     for (const message of reading.messages ?? []) {
@@ -1102,6 +1164,7 @@ export class FakeGame {
     if (this.confirmShowing()) boxes.push({ name: 'MessageBox', ...MESSAGE_BOX });
     if (this.open.has('dialog')) boxes.push({ name: 'NPCDialog', ...DIALOG_BOX });
     if (this.player.dead) boxes.push({ name: 'DeathDialog', ...DEATH_BOX });
+    if (this.companion?.confirm) boxes.push({ name: 'CompanionBulkActionConfirmationDialog', ...COMPANION_BOX });
     if (this.open.has('professions')) boxes.push({ name: 'ProfessionsBox', ...PROFESSIONS_BOX });
     return boxes;
   }
@@ -1312,6 +1375,14 @@ export class FakeGame {
       questLog: [...this.quests].map(([name, q]) => ({ name, completed: q.completed, ready: q.completed || this.isReady(q) })),
       questPending: { regions, talks },
       survival: this.survival(),
+      companion: this.companion
+        ? {
+            name: 'Pet', level: 2, hunger: 120, maxHunger: 125, experience: this.companion.picked, maxExperience: 200,
+            bag: { used: this.companion.used, slots: this.companion.slots, weight: this.companion.used, maxWeight: 430, transferring: this.companion.transferring },
+            window: false,
+            confirm: this.companion.confirm ? COMPANION_CONFIRM : null,
+          }
+        : null,
       view: { ...this.view },
       gear: { worn: this.gear.worn.map((i) => ({ ...i })), bag: this.gear.bag.map((i) => ({ ...i, cell: this.cellOf(i) })), counts: Object.fromEntries(this.itemCounts) },
       professions: this.professionsLoaded
@@ -1362,4 +1433,11 @@ const BAG_BOX = { x: 1170, y: 120, width: 300, height: 500 };
 const DIALOG_BOX = { x: 300, y: 600, width: 500, height: 150 };
 const DEATH_BOX = { x: 650, y: 300, width: 300, height: 160 };
 const MESSAGE_BOX = { x: 650, y: 500, width: 300, height: 130 };
+/** Companion Transfer's "are you sure?" box, and its Confirm button. */
+const COMPANION_BOX = { x: 1010, y: 300, width: 250, height: 160 };
+const COMPANION_CONFIRM = { x: 1162, y: 420, width: 86, height: 24, enabled: true, text: 'Transfer' };
+/** The companion picks up an item within this many tiles of the player, one every so often; a transfer moves one item each step. */
+const COMPANION_REACH = 4;
+const COMPANION_PICK_MS = 300;
+const COMPANION_MOVE_MS = 120;
 const PROFESSIONS_BOX = { x: 500, y: 150, width: 600, height: 500 };

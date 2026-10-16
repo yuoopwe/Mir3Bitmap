@@ -19,6 +19,8 @@ const DEFAULT_FUZZ_PERCENT = 20;
 const DEFAULT_GRIND: Settings['grind'] = { replanMinutes: 15, maxLevelsAbove: 10, questsFirst: false };
 const PICK_UP_KEYS = ['', 'Tab', 'Space', '`', 'Z', 'X', 'C', 'V', 'G', 'F'];
 const POTION_KEYS = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
+/** Keys the game's Companion Transfer can be bound to (as bot-shared.ts keyCode reads them). */
+const COMPANION_KEYS = ['', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), ...POTION_KEYS.slice(1), 'Tab', '`'];
 const RULE_LABELS: Record<NameRule, string> = { auto: 'Auto', attack: 'Always attack', ignore: 'Never attack' };
 const SETTINGS_KEY = 'settings-v2';
 /** All-time stats get a key of their own: saveSettings rewrites the settings from the form on every change. */
@@ -45,6 +47,8 @@ const loot = element<HTMLInputElement>('loot');
 const sellItems = element<HTMLInputElement>('sell-items');
 const pickUpKey = element<HTMLSelectElement>('pickup-key');
 const townPortalKey = element<HTMLSelectElement>('town-portal-key');
+const companionLoot = element<HTMLInputElement>('companion-loot');
+const companionTransferKey = element<HTMLSelectElement>('companion-transfer-key');
 const unstuckKey = element<HTMLSelectElement>('unstuck-key');
 const randomKey = element<HTMLSelectElement>('random-key');
 const hpKey = element<HTMLSelectElement>('hp-key');
@@ -305,6 +309,7 @@ function buildPotionSelects(): void {
   }
   pickUpKey.replaceChildren(...PICK_UP_KEYS.map((key) => new Option(key || 'none', key)));
   townPortalKey.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
+  companionTransferKey.replaceChildren(...COMPANION_KEYS.map((key) => new Option(key || 'none', key)));
   townPortalKey.value = '3';
   unstuckKey.replaceChildren(...POTION_KEYS.map((key) => new Option(key || 'none', key)));
   unstuckKey.value = 'F2';
@@ -376,6 +381,8 @@ function readSettings(): Settings {
       loot: loot.checked,
       pickUpKey: pickUpKey.value,
       townPortalKey: townPortalKey.value,
+      companionLoot: companionLoot.checked,
+      companionTransferKey: companionTransferKey.value,
       equipUpgrades: equipUpgrades.checked,
       unstuckKey: unstuckKey.value,
       randomTeleportKey: randomKey.value,
@@ -451,6 +458,8 @@ function applySettings(settings: Partial<Settings>): void {
     loot.checked = hunt.loot;
     pickUpKey.value = hunt.pickUpKey ?? '';
     townPortalKey.value = hunt.townPortalKey ?? '3';
+    companionLoot.checked = hunt.companionLoot ?? false;
+    companionTransferKey.value = hunt.companionTransferKey ?? '';
     equipUpgrades.checked = hunt.equipUpgrades ?? false;
     unstuckKey.value = hunt.unstuckKey ?? 'F2';
     randomKey.value = hunt.randomTeleportKey ?? '1';

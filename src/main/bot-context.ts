@@ -34,6 +34,7 @@ import type { Looting } from './bot-loot';
 import type { BossCircuit } from './bot-circuit';
 import type { StatGuide } from './bot-guide';
 import type { Elixirs } from './bot-elixirs';
+import type { CompanionLoot } from './bot-companion';
 
 /** How often to check whether the mouse has left the game window, while paused. */
 const PAUSE_POLL_MS = 150;
@@ -167,6 +168,7 @@ export class BotContext {
   circuit!: BossCircuit;
   guide!: StatGuide;
   elixirs!: Elixirs;
+  companion!: CompanionLoot;
 
   constructor(
     public settings: Settings,
