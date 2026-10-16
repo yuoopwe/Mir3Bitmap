@@ -50,11 +50,12 @@ test('next() wakes on the next reading from the reader, or gives up after its ti
   assert.equal(await garbled, false);
 });
 
-test('Hunt, idle: a monster turning up is gone for with the next reading, not a tick later', async () => {
+/** Hunt idle on Bichon: how long from a wolf turning up (while the bot waits, part way through) to the first blow. */
+async function reaction(mouseInMemory: boolean): Promise<number> {
   const bichon = loadMapFixture('bichon-province');
   const { x, y } = bichon.player;
   const game = new FakeGame({ maps: [bichon.map], player: { map: 1, x, y, level: 24 } });
-  // The wolf turns up at a moment the bot didn't choose: while it's waiting, part way through.
+  game.mouseInMemory = mouseInMemory;
   const at = 5037;
   const wait = game.clock.wait;
   game.clock.wait = async (ms: number) => {
@@ -64,8 +65,14 @@ test('Hunt, idle: a monster turning up is gone for with the next reading, not a 
   };
   const { met } = await play(game, (bot) => bot.startAttack(), { until: () => game.events.some((e) => e.type === 'attack'), limitMs: 60_000 });
   assert.ok(met, 'attacked');
-  const attacked = game.events.find((e) => e.type === 'attack')!.t;
-  // Seen within a reading (the rest is hovering to check it's under the mouse, and the click): 499 ms when the
-  // loop looked every 150 ms.
-  assert.ok(attacked - at < 450, `${Math.round(attacked - at)} ms from the wolf turning up to the first blow`);
+  return game.events.find((e) => e.type === 'attack')!.t - at;
+}
+
+test('Hunt, idle: a monster turning up is seen with the next reading, and checked under the mouse by the reading too', async () => {
+  // The rest is the click. It was 499 ms when the loop looked every 150 ms and the hover waited 100 ms for the title.
+  const withMemory = await reaction(true);
+  assert.ok(withMemory < 350, `${Math.round(withMemory)} ms from the wolf turning up to the first blow`);
+  // A reader that doesn't say what's under the mouse: the title, as before (100 ms a hover).
+  const byTitle = await reaction(false);
+  assert.ok(byTitle < 450 && byTitle > withMemory, `${Math.round(byTitle)} ms by the title`);
 });

@@ -13,12 +13,12 @@ import { GAME_HEIGHT, GAME_WIDTH, PANEL_MASKS, PLAYER_ABOVE_TILE, PLAYER_BAR_TEX
 import type { NameBook } from './names';
 import { SessionStats } from './session-stats';
 import type { GrindLog } from './grind-log';
-import { DEFAULT_VIEW, tileToScreen, type MapView, type MemorySource } from './game-memory';
+import { DEFAULT_VIEW, screenToTile, tileToScreen, type MapView, type MemorySource } from './game-memory';
 import { createFrame, playerHpFill, playerMpFill, readBar, type Frame } from './vision';
 import { realClock, type Clock } from './clock';
 import { MK_LBUTTON, MK_RBUTTON, VK, windowsInput, type GameInput, type Handle } from './input';
 import { AIM_SPOTS, BotError, type HuntTarget, STATUS_INTERVAL_MS, Stopped, ViewError, keyCode, wholeSecondsSince } from './bot-shared';
-import { HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
+import { HOVER_SEEN_MS, HOVER_SETTLE_MS, clickable, mouseObjectName } from './bot-shared';
 import type { Movement } from './bot-movement';
 import type { Travel } from './bot-travel';
 import type { Hunting } from './bot-hunting';
@@ -410,19 +410,47 @@ export class BotContext {
   async aimAt(target: HuntTarget): Promise<Point | null> {
     const remembered = this.aim?.key === target.key ? [this.aim.offset] : [];
     const { width, height } = this.view();
+    // Its id (a monster's, a node's or an NPC's), for telling it from others of the same name.
+    const id = /^(?:m|n|npc)(\d+)$/.exec(target.key);
     for (const [dx, dy] of [...remembered, ...AIM_SPOTS]) {
       const point = { x: target.tile!.x + dx, y: target.tile!.y + dy };
       // Near an edge of the screen, the spots beyond it.
       if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height) continue;
-      this.input.mouseMove(this.hwnd, point.x, point.y);
-      await this.clock.wait(HOVER_SETTLE_MS);
-      this.checkpoint();
-      if (mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
+      const over = await this.hover(point);
+      if (over !== undefined && id ? over === Number(id[1]) : mouseObjectName(this.input.windowTitle(this.hwnd)) === target.name) {
         this.aim = { key: target.key, offset: [dx, dy] };
         return point;
       }
     }
     return null;
+  }
+
+  /**
+   * Moves the mouse to `point` and says what's under it: the object's id (null for nothing) from the first reading
+   * that shows the game took the move in (its mouse tile is the point's, and it came HOVER_SEEN_MS or more after), or
+   * undefined when the memory can't say within HOVER_SETTLE_MS (no reading, a reader that doesn't send it, the view
+   * moving meanwhile): then the title says, read at the end of that wait as it always was.
+   */
+  async hover(point: Point): Promise<number | null | undefined> {
+    const memory = this.options.memory;
+    this.input.mouseMove(this.hwnd, point.x, point.y);
+    const moved = this.clock.now();
+    if (memory.latest()?.user?.mouseObject === undefined) {
+      await this.clock.wait(HOVER_SETTLE_MS);
+      this.checkpoint();
+      return undefined;
+    }
+    let over: number | null | undefined;
+    const seen = () => {
+      const user = memory.latest()?.user;
+      if (this.clock.now() - moved < HOVER_SEEN_MS || !user?.mouseTile || user.mouseObject === undefined) return false;
+      const tile = screenToTile(user, point, this.view());
+      if (user.mouseTile.x !== tile.x || user.mouseTile.y !== tile.y) return false;
+      over = user.mouseObject;
+      return true;
+    };
+    if (await this.waitUntil(seen, HOVER_SETTLE_MS)) return over;
+    return undefined;
   }
 
   /** Holds the left button down on a target (archers), following it as it moves; a new target gets a fresh press. */

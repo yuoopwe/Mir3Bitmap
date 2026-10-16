@@ -170,6 +170,11 @@ export interface MemoryState {
     hp?: number; maxHp?: number;
     /** Mana now (null when the game's UserObject has no _CurrentMP) and at most (the Mana stat). */
     mp?: number | null; maxMp?: number;
+    /** The player's own object id. */
+    id?: number;
+    /** The map tile under the mouse (MapControl.MapLocation), and the object under it (GameScene.MouseObject: what the title's "Mouse Object" names) by id, null for none; missing where the reader can't tell. */
+    mouseTile?: Point | null;
+    mouseObject?: number | null;
     /** The tracker stats (an item or a scroll): over 0, the map's markers (MemoryState.known) show elites, bosses or behemoths anywhere on it. */
     trackers?: { elite: number; boss: number; behemoth: number } | null;
     /** The stats (with gear) that decide how fast the character kills and how much it takes: defence (AC, MR), damage (DC, MC, SC), accuracy, agility, attack speed. */

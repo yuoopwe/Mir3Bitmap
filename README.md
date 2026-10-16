@@ -84,7 +84,11 @@ taken or handed in, an item locked or put on, the map changing, a teleport) look
 when the game shows the result (`waitUntil` in `bot-context.ts`); the pause they used to be is how long they wait at
 most. The pacing of the bot's own input (the delays, menu pauses, fuzz) is unchanged. The loops that run on the readings
 (Hunt, seeking, Travel, Explore, Gathering trips) look again as each new reading comes (`nextReading`), not on a
-fixed 150 ms tick: a monster turning up, a target dying or a tile reached is acted on within a reading.
+fixed 150 ms tick: a monster turning up, a target dying or a tile reached is acted on within a reading. Before a
+click on a monster, NPC, node or stone the bot hovers it to check it's under the mouse: the reader also sends what's
+under the mouse (`user.mouseObject`, the object `GameScene.MouseObject` holds, by id; the title's "Mouse Object"), so
+the first reading that shows the game took the move in (its `mouseTile` is the hovered tile) answers it, by id, not
+by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
 the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. The new one sends the same, but for three things

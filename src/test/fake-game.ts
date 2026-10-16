@@ -46,6 +46,9 @@ const REVIVE_MS = 500;
 /** Dead monsters lie this long, then come back (when they respawn) after RESPAWN_MS more. */
 const CORPSE_MS = 2000;
 
+/** The player's own object id. */
+const PLAYER_ID = 0;
+
 /** The memory reader sends a reading this often. */
 const READING_MS = 50;
 /** Aggressive monsters come at a player this close, a tile this often. */
@@ -286,6 +289,8 @@ export class FakeGame {
   readonly data: TravelData;
   readonly events: FakeEvent[] = [];
   t = 0;
+  /** Whether the reading says what's under the mouse (the game field the reader reads it from may be missing). */
+  mouseInMemory = true;
   /** How many times the bot captured the screen (each costs about 18 ms in the real game). */
   captures = 0;
   readonly player: {
@@ -1281,6 +1286,8 @@ export class FakeGame {
         ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
         trackers: { ...this.trackers },
+        // The game takes a mouse move in at once here.
+        ...(this.mouseInMemory && { id: PLAYER_ID, mouseTile: this.tileAt(this.cursor), mouseObject: this.objectAt(this.tileAt(this.cursor))?.id ?? null }),
       },
       objects: [
         ...this.monsters.filter((m) => m.map === p.map && (!m.dead || this.t - m.deadAt < CORPSE_MS) && chebyshev(m, p) <= this.objectRange),

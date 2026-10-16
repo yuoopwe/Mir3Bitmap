@@ -21,8 +21,8 @@ const REPORT_SHARE = 0.05;
 // Sent only when they change (walls, explored blocks), or taken at a moment that differs from one reader to the other.
 const SKIPPED = new Set([
   'map.walls', 'map.explored', 'map.revision', 'user.combatAgo', 'user.mouseTile', 'user.experience', 'user.hp', 'user.dead',
-  // Only the new reader sends mana.
-  'user.mp', 'user.maxMp',
+  // Only the new reader sends these.
+  'user.mp', 'user.maxMp', 'user.id', 'user.mouseObject',
   'objects', 'known',
   // The old reader cut set bonuses' stats short, to the text "System.Collections.Hashtable".
   'gear.worn[].set.bonuses[].stats', 'gear.bag[].set.bonuses[].stats',

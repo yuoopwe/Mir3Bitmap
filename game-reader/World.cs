@@ -280,6 +280,22 @@ namespace Bitmat.GameReader
             {
                 w.WriteNull("mouseTile");
             }
+            // The player's own id, and what's under the mouse (the object the title's "Mouse Object" names): its id, or
+            // null for nothing. Left out where the game has no such field, or it can't be read this tick.
+            try { w.WriteNumber("id", o.UInt("ObjectID")); } catch (Exception) { }
+            try
+            {
+                ClrInstanceField field = scene.FieldOrNull("_MouseObject") ?? scene.FieldOrNull("<MouseObject>k__BackingField");
+                if (field != null)
+                {
+                    ClrObject over = scene.ReadObjectField(field);
+                    uint? id = over.IsNull ? null : over.UInt("ObjectID");
+                    w.WritePropertyName("mouseObject");
+                    if (id.HasValue) w.WriteNumberValue(id.Value);
+                    else w.WriteNullValue();
+                }
+            }
+            catch (Exception) { }
             w.WriteEndObject();
             w.Flush();
         }
