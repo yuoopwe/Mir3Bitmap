@@ -35,10 +35,31 @@ lists the calls the window made. It isn't part of the app.
   a reading, HP and MP come from the game's memory, at any size, and Hunt, Grind, Travel, Gather and Explore don't
   capture the screen at all (Explore by the big map, Triple Triad and the old screen selling still do, as they read
   it); without one, the bars at the bottom of the screen at 1600x900.
-- Put the spammable attack spell on F1 and buffs on F6 and above.
+- With the memory reader, set the spell keys to Auto (Keys & potions): each is pressed by what the game shows of the
+  skill on it. Without it, put the spammable attack spell on F1 and buffs on F6 and above, on timers.
 - "Background" capture works while other windows cover the game; it can't see a minimized game.
 - "Pause while my mouse is over the game": every mode stops (letting go of keys and buttons) while your mouse
   pointer is over the game window, and carries on when it leaves. The bot's own clicks don't move your pointer.
+
+## Spell keys
+
+Each spell key (F1-F12 on the Keys & potions tab) is pressed **Auto**, **Every N s** or **Off** (Item 1, with no
+skill on it, Every N s or Off).
+
+- **Auto** (needs the memory reader) goes by what the game shows of the skill on that key in the key set the skill
+  bar is on (Spell01-Spell12 are F1-F12; skills on Spell13-24 aren't pressed, and the tab says which). A **passive**
+  skill is never pressed. A **buff** skill (one whose buff the readings have shown come from it) is pressed when its
+  buff is missing or has less than 3 s (plus the reader's gap) left, in a fight or not. Any **other** skill is pressed
+  in a fight as soon as the game says it's ready, never faster than its delay (else the key's seconds), and only with
+  the MP for it. After a press the next readings should show it took (its buff back, its cooldown started, its MP
+  spent): three presses in a row that don't, and the key is left alone for a minute, said once in the status. Nothing
+  is cast while dead, with a shop, an NPC's talk, a quest list, the waypoints or the death window open. A skill not
+  seen to give a buff yet counts as an attack until its first cast shows its buff. (`src/main/skill-casting.ts`)
+- **Every N s** is the old timer: F1 every round while fighting, the others every N seconds. Keys saved before there
+  was a choice keep it (ticked: Every N s; not: Off) until Auto is picked; "Use Auto for all skill keys" does it in
+  one click for the keys in use (those Off stay off: set one to Auto by hand to have it cast).
+- The tab shows, from the game's memory while a mode runs, each key's skill (name and level), its kind, and a buff's
+  time left.
 
 ## How hunting works
 
@@ -47,7 +68,7 @@ Kept simple on purpose:
 1. Every frame, find the white overhead names (monsters, herbs, pets...) outside the HUD panels, and follow each
    from frame to frame by where it is (damage numbers and "Miss" floating away are ignored).
 2. **Click the nearest name, and keep clicking it until it's gone**, then the next nearest. With "Archer" the left
-   button is held down on it instead. Spell keys (F1 every round, the others on their timers) are pressed as it goes.
+   button is held down on it instead. Spell keys are pressed as it goes (see "Spell keys" below).
 3. A target still there after 20 seconds (out of reach, or not really a monster) is skipped for 30 seconds.
    Names set to "Never attack" under "Names seen on screen" (Monsters tab) are skipped.
 4. With "Pick up items", **click the ground at the character's feet**, which picks up everything within the
@@ -90,7 +111,11 @@ fixed 150 ms tick: a monster turning up, a target dying or a tile reached is act
 click on a monster, NPC, node or stone the bot hovers it to check it's under the mouse: the reader also sends what's
 under the mouse (`user.mouseObject`, the object `GameScene.MouseObject` holds, by id; the title's "Mouse Object"), so
 the first reading that shows the game took the move in (its `mouseTile` is the hovered tile) answers it, by id, not
-by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before.
+by name. Where the game has no such field the key is left out and the title is read after 100 ms, as before. The
+reader also sends the character's buffs (`user.buffs`: each one's type, seconds left, the skill that gave it, the item
+behind an elixir's), skills (`user.skills`: name, school, level, key on each of the four key sets, seconds until ready,
+delay, MP cost; read four times a second) and the key set in use (`user.spellSet`). To check them against the game's
+skill bar and buff icons, `node scripts/skills-live.js [seconds]` prints them once a second.
 
 `game-reader/reader-legacy.ps1` is the old all-PowerShell reader, kept unchanged as the specification of every key
 the reading has: set `BITMAT_LEGACY_READER=1` to run it instead. It also takes over by itself when the new one fails to
@@ -203,7 +228,8 @@ to nothing. It lists what's out of reach and what it would take, the potions a k
 the loot judge scores by it, Grind leaves out maps and the circuit skips bosses it says can't be survived even with
 potions (saying why, and taking them on again once the gap is closed), and with "Keep elixirs up that pay" ticked (off
 unless ticked) each kind with a belt key set is drunk while grinding and on the circuit when it pays and some are in
-the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run). Luck,
+the bag, confirmed by the bag's count going down (a key that doesn't drink it is left alone for the run), and drunk
+again when the game's own buff for it (an ItemBuff naming the elixir, from the memory reader) has 10 s left. Luck,
 crits and the server's level-difference rules aren't modelled yet; the corrections from your fights cover them as
 far as they go.
 

@@ -320,15 +320,19 @@
           <header class="panel-head">
             <div>
               <h1>Keys &amp; potions</h1>
-              <p>Hunt presses the ticked keys as it goes (F1 only while fighting), and so do Travel and Explore when they
-                fight monsters in the way. Every mode but Triple Triad drinks the potions.</p>
+              <p>Hunt presses the spell keys as it goes, and so do Travel and Explore when they fight monsters in the way.
+                Every mode but Triple Triad drinks the potions.</p>
             </div>
           </header>
           <div class="cards columns">
             <fieldset class="card">
               <legend>Spell and item keys</legend>
-              <p class="hint">F1 is cast every round while fighting. Tick the others to press them too, at most once every so many seconds.</p>
+              <p class="hint">Auto goes by what the game shows of the skill on the key (needs the memory reader): a buff
+                when it runs low, any other skill in a fight as soon as it's ready, a passive never. Every N s is the old
+                timer (F1 every round while fighting).</p>
               <ul id="keys" class="keys"></ul>
+              <p id="keys-elsewhere" class="hint" hidden></p>
+              <button type="button" id="keys-auto" title="Auto for every spell key in use (not Off) with a skill on it (as the game's memory last showed; every spell key in use if it hasn't yet). Keys that are Off stay off: set one to Auto by hand to have it cast">Use Auto for all skill keys</button>
             </fieldset>
             <fieldset class="card">
               <legend>Potions</legend>

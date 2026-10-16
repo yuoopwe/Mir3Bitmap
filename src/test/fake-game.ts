@@ -95,7 +95,9 @@ export type FakeEvent =
   | { t: number; type: 'lock'; name: string; locked: boolean }
   | { t: number; type: 'equip'; name: string; slot: number }
   /** A belt key used an item from the bag (a potion heals at once). */
-  | { t: number; type: 'use'; name: string; left: number };
+  | { t: number; type: 'use'; name: string; left: number }
+  /** A spell key press that cast its skill (`key`: the skill bar's SpellKey). */
+  | { t: number; type: 'cast'; name: string; key: string };
 
 export type Via = 'link' | 'waypoint' | 'arcadia' | 'back' | 'revive' | 'portal' | 'random';
 
@@ -226,6 +228,32 @@ export interface FakeGameSetup {
   view?: MapView;
   /** Belt keys (virtual-key code to item name): a press uses one from `itemCounts` while there are any (a health potion heals at once). */
   belt?: Record<number, string>;
+  /** The character's skills (in the reading as user.skills, cast by their keys), and the key set the bar is on (default 1). */
+  skills?: FakeSkill[];
+  spellSet?: number;
+  /** Buffs already on at the start (seconds left; null: permanent). */
+  buffs?: { type: string; seconds: number | null; source?: string; item?: number }[];
+}
+
+/** A skill the fake character has. */
+export interface FakeSkill {
+  name: string;
+  /** Its MagicType (what a buff it gives names as its source). */
+  magic: string;
+  /** Its MagicSchool (default Combat; "Passive" for one that's never cast). */
+  school?: string;
+  level?: number;
+  /** Its SpellKey on each key set (Spell01 is F1); one string: on set 1 only. */
+  keys: string | (string | null)[];
+  cost?: number;
+  /** MagicInfo._Delay (ms): the game refuses it again sooner. */
+  delay?: number;
+  /** A cooldown after each cast that NextCast shows (ms; default none shown). */
+  cooldownMs?: number;
+  /** The buff each cast puts on (refreshing it), lasting `seconds`. */
+  buff?: { type: string; seconds: number };
+  /** Every cast fails (out of range, silenced...): nothing happens. */
+  fails?: boolean;
 }
 
 interface Monster extends MemoryObject {
@@ -350,6 +378,12 @@ export class FakeGame {
   /** Items counted by name in the bag (gear.counts). */
   readonly itemCounts: Map<string, number>;
   private readonly belt: Map<number, string>;
+  /** The skills (null: the reading has none), the key set in use, and the buffs on (`until`: game time; null permanent). */
+  readonly skills: (FakeSkill & { lastCastAt: number; nextCastAt: number })[] | null;
+  spellSet: number;
+  /** Whether the reading has buffs and skills (a setup giving either). */
+  readonly castingInMemory: boolean;
+  readonly buffs: { type: string; until: number | null; source: string | null; item: number | null }[];
 
   private readonly maps = new Map<number, MapGrid>();
   private readonly monsters: Monster[] = [];
@@ -433,6 +467,10 @@ export class FakeGame {
     this.equipFails = !!setup.equipFails;
     this.itemCounts = new Map(Object.entries(setup.itemCounts ?? { 'Forge Stone': 0, 'Phoenix Tear': 0 }));
     this.belt = new Map(Object.entries(setup.belt ?? {}).map(([vk, name]) => [Number(vk), name]));
+    this.skills = setup.skills ? setup.skills.map((s) => ({ ...s, lastCastAt: -Infinity, nextCastAt: 0 })) : null;
+    this.spellSet = setup.spellSet ?? 1;
+    this.castingInMemory = !!(setup.skills || setup.buffs);
+    this.buffs = (setup.buffs ?? []).map((b) => ({ type: b.type, until: b.seconds === null ? null : b.seconds * 1000, source: b.source ?? null, item: b.item ?? null }));
     for (const o of setup.players ?? []) this.people.push({ id: this.nextId++, kind: 'player', name: o.name, x: o.x, y: o.y, dead: false, level: 30, pet: false, map: o.map ?? p.map });
     this.offers = setup.offers ? new Set(setup.offers) : null;
     this.unlocked = new Set(setup.waypoints ?? (this.data.waypoints ?? []).map((w) => w.name));
@@ -782,6 +820,7 @@ export class FakeGame {
         }
       }
       if (vk === LOCK_KEY) this.toggleLock();
+      if (vk >= VK.F1 && vk < VK.F1 + 12) this.cast(`Spell${String(vk - VK.F1 + 1).padStart(2, '0')}`);
       if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       if (this.companion && vk === this.companion.transferKey && !this.player.dead) this.companionTransfer();
@@ -803,6 +842,33 @@ export class FakeGame {
     }
   }
 
+  /**
+   * A spell key: the skill on it in the key set in use is cast, if it can be: not passive, alive, the MP there, not
+   * within its delay or cooldown. A cast spends the MP, starts the cooldown and puts its buff on (or refreshes it).
+   */
+  private cast(spellKey: string): void {
+    const skill = this.skills?.find((s) => (typeof s.keys === 'string' ? (this.spellSet === 1 ? s.keys : null) : s.keys[this.spellSet - 1]) === spellKey);
+    if (!skill || skill.fails || skill.school === 'Passive' || this.player.dead) return;
+    if (this.player.mp < (skill.cost ?? 0) || this.t < skill.nextCastAt || this.t < skill.lastCastAt + (skill.delay ?? 0)) return;
+    this.player.mp -= skill.cost ?? 0;
+    skill.lastCastAt = this.t;
+    skill.nextCastAt = this.t + (skill.cooldownMs ?? 0);
+    if (skill.buff) {
+      const until = this.t + skill.buff.seconds * 1000;
+      const on = this.buffs.find((b) => b.source === skill.magic);
+      if (on) on.until = until;
+      else this.buffs.push({ type: skill.buff.type, until, source: skill.magic, item: null });
+    }
+    this.events.push({ t: this.t, type: 'cast', name: skill.name, key: spellKey });
+  }
+
+  /** The buffs still on, as the reader sends them. */
+  private buffsNow(): NonNullable<NonNullable<MemoryState['user']>['buffs']> {
+    return this.buffs
+      .filter((b) => b.until === null || b.until > this.t)
+      .map((b) => ({ type: b.type, left: b.until === null ? null : Math.round((b.until - this.t) / 100) / 10, paused: false, source: b.source, item: b.item }));
+  }
+
   /** A belt key's item used: one fewer in the bag; a health or mana potion restores at once. */
   private useItem(name: string): void {
     const left = this.itemCounts.get(name) ?? 0;
@@ -811,6 +877,13 @@ export class FakeGame {
     const item = (this.data.consumables ?? []).find((c) => c.name === name);
     if (item?.stats.Health && !item.stats.Duration) this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.Health);
     if (item?.stats.Mana && !item.stats.Duration) this.player.mp = Math.min(this.player.maxMp, this.player.mp + item.stats.Mana);
+    // An elixir: its buff (an ItemBuff naming it) for its duration, refreshed by another.
+    if (item?.stats.Duration) {
+      const until = this.t + item.stats.Duration * 1000;
+      const on = this.buffs.find((b) => b.item === item.id);
+      if (on) on.until = until;
+      else this.buffs.push({ type: 'ItemBuff', until, source: null, item: item.id });
+    }
     this.events.push({ t: this.t, type: 'use', name, left: left - 1 });
   }
 
@@ -1349,6 +1422,15 @@ export class FakeGame {
         ...(p.percents && { percents: { ...p.percents } }), ...(p.weights && { weights: { ...p.weights } }),
         combatAgo: this.lastCombatAt === -Infinity ? 9999 : Math.round((this.t - this.lastCombatAt) / 100) / 10,
         trackers: { ...this.trackers },
+        ...(this.castingInMemory && {
+          spellSet: this.spellSet,
+          buffs: this.buffsNow(),
+          skills: (this.skills ?? []).map((s) => ({
+            name: s.name, magic: s.magic, school: s.school ?? 'Combat', level: s.level ?? 1,
+            keys: typeof s.keys === 'string' ? [s.keys, null, null, null] : s.keys,
+            readyIn: Math.max(0, Math.round((s.nextCastAt - this.t) / 100) / 10), delay: s.delay ?? 0, cost: s.cost ?? 0,
+          })),
+        }),
         // The game takes a mouse move in at once here.
         ...(this.mouseInMemory && { id: PLAYER_ID, mouseTile: this.tileAt(this.cursor), mouseObject: this.objectAt(this.tileAt(this.cursor))?.id ?? null }),
       },

@@ -300,6 +300,7 @@ namespace Bitmat.GameReader
                 }
             }
             catch (Exception) { }
+            WriteCasting(w, o, scene);
             w.WriteEndObject();
             w.Flush();
         }

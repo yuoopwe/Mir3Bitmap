@@ -12,6 +12,22 @@ export interface KeySetting {
   enabled: boolean;
   /** Minimum whole seconds between presses. */
   seconds: number;
+  /**
+   * When it's pressed: 'auto' by what the game shows of the skill on it (skill-casting.ts), 'every' N seconds (F1:
+   * every round while fighting), or 'off'. Missing (saved before there was a choice): 'every' if enabled, else 'off'.
+   */
+  when?: 'auto' | 'every' | 'off';
+}
+
+/** A spell key's skill on the key set in use, as the Keys & potions tab shows it. */
+export interface KeyView {
+  skill: string;
+  level: number;
+  kind: 'passive' | 'buff' | 'attack';
+  /** A buff skill's buff: seconds left (null: permanent or paused; 0: not up). */
+  left?: number | null;
+  /** Why it isn't being pressed, when that's worth saying (waiting for MP, not taking). */
+  note?: string;
 }
 
 /** Waits around each kind of action, in milliseconds. */
@@ -185,6 +201,8 @@ export interface Status {
   level?: number | null;
   stats?: Stats;
   speed?: SpeedView;
+  /** The skill on each spell key (from the game's memory), and skills on keys the bot doesn't press (Spell13-24); null without. */
+  keys?: { keys: Partial<Record<KeyId, KeyView>>; elsewhere: string[] } | null;
 }
 
 /** How quickly the bot sees and acts (the Speed line on the Stats & log tab). */

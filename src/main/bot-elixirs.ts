@@ -4,8 +4,9 @@
  * guide says it pays (it raises what the character does by enough, and some
  * are in the bag) and it isn't still working. A drink is confirmed by the
  * bag's count of that kind going down (gear.counts, read once a second); one
- * that doesn't is not tried again this run. The game's buffs aren't read, so
- * an elixir counts as working for its duration from the drink seen.
+ * that doesn't is not tried again this run. Whether one is still working goes
+ * by the game's own buff for it (an ItemBuff naming the elixir) when the
+ * reading has the buffs; else by its duration from the drink seen.
  */
 import { loadTravelData } from './travel';
 import { keyCode } from './bot-shared';
@@ -34,6 +35,19 @@ export class Elixirs {
   reset(): void {
     this.pending = null;
     this.failed.clear();
+  }
+
+  /**
+   * Seconds left of a kind's elixir, from the game's buffs (an ItemBuff whose item is one of that kind; paused or
+   * permanent: Infinity; none on: 0); undefined when the reading has no buffs (the legacy reader), to go by the clock.
+   */
+  private buffLeft(kind: string): number | undefined {
+    const buffs = this.bot.options.memory.latest()?.user?.buffs;
+    if (!buffs) return undefined;
+    const items = new Set((loadTravelData().consumables ?? []).filter((c) => c.effect === `${kind}Elixir`).map((c) => c.id));
+    const buff = buffs.find((b) => b.item !== null && items.has(b.item));
+    if (!buff) return 0;
+    return buff.paused || buff.left === null ? Infinity : buff.left;
   }
 
   /** How many of a kind of elixir the bag holds, all strengths together. */
@@ -66,7 +80,9 @@ export class Elixirs {
     }
     for (const kind of ELIXIR_KINDS) {
       const vk = keyCode(settings.keys[kind] ?? '');
-      if (vk === null || this.failed.has(kind) || now < (this.until.get(kind) ?? 0) - RENEW_EARLY_MS) continue;
+      if (vk === null || this.failed.has(kind)) continue;
+      const left = this.buffLeft(kind);
+      if (left !== undefined ? left * 1000 > RENEW_EARLY_MS : now < (this.until.get(kind) ?? 0) - RENEW_EARLY_MS) continue;
       const advice = this.bot.guide.elixir(kind);
       const before = this.count(kind);
       if (!advice?.pays || !before) continue;

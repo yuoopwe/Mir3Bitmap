@@ -163,7 +163,10 @@ let lastLogged = '';
 /** The sidebar's tabs: one per mode, then the shared ones. */
 const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
 
-const keyInputs = new Map<KeyId, { enabled: HTMLInputElement; seconds: HTMLInputElement }>();
+type KeyWhen = NonNullable<Settings['keys'][KeyId]['when']>;
+const keyInputs = new Map<KeyId, { when: HTMLSelectElement; seconds: HTMLInputElement; every: HTMLSpanElement; skill: HTMLSpanElement }>();
+/** The skill on each spell key as the bot last said (from the game's memory), for "Use Auto for all skill keys". */
+let keyViews: NonNullable<Status['keys']> | null = null;
 const delayInputs = new Map<DelayId, HTMLInputElement>();
 let fuzzInput: HTMLInputElement;
 
@@ -238,27 +241,70 @@ function buildKeyRows(): void {
     seconds.type = 'number';
     seconds.min = '0';
     seconds.value = '0';
-    // F1 is pressed on every loop while fighting, so it has no timer.
-    seconds.disabled = id === 'F1';
     seconds.setAttribute('aria-label', `${KEY_LABELS[id]}: seconds between presses`);
     const every = document.createElement('span');
     every.className = 'every';
     if (id === 'F1') {
-      // Its (unused) number is still kept in the settings.
+      // On a timer, F1 is pressed every round while fighting: its (unused) number is still kept in the settings.
       seconds.hidden = true;
       every.append(seconds, 'every round');
-    } else every.append(seconds, ' s');
+    } else every.append('every ', seconds, ' s');
 
-    const enabled = document.createElement('input');
-    enabled.type = 'checkbox';
-    const label = document.createElement('label');
-    label.append(enabled, ` ${KEY_LABELS[id]}`);
+    // Auto for the spell keys (a skill on them); the item key has none, so only its timer.
+    const when = document.createElement('select');
+    when.setAttribute('aria-label', `${KEY_LABELS[id]}: when it's pressed`);
+    if (id !== 'N1') when.append(new Option('Auto', 'auto'));
+    when.append(new Option('Every N s', 'every'), new Option('Off', 'off'));
+    // A new install: Auto for the spell keys (a saved setting without a choice maps to what it did, in applySettings).
+    when.value = id === 'N1' ? 'off' : 'auto';
+    when.addEventListener('change', () => showKeyWhen(id));
+    const name = document.createElement('span');
+    name.className = 'key-name';
+    name.textContent = KEY_LABELS[id].replace(' (spam)', '');
+    const skill = document.createElement('span');
+    skill.className = 'key-skill hint';
 
     const item = document.createElement('li');
-    item.append(label, every);
+    item.append(name, when, every, skill);
     list.append(item);
-    keyInputs.set(id, { enabled, seconds });
+    keyInputs.set(id, { when, seconds, every, skill });
+    showKeyWhen(id);
   }
+  element<HTMLButtonElement>('keys-auto').addEventListener('click', () => {
+    // The keys in use with a skill on them (as last read; else every spell key in use). A key that's Off stays off: an
+    // attack skill nobody chose to cast, on Auto, would be cast whenever it's ready and spend the MP.
+    const withSkill = KEY_IDS.filter((id) => id !== 'N1' && keyInputs.get(id)!.when.value !== 'off' && (!keyViews || keyViews.keys[id]));
+    for (const id of withSkill) {
+      keyInputs.get(id)!.when.value = 'auto';
+      showKeyWhen(id);
+    }
+    saveSettings();
+  });
+}
+
+/** The seconds only show for a key on a timer (kept in its column, so the skill lines up). */
+function showKeyWhen(id: KeyId): void {
+  const inputs = keyInputs.get(id)!;
+  inputs.every.style.visibility = inputs.when.value === 'every' ? '' : 'hidden';
+}
+
+/** Each key's skill from the game's memory: "Shield Wall (lv 4) · buff · 573 s left". */
+function showKeySkills(view: NonNullable<Status['keys']>): void {
+  keyViews = view;
+  for (const [id, inputs] of keyInputs) {
+    if (id === 'N1') continue;
+    const key = view.keys[id];
+    inputs.skill.textContent = key ? describeKeySkill(key) : 'no skill on this key';
+  }
+  const elsewhere = element<HTMLParagraphElement>('keys-elsewhere');
+  elsewhere.hidden = view.elsewhere.length === 0;
+  elsewhere.textContent = `On keys the bot doesn't press (Spell13-24 on this key set): ${view.elsewhere.join(', ')}.`;
+}
+
+function describeKeySkill(key: KeyView): string {
+  const kind = key.kind === 'passive' ? 'passive: nothing to press' : key.kind;
+  const left = key.left === undefined ? '' : key.left === null ? ' · buff up for good' : key.left === 0 ? ' · buff down' : ` · ${Math.round(key.left)} s left`;
+  return `${key.skill} (lv ${key.level}) · ${kind}${left}${key.note ? ` · ${key.note}` : ''}`;
 }
 
 function buildStatsTables(): void {
@@ -331,7 +377,8 @@ function readNumber(input: HTMLInputElement, fallback: number): number {
 function readSettings(): Settings {
   const keys = {} as Settings['keys'];
   for (const [id, inputs] of keyInputs) {
-    keys[id] = { enabled: inputs.enabled.checked, seconds: readNumber(inputs.seconds, 0) };
+    const when = inputs.when.value as KeyWhen;
+    keys[id] = { enabled: when !== 'off', seconds: readNumber(inputs.seconds, 0), when };
   }
   const delays = {} as Settings['delays'];
   for (const field of DELAY_FIELDS) {
@@ -403,8 +450,11 @@ function applySettings(settings: Partial<Settings>): void {
   for (const [id, inputs] of keyInputs) {
     const key = settings.keys?.[id];
     if (!key) continue;
-    inputs.enabled.checked = key.enabled;
+    // Saved before there was a choice: as it was pressed then (ticked: on its timer).
+    const when = key.when ?? (key.enabled ? 'every' : 'off');
+    inputs.when.value = when === 'auto' && id === 'N1' ? 'every' : when;
     inputs.seconds.value = String(key.seconds);
+    showKeyWhen(id);
   }
   for (const [id, input] of delayInputs) {
     const value = settings.delays?.[id];
@@ -793,6 +843,7 @@ function showStatus(status: Status): void {
     timingText.textContent = `Last frame: capture ${status.captureMs.toFixed(1)} ms · scan ${status.scanMs.toFixed(1)} ms`;
   }
   if (status.speed) speedText.textContent = describeSpeed(status.mode, status.speed);
+  if (status.keys) showKeySkills(status.keys);
   // Hunt's seeking says "Heading for ..." too: only Travel's count.
   if (status.mode === 'travel' && /^(Route: |Heading for )/.test(status.message)) showRoute(status.message);
   if (status.mode === 'grind' && status.message.startsWith('Grinding at ')) grindPlan.textContent = status.message;

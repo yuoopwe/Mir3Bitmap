@@ -1489,7 +1489,7 @@ test("Boss circuit: a boss the combat model says can't be survived is skipped, s
 });
 
 /** Level 24 on Faraway Falls (as the Grind test above), DC 40-60, with 25 Elixirs of Haste (II) and its belt key `5`. */
-function grindWithHaste(belt: boolean) {
+function grindWithHaste(belt: boolean, setup: Partial<FakeGameSetup> = {}) {
   const FARAWAY = data.maps.find((m) => m.name === 'Faraway Falls')!.i;
   const at = { x: 40, y: 40 };
   const names = ['Vicious Rat', 'Zuma Fanatic', 'Zuma Guardian'];
@@ -1497,7 +1497,7 @@ function grindWithHaste(belt: boolean) {
   const combat = { minAC: 10, maxAC: 20, minMR: 5, maxMR: 10, minDC: 40, maxDC: 60, minMC: 0, maxMC: 0, minSC: 0, maxSC: 0, accuracy: 20, agility: 15, attackSpeed: 0 };
   return new FakeGame({
     monsters, player: { map: FARAWAY, ...at, level: 24, damage: 450, combat },
-    itemCounts: { 'Elixir Of Haste (II)': 25, 'Forge Stone': 0 }, belt: belt ? { 0x35: 'Elixir Of Haste (II)' } : {},
+    itemCounts: { 'Elixir Of Haste (II)': 25, 'Forge Stone': 0 }, belt: belt ? { 0x35: 'Elixir Of Haste (II)' } : {}, ...setup,
   });
 }
 const elixirSettings = { elixirs: { enabled: true, keys: { Haste: '5', Destruction: '6', Life: '', Mana: '', Nature: '', Spirit: '' } } };
@@ -1522,6 +1522,22 @@ test('Elixirs: kept up while grinding when the guide says they pay: Haste drunk 
   assert.ok(guide!.elixirs.some((e) => e.pays && e.line.startsWith('Haste (II): ')), JSON.stringify(guide!.elixirs));
   assert.equal(guide!.character, 'Level 24 Warrior');
   checkAlways(game);
+});
+
+test("Elixirs: with the game's buffs in the reading, one still working (its ItemBuff with time left) isn't drunk until it's nearly out", async () => {
+  const haste = data.consumables!.find((c) => c.name === 'Elixir Of Haste (II)')!;
+  // Drunk before the run: 40 s of it left. By its own reckoning the bot would drink one at once.
+  const game = grindWithHaste(true, { buffs: [{ type: 'ItemBuff', seconds: 40, item: haste.id }] });
+  const { met, statuses } = await play(game, (bot) => bot.startGrind(), {
+    settings: elixirSettings,
+    until: (lines) => lines.some((s) => s.message.startsWith('Drank Elixir Of Haste (II)')) && game.now > 120_000,
+    limitMs: 10 * 60_000,
+  });
+  assert.ok(met, statuses.map((s) => s.message).join(' | '));
+  // Once, as it ran low (10 s left), and the fresh one's hour isn't renewed.
+  const drinks = keyDowns(game, 0x35).map((k) => k.t);
+  assert.equal(drinks.length, 1);
+  assert.ok(drinks[0] >= 29_000 && drinks[0] < 40_000, `drunk at ${Math.round(drinks[0] / 1000)} s`);
 });
 
 test("Elixirs: a key that doesn't drink it (the bag count stays) is pressed once, said, and left alone for the run", async () => {

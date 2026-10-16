@@ -392,20 +392,38 @@ table {
 
 /* The keys in two columns: F1-F7, then F8-F12 and the item key. */
 .keys {
-  margin: 0;
+  margin: 0 0 8px;
   padding: 0;
   list-style: none;
-  columns: 2 160px;
-  column-gap: 28px;
 }
 
 .keys li {
-  display: flex;
+  display: grid;
+  grid-template-columns: 52px 112px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
   min-height: 28px;
-  break-inside: avoid;
+}
+
+.keys .every input {
+  width: 64px;
+}
+
+/* The skill on the key, under its choice: the whole line is the card's width. */
+.keys .key-skill {
+  grid-column: 2 / -1;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keys .key-skill:empty {
+  display: none;
+}
+
+#keys-auto {
+  justify-self: start;
 }
 
 .keys .every {
