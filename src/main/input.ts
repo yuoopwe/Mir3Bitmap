@@ -36,6 +36,7 @@ export interface GameInput {
 
 /** The key codes the bot presses, as win32.ts has them (repeated here so tests needn't load the Windows libraries). */
 export const VK = {
+  RETURN: 0x0d,
   SHIFT: 0x10,
   CONTROL: 0x11,
   ESCAPE: 0x1b,

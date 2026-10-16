@@ -824,6 +824,8 @@ export class FakeGame {
       if (this.belt.has(vk) && !this.player.dead) this.useItem(this.belt.get(vk)!);
       if (vk === this.townPortal.key && !this.player.dead) this.portalAt ??= this.t + PORTAL_READ_MS;
       if (this.companion && vk === this.companion.transferKey && !this.player.dead) this.companionTransfer();
+      // Enter confirms Companion Transfer's box (as its button does).
+      if (vk === VK.RETURN && this.companion?.confirm) this.startCompanionTransfer();
       if (this.randomTeleport && vk === this.randomTeleport.key && !this.player.dead && this.randomTeleportsUsed < this.randomTeleport.scrolls) this.randomTeleportAt ??= this.t + PORTAL_READ_MS;
       // Ctrl+Shift+P opens and shuts the Professions window.
       if (vk === VK.P && this.keysDown.has(VK.CONTROL) && this.keysDown.has(VK.SHIFT)) {
@@ -980,6 +982,14 @@ export class FakeGame {
     this.events.push({ t: this.t, type: 'companion', what: c.confirm ? 'confirm' : 'nothing', used: c.used });
   }
 
+  /** Companion Transfer's box confirmed: the items start moving. */
+  private startCompanionTransfer(): void {
+    const c = this.companion!;
+    c.confirm = false;
+    c.transferring = true;
+    c.nextMoveAt = this.t + COMPANION_MOVE_MS;
+  }
+
   /** The companion picks up items near the player (one at a time, while its bag has room); a transfer moves one item at a time while the bag takes them. */
   private updateCompanion(): void {
     const c = this.companion;
@@ -1107,12 +1117,7 @@ export class FakeGame {
       out.push(['Complete', reading.questBox.complete, () => this.handIn(this.listNpc!.npc, this.pickedQuest)]);
     }
     if (this.companion?.confirm) {
-      out.push(['Transfer', COMPANION_CONFIRM, () => {
-        const c = this.companion!;
-        c.confirm = false;
-        c.transferring = true;
-        c.nextMoveAt = this.t + COMPANION_MOVE_MS;
-      }]);
+      out.push(['Transfer', COMPANION_CONFIRM, () => this.startCompanionTransfer()]);
     }
     // Yes sells (once past the box's cooldown: before, the click does nothing); No calls the sale off.
     for (const message of reading.messages ?? []) {

@@ -493,7 +493,7 @@ const companionHunt = (more: Partial<Settings['hunt']> = {}) => ({ hunt: { ...te
 /** Items just round the player, within the companion's reach. */
 const dropsAround = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `Junk ${i}`, x: bichon.player.x + (i % 3) - 1, y: bichon.player.y + 1 + Math.floor(i / 3) }));
 
-test('Companion looting: the bot picks nothing up; the companion does, and its nearly full bag is moved into ours (the key, then Confirm)', async () => {
+test('Companion looting: the bot picks nothing up; the companion does, and its nearly full bag is moved into ours (the key, then Enter)', async () => {
   const game = onBichon({ items: dropsAround(3), companion: { slots: 10, used: 8, transferKey: Z } }, bichon.player, { level: 1 });
   const before = game.bag.used;
   const { met, statuses } = await play(game, (bot) => bot.startAttack(), {
@@ -509,9 +509,10 @@ test('Companion looting: the bot picks nothing up; the companion does, and its n
   // The companion picked up; the bot never clicked to pick up.
   assert.deepEqual(of(game, 'pickup'), []);
   assert.ok(of(game, 'companion').filter((e) => e.what === 'pickup').length >= 1);
-  // The key once, then Confirm on the box; everything moved.
+  // The key once, then Enter on the box (only once it showed); everything moved.
   assert.equal(keyDowns(game, Z).length, 1);
-  assert.equal(buttons(game, 'Transfer').length, 1);
+  assert.equal(keyDowns(game, VK.RETURN).length, 1);
+  assert.ok(keyDowns(game, VK.RETURN)[0].t > of(game, 'companion').find((e) => e.what === 'confirm')!.t);
   // Everything it held moved into ours (what it had, and all it picked up, the last of it while the transfer ran).
   const picked = of(game, 'companion').filter((e) => e.what === 'pickup').length;
   assert.equal(game.companion!.used, 0);
@@ -532,7 +533,8 @@ test("Companion looting: no Transfer key set, or nothing matching the companion'
   const second = await play(noMatch, (bot) => bot.startAttack(), { settings: companionHunt(), until: () => of(noMatch, 'pickup').length > 0, limitMs: 60_000 });
   assert.ok(second.met, `then picked up by the bot (${second.statuses.at(-1)?.message})`);
   assert.deepEqual(of(noMatch, 'companion').filter((e) => e.what === 'nothing').length, 1);
-  assert.equal(buttons(noMatch, 'Transfer').length, 0);
+  // No box, so no Enter (it would have opened the chat).
+  assert.equal(keyDowns(noMatch, VK.RETURN).length, 0);
   assert.ok(second.statuses.some((s) => /Nothing in the companion's bag matches its Transfer filter/.test(s.message)));
 });
 

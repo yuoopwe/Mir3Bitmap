@@ -3,7 +3,7 @@
  * so with "Let my companion loot" ticked the bot leaves the loot to it (while
  * one is out and the Companion Transfer key is set) and, when the companion's
  * bag is nearly full between fights, empties it into the player's bag with the
- * game's Companion Transfer: the key, then Confirm on the box it opens, then
+ * game's Companion Transfer: the key, then Enter on the box it opens, then
  * waiting while the items move one at a time. The game moves what matches the
  * companion's Transfer filter, leaving locked and bound items behind.
  *
@@ -12,7 +12,8 @@
  * trip runs and the transfer is tried again after. No box at all means nothing
  * matches the filter: the bot loots for itself for a while, and says why.
  */
-import { boxCentre, keyCode } from './bot-shared';
+import { keyCode } from './bot-shared';
+import { VK } from './input';
 import type { BotContext } from './bot-context';
 import type { MemoryState } from './game-memory';
 
@@ -88,7 +89,7 @@ export class CompanionLoot {
   }
 
   /**
-   * Empties the companion's bag into the player's: the Companion Transfer key, Confirm on the box it opens, then waiting
+   * Empties the companion's bag into the player's: the Companion Transfer key, Enter on the box it opens, then waiting
    * while the items move. Returns how many moved (null: it couldn't start). Moving none with the box confirmed means the
    * player's bag had no room, so the bag counts as full (`blocked`) until the next sell.
    */
@@ -109,7 +110,10 @@ export class CompanionLoot {
       this.bot.status("Nothing in the companion's bag matches its Transfer filter (set one in the game's companion window): picking up loot myself for now");
       return null;
     }
-    await this.bot.click(boxCentre(confirm), this.bot.delay('menu'));
+    // Enter confirms it, as it does for the player. Only once the box shows: Enter with nothing up opens the chat, and
+    // the keys after it would be typed into it.
+    await this.bot.sleep(this.bot.delay('menu'));
+    this.bot.key(VK.RETURN);
     // Started (the box gone) and done (nothing moving any more).
     await this.bot.waitUntil(() => {
       const c = memory.latest()?.companion;
