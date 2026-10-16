@@ -189,7 +189,7 @@ locked items, and a double-click puts an item on aren't confirmed in game yet; e
 
 A companion only gains experience from what it picks up. With "Let my companion loot" ticked (Hunt tab, Items on the
 ground) and a companion out, the bot picks nothing up itself, in every mode that hunts (`src/main/bot-companion.ts`).
-When the companion's bag is nearly full (a free slot or less, or 90% of its weight), between fights, it presses the key
+When the companion's bag is nearly full (a free slot or less, or 90% of its weight), between fights or mid-fight with 60% of your health or more (on a busy map there's always a next monster), it presses the key
 bound to the game's Companion Transfer (bind one in the game's key settings, and pick it on the Hunt tab), presses Enter
 on the box the game opens (only once the reading shows it: Enter with nothing up opens the chat), and waits while the items move one at a time into your bag. The game moves what matches the
 companion's Transfer filter; locked and bound items stay with it. A transfer that moves nothing means your bag had no

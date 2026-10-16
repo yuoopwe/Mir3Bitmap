@@ -521,6 +521,29 @@ test('Companion looting: the bot picks nothing up; the companion does, and its n
   checkAlways(game);
 });
 
+test('Companion looting on a busy map: a fight always on, the full companion is emptied mid-fight with health to spare, not with little', async () => {
+  // Wolves coming back as fast as they die, each dropping fur: never a moment between fights, and the companion fills
+  // up during them (it starts two short of full).
+  const busy = () => Array.from({ length: 6 }, (_, i) => ({ name: 'Wolf', x: byLinda.x - 3 + (i % 3) * 3, y: byLinda.y + 3 + Math.floor(i / 3) * 2, respawn: true, drops: 'Wolf Fur' }));
+  const healthy = onBichon({ monsters: busy(), companion: { slots: 10, used: 8, transferKey: Z } }, byLinda, { level: 10 });
+  const run = await play(healthy, (bot) => bot.startAttack(), {
+    settings: companionHunt(),
+    until: () => of(healthy, 'companion').some((e) => e.what === 'done'),
+    limitMs: 60_000,
+  });
+  assert.ok(run.met, `emptied mid-fight (${run.statuses.at(-1)?.message})`);
+  const pressed = keyDowns(healthy, Z)[0].t;
+  // A monster was being fought just before (the fight was on).
+  assert.ok(of(healthy, 'attack').some((a) => a.t < pressed && pressed - a.t < 3000));
+  // At 40% health: no transfer while the fight goes on.
+  const hurt = onBichon({ monsters: busy(), companion: { slots: 10, used: 8, transferKey: Z } }, byLinda, { level: 10 });
+  hurt.player.hp = hurt.player.maxHp * 0.4;
+  await play(hurt, (bot) => bot.startAttack(), { settings: companionHunt(), until: () => of(hurt, 'attack').filter((a) => a.killed).length >= 6, limitMs: 60_000 });
+  assert.ok(hurt.companion!.used >= 9, 'the companion filled up');
+  // (Any transfer came with no fight on: never with a monster just attacked.)
+  for (const k of keyDowns(hurt, Z)) assert.ok(!of(hurt, 'attack').some((a) => a.t < k.t && k.t - a.t < 1000), 'a transfer mid-fight at 40% health');
+});
+
 test("Companion looting: no Transfer key set, or nothing matching the companion's filter: the bot loots for itself, and says why", async () => {
   const noKey = onBichon({ items: dropsAround(1), companion: { slots: 10, used: 0, transferKey: Z } }, bichon.player, { level: 1, pickUpRadius: 1 });
   // (The companion out of reach of the item: the bot's own pickup is what's checked.)

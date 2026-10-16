@@ -2,10 +2,12 @@
  * Companion looting: a companion only gains experience from what it picks up,
  * so with "Let my companion loot" ticked the bot leaves the loot to it (while
  * one is out and the Companion Transfer key is set) and, when the companion's
- * bag is nearly full between fights, empties it into the player's bag with the
+ * bag is nearly full, empties it into the player's bag with the
  * game's Companion Transfer: the key, then Enter on the box it opens, then
  * waiting while the items move one at a time. The game moves what matches the
- * companion's Transfer filter, leaving locked and bound items behind.
+ * companion's Transfer filter, leaving locked and bound items behind. Between
+ * fights, or mid-fight with health to spare: on a busy map there's always a next
+ * monster, and the companion would stand about full (picking nothing up).
  *
  * A transfer that moves nothing with the box confirmed means the player's bag
  * had no room: that counts as a full bag (Survival.bagFull), so the usual sell
@@ -23,8 +25,12 @@ const FREE_SLOTS = 1;
 const WEIGHT_SHARE = 0.9;
 /** The confirmation box should be up this soon after the key. */
 const CONFIRM_SHOW_MS = 3000;
-/** The items move one at a time (each waits for the server): this long at most for the lot. */
+/** The items move one at a time (each waits for the server): this long at most for the lot... */
 const TRANSFER_MS = 30_000;
+/** ...or this long mid-fight, back to it after (the rest keeps moving; it's only counted when done). */
+const FIGHTING_WAIT_MS = 5000;
+/** Mid-fight, the transfer (two keys and a moment) only with at least this share of health. */
+const MID_FIGHT_HP = 0.6;
 /** Nothing matching the Transfer filter: the bot loots for itself this long before trying the companion again. */
 const NO_MATCH_MS = 10 * 60_000;
 
@@ -82,10 +88,16 @@ export class CompanionLoot {
     return !!maxWeight && maxWeight > 0 && (weight ?? 0) >= maxWeight * WEIGHT_SHARE;
   }
 
-  /** Time to empty the companion's bag: it's doing the looting, its bag is nearly full, and no transfer is running. */
-  wanted(reading: MemoryState | null | undefined): boolean {
+  /**
+   * Time to empty the companion's bag: it's doing the looting, its bag is nearly full, and no transfer is running; and
+   * either no fight is on, or there's health to spare for the moment it takes (MID_FIGHT_HP).
+   */
+  wanted(reading: MemoryState | null | undefined, fighting = false): boolean {
     const companion = reading?.companion;
-    return !!companion && !this.blocked && this.looting(reading) && !companion.bag.transferring && this.nearlyFull(companion);
+    if (!companion || this.blocked || !this.looting(reading) || companion.bag.transferring || !this.nearlyFull(companion)) return false;
+    if (!fighting) return true;
+    const { hp, maxHp } = reading!.user!;
+    return hp !== undefined && !!maxHp && hp / maxHp >= MID_FIGHT_HP;
   }
 
   /**
@@ -93,7 +105,7 @@ export class CompanionLoot {
    * while the items move. Returns how many moved (null: it couldn't start). Moving none with the box confirmed means the
    * player's bag had no room, so the bag counts as full (`blocked`) until the next sell.
    */
-  async transfer(): Promise<number | null> {
+  async transfer(fighting = false): Promise<number | null> {
     const memory = this.bot.options.memory;
     const vk = this.key();
     const before = memory.latest()?.companion?.bag.used;
@@ -114,13 +126,17 @@ export class CompanionLoot {
     // the keys after it would be typed into it.
     await this.bot.sleep(this.bot.delay('menu'));
     this.bot.key(VK.RETURN);
-    // Started (the box gone) and done (nothing moving any more).
-    await this.bot.waitUntil(() => {
+    // Started (the box gone) and done (nothing moving any more); mid-fight, back to it after a while if it isn't.
+    const done = await this.bot.waitUntil(() => {
       const c = memory.latest()?.companion;
       return !!c && !c.confirm && !c.bag.transferring;
-    }, TRANSFER_MS);
+    }, fighting ? FIGHTING_WAIT_MS : TRANSFER_MS);
     const after = memory.latest()?.companion?.bag.used ?? before;
     const moved = Math.max(0, before - after);
+    if (!done && fighting) {
+      this.bot.status(`Moved ${moved} item${moved === 1 ? '' : 's'} from the companion's bag so far; back to the fight while the rest move`);
+      return moved;
+    }
     if (moved > 0) {
       this.bot.status(`Moved ${moved} item${moved === 1 ? '' : 's'} from the companion's bag into mine`);
     } else {

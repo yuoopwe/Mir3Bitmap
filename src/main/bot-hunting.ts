@@ -476,9 +476,10 @@ export class Hunting {
         nextFloorAt = this.bot.clock.now() + FLOOR_CLICK_EVERY_MS;
       }
 
-      // The companion doing the looting: between fights, its bag emptied into ours when it fills (in every mode that hunts).
-      if (memory && !current && this.bot.companion.wanted(memory)) {
-        await this.bot.companion.transfer();
+      // The companion doing the looting: its bag emptied into ours when it fills (in every mode that hunts), between
+      // fights or mid-fight with health to spare (on a busy map there's always a next monster).
+      if (memory && this.bot.companion.wanted(memory, !!current)) {
+        await this.bot.companion.transfer(!!current);
         continue;
       }
 
