@@ -127,7 +127,7 @@ namespace Bitmat.GameReader
                     foreach (ClrObject q in Mem.ReadList(list.Obj("Quests"))) quests.Add(q.Str("_QuestName"));
                     JsonObject questList = new JsonObject
                     {
-                        ["npc"] = npc.IsNull ? null : npc.Int("<Index>k__BackingField"),
+                        ["npc"] = npc.IsNull ? null : npc.DbIndex(),
                         ["acceptAll"] = ReadButton(list.Obj("AcceptAllButton")), ["handIn"] = ReadButton(list.Obj("HandInAllButton")), ["quests"] = quests,
                     };
                     out_["questList"] = questList;

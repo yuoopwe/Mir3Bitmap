@@ -94,6 +94,8 @@ namespace Bitmat.GameReader
             }
             if (scene.IsNull)
             {
+                // The bot forgets the map on a line without one: the walls go again once back in game.
+                state.WallsSent = null;
                 output.Status("Not in game");
                 return;
             }
@@ -108,7 +110,9 @@ namespace Bitmat.GameReader
             JsonNode triad, collection, map, waypoints, windows, view = null;
             try { triad = ReadTriad(scene); } catch (Exception e) { triad = new JsonObject { ["open"] = true, ["error"] = e.Message }; }
             try { collection = ReadCollection(scene); } catch (Exception e) { collection = new JsonObject { ["error"] = e.Message }; }
-            try { map = ReadMap(scene); } catch (Exception) { map = null; state.WallsSent = null; }
+            try { map = ReadMap(scene); } catch (Exception) { map = null; }
+            // No map on this line (none loaded, or it failed to read): the bot forgets it, so the walls go again next time.
+            if (map == null) state.WallsSent = null;
             try { waypoints = ReadWaypoints(scene); } catch (Exception e) { waypoints = new JsonObject { ["error"] = e.Message }; }
             try { windows = ReadWindows(scene); } catch (Exception) { windows = null; windowFields = null; }
             ReadSlowPart(scene);
@@ -380,7 +384,7 @@ namespace Bitmat.GameReader
             ClrObject control = scene.Obj("MapControl");
             ClrObject info = control.Obj("_MapInfo");
             if (info.IsNull) return null;
-            int index = info.Int("<Index>k__BackingField");
+            int index = info.DbIndex();
             int width = control.Int("Width"), height = control.Int("Height");
             JsonObject map = new JsonObject { ["index"] = index, ["name"] = info.Str("_Description"), ["width"] = width, ["height"] = height };
             string key = $"{index}/{width}/{height}";

@@ -95,6 +95,8 @@ namespace Bitmat.GameReader
                 }
                 catch (Exception e)
                 {
+                    // The bot forgets the map on a line without one: the walls go again on the next attach.
+                    state.WallsSent = null;
                     output.Status("Reader error: " + e.Message);
                     Thread.Sleep(500);
                 }

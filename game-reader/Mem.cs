@@ -74,6 +74,10 @@ namespace Bitmat.GameReader
         public static bool Bool(this ClrObject o, string name) => o.ReadField<bool>(Field(o, name));
         public static float Float(this ClrObject o, string name) => o.ReadField<float>(Field(o, name));
 
+        // A game database object's index (MirDB.DBObject: maps, regions, NPCs, ...): objectIndex since the game's update
+        // of 2026-10-25, the Index property's backing field before.
+        public static int DbIndex(this ClrObject o) => o.Int(o.Has("objectIndex") ? "objectIndex" : "<Index>k__BackingField");
+
         // The old reader's $(try { ... } catch { $null }) fields: null when missing, and (as there) when the read fails.
         public static int? IntOrNull(this ClrObject o, string name)
         {

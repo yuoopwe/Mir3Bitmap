@@ -86,13 +86,13 @@ namespace Bitmat.GameReader
                         if (!region.IsNull)
                         {
                             ClrObject map = region.Obj("_Map");
-                            regions.Add(new JsonObject { ["quest"] = questName, ["region"] = region.Int("<Index>k__BackingField"), ["map"] = map.IsNull ? null : map.Int("<Index>k__BackingField") });
+                            regions.Add(new JsonObject { ["quest"] = questName, ["region"] = region.DbIndex(), ["map"] = map.IsNull ? null : map.DbIndex() });
                         }
                     }
                     else if (kind == 10)
                     {
                         ClrObject npc = task.Obj("_NpcParameter");
-                        if (!npc.IsNull) talks.Add(new JsonObject { ["quest"] = questName, ["npc"] = npc.Int("<Index>k__BackingField") });
+                        if (!npc.IsNull) talks.Add(new JsonObject { ["quest"] = questName, ["npc"] = npc.DbIndex() });
                     }
                     // Every unfinished task counts, whatever the quest's stage: the game marks those monsters "(Quest)" too.
                     foreach (ClrObject detail in Mem.ReadBindingList(task.Obj("<MonsterDetails>k__BackingField")))
@@ -101,7 +101,7 @@ namespace Bitmat.GameReader
                         if (monster.IsNull) continue;
                         string name = monster.Str("_MonsterName");
                         ClrObject map = detail.Obj("_Map");
-                        int? mapIndex = map.IsNull ? null : map.Int("<Index>k__BackingField");
+                        int? mapIndex = map.IsNull ? null : map.DbIndex();
                         string key = name + "|" + (mapIndex.HasValue ? mapIndex.Value.ToString(CultureInfo.InvariantCulture) : "");
                         // With the task's progress: done of need.
                         if (targets.ContainsKey(key)) continue;

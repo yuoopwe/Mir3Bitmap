@@ -56,6 +56,13 @@ function Read-Stat($userObject, [int]$stat) {
   return 0
 }
 
+# A game database object's index (MirDB.DBObject: maps, regions, NPCs, ...): objectIndex since the game's update of
+# 2026-10-25, the Index property's backing field before.
+function Read-DbIndex($o) {
+  if ($o.Type.GetFieldByName('objectIndex')) { return $o.ReadField[int]('objectIndex') }
+  return $o.ReadField[int]('<Index>k__BackingField')
+}
+
 # One element of an array of numbers or enums, whatever their size.
 function Read-Number($array, $index) {
   switch ($array.Type.ComponentSize) {
@@ -289,7 +296,7 @@ function Read-Map($scene) {
   $control = $scene.ReadObjectField('MapControl')
   $info = $control.ReadObjectField('_MapInfo')
   if ($info.IsNull) { return $null }
-  $index = $info.ReadField[int]('<Index>k__BackingField')
+  $index = Read-DbIndex $info
   $width = $control.ReadField[int]('Width'); $height = $control.ReadField[int]('Height')
   $map = @{ index = $index; name = $info.ReadStringField('_Description'); width = $width; height = $height }
   $key = "$index/$width/$height"
@@ -451,11 +458,11 @@ function Read-QuestTargets($scene) {
         $region = $task.ReadObjectField('_RegionParameter')
         if (-not $region.IsNull) {
           $map = $region.ReadObjectField('_Map')
-          $script:questPending.regions += ,@{ quest = $questName; region = $region.ReadField[int]('<Index>k__BackingField'); map = $(if ($map.IsNull) { $null } else { $map.ReadField[int]('<Index>k__BackingField') }) }
+          $script:questPending.regions += ,@{ quest = $questName; region = (Read-DbIndex $region); map = $(if ($map.IsNull) { $null } else { Read-DbIndex $map }) }
         }
       } elseif ($kind -eq 10) {
         $npc = $task.ReadObjectField('_NpcParameter')
-        if (-not $npc.IsNull) { $script:questPending.talks += ,@{ quest = $questName; npc = $npc.ReadField[int]('<Index>k__BackingField') } }
+        if (-not $npc.IsNull) { $script:questPending.talks += ,@{ quest = $questName; npc = (Read-DbIndex $npc) } }
       }
       # Every unfinished task counts, whatever the quest's stage: the game marks those monsters "(Quest)" too.
       foreach ($detail in (Read-BindingList ($task.ReadObjectField('<MonsterDetails>k__BackingField')))) {
@@ -463,7 +470,7 @@ function Read-QuestTargets($scene) {
         if ($monster.IsNull) { continue }
         $name = $monster.ReadStringField('_MonsterName')
         $map = $detail.ReadObjectField('_Map')
-        $mapIndex = if ($map.IsNull) { $null } else { $map.ReadField[int]('<Index>k__BackingField') }
+        $mapIndex = if ($map.IsNull) { $null } else { Read-DbIndex $map }
         $key = "$name|$mapIndex"
         # With the task's progress: done of need.
         if (-not $targets.ContainsKey($key)) { $targets[$key] = @{ name = $name; map = $mapIndex; quest = $questName; done = $have; need = $required } }
@@ -558,7 +565,7 @@ function Read-Survival($scene) {
     if (-not $list.IsNull -and $list.ReadField[bool]('_IsVisible')) {
       $info = $list.ReadObjectField('_NPCInfo')
       $out.questList = @{
-        npc = $(if ($info.IsNull) { $null } else { $info.ReadField[int]('<Index>k__BackingField') })
+        npc = $(if ($info.IsNull) { $null } else { Read-DbIndex $info })
         acceptAll = (Read-Button ($list.ReadObjectField('AcceptAllButton')))
         handIn = (Read-Button ($list.ReadObjectField('HandInAllButton')))
         quests = @(foreach ($q in (Read-List ($list.ReadObjectField('Quests')))) { $q.ReadStringField('_QuestName') })
